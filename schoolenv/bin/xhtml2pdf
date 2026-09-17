@@ -1,6 +1,0 @@
-#!/home/wmisaac/Desktop/school/schoolenv/bin/python
-import sys
-from xhtml2pdf.pisa import command
-if __name__ == '__main__':
-    sys.argv[0] = sys.argv[0].removesuffix('.exe')
-    sys.exit(command())
