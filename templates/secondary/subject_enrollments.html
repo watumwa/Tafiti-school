@@ -1,0 +1,178 @@
+{% extends 'base.html' %}
+
+{% block page_title %}Subject Enrollments{% endblock page_title %}
+
+{% block content %}
+{% include 'secondary/_nav.html' %}
+
+<div class="x_panel">
+  <div class="x_title"><h2>Filter Enrollments</h2><div class="clearfix"></div></div>
+  <div class="x_content">
+    <form method="get" class="form-inline">
+      <label class="mr-2">Academic Class</label>
+      <select class="form-control mr-3" name="academic_class_id">
+        <option value="">All</option>
+        {% for option in class_options %}
+        <option value="{{ option.id }}" {% if selected_academic_class_id == option.id|stringformat:'s' %}selected{% endif %}>
+          {{ option.Class.name }} - Term {{ option.term.term }} ({{ option.academic_year.academic_year }})
+        </option>
+        {% endfor %}
+      </select>
+      <button type="submit" class="btn btn-default">Apply</button>
+    </form>
+  </div>
+</div>
+
+<div class="row">
+  <div class="col-md-5">
+    <div class="x_panel">
+      <div class="x_title"><h2>Add Subject Enrollment</h2><div class="clearfix"></div></div>
+      <div class="x_content">
+        <form method="post">
+          {% csrf_token %}
+          {{ form.as_p }}
+          <button type="submit" class="btn btn-primary">Save Enrollment</button>
+        </form>
+      </div>
+    </div>
+
+    {% if selected_academic_class %}
+    <div class="x_panel">
+      <div class="x_title"><h2>Sync From Class Allocations</h2><div class="clearfix"></div></div>
+      <div class="x_content">
+        <p class="text-muted">
+          Use the class subject allocations already assigned to each stream to generate learner subject enrollments.
+        </p>
+        <form method="post" style="display:inline;">
+          {% csrf_token %}
+          <input type="hidden" name="academic_class_id" value="{{ selected_academic_class.id }}">
+          <input type="hidden" name="action" value="sync_core">
+          <button type="submit" class="btn btn-default">Sync Core Subjects</button>
+        </form>
+        <form method="post" style="display:inline;">
+          {% csrf_token %}
+          <input type="hidden" name="academic_class_id" value="{{ selected_academic_class.id }}">
+          <input type="hidden" name="action" value="sync_all">
+          <button type="submit" class="btn btn-warning">Sync All Allocated Subjects</button>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+
+    {% if selected_academic_class and subject_totals %}
+    <div class="x_panel">
+      <div class="x_title"><h2>Subject Totals</h2><div class="clearfix"></div></div>
+      <div class="x_content">
+        <ul class="list-unstyled">
+          {% for item in subject_totals %}
+          <li><strong>{{ item.subject__name }}</strong>: {{ item.total }} learner{{ item.total|pluralize }}</li>
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
+    {% endif %}
+
+    {% if selected_academic_class and curriculum_summary %}
+    <div class="x_panel">
+      <div class="x_title"><h2>CBC Compliance Snapshot</h2><div class="clearfix"></div></div>
+      <div class="x_content">
+        {% if curriculum_summary.rule %}
+        <p class="text-muted">
+          Rule for {{ selected_academic_class.Class.code }}: {{ curriculum_summary.rule.required_core }} core
+          and {% if curriculum_summary.rule.min_electives == curriculum_summary.rule.max_electives %}{{ curriculum_summary.rule.max_electives }}{% else %}{{ curriculum_summary.rule.min_electives }} to {{ curriculum_summary.rule.max_electives }}{% endif %} elective subjects.
+        </p>
+        {% endif %}
+        <p>
+          <strong>Allocated core subjects:</strong> {{ curriculum_summary.offered_core_count }}<br>
+          <strong>Allocated elective subjects:</strong> {{ curriculum_summary.offered_elective_count }}<br>
+          <strong>Learners needing attention:</strong> {{ curriculum_summary.non_compliant_count }} / {{ curriculum_summary.student_count }}
+        </p>
+        {% if curriculum_summary.allocation_issues %}
+        <div class="alert alert-warning">
+          {% for issue in curriculum_summary.allocation_issues %}
+          <div>{{ issue }}</div>
+          {% endfor %}
+        </div>
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="col-md-7">
+    <div class="x_panel">
+      <div class="x_title"><h2>Existing Enrollments</h2><div class="clearfix"></div></div>
+      <div class="x_content table-responsive">
+        <table class="table table-striped table-bordered">
+          <thead>
+            <tr>
+              <th>Class</th>
+              <th>Student</th>
+              <th>Subject</th>
+              <th>Type</th>
+              <th>Status</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in enrollments %}
+            <tr>
+              <td>{{ row.academic_class }}</td>
+              <td>{{ row.student.student_name }}</td>
+              <td>{{ row.subject.name }}</td>
+              <td>{% if row.is_compulsory %}Compulsory{% else %}Elective{% endif %}</td>
+              <td>{% if row.is_active %}Active{% else %}Inactive{% endif %}</td>
+              <td>
+                <form method="post" style="display:inline;">
+                  {% csrf_token %}
+                  <input type="hidden" name="delete_enrollment_id" value="{{ row.id }}">
+                  <button type="submit" class="btn btn-xs btn-danger">Delete</button>
+                </form>
+              </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="6" class="text-center">No subject enrollments found.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    {% if selected_academic_class and curriculum_summary and curriculum_summary.rows %}
+    <div class="x_panel">
+      <div class="x_title"><h2>Learner Compliance</h2><div class="clearfix"></div></div>
+      <div class="x_content table-responsive">
+        <table class="table table-striped table-bordered">
+          <thead>
+            <tr>
+              <th>Student</th>
+              <th>Core</th>
+              <th>Electives</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in curriculum_summary.rows %}
+            <tr class="{% if row.is_compliant %}success{% else %}warning{% endif %}">
+              <td>{{ row.student.student_name }}</td>
+              <td>{{ row.core_count }}</td>
+              <td>{{ row.elective_count }}</td>
+              <td>
+                {% if row.is_compliant %}
+                Compliant
+                {% else %}
+                {% for issue in row.issues %}
+                <div>{{ issue }}</div>
+                {% endfor %}
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock content %}

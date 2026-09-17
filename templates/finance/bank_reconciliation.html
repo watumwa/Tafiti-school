@@ -1,0 +1,324 @@
+{% extends "../base.html" %}
+{% load static %}
+{% load crispy_forms_tags %}
+{% load humanize %}
+
+{% block page_title %}Bank Reconciliation{% endblock %}
+
+{% block extra_css %}
+{{ block.super }}
+<link rel="stylesheet" href="{% static 'css/finance_pro.css' %}?v=1">
+{% endblock %}
+
+{% block content %}
+<div class="finance-shell">
+    <div class="finance-topbar">
+        <div>
+            <div class="finance-eyebrow">Finance Workspace</div>
+            <h1 class="finance-title">Bank Reconciliation</h1>
+            <div class="finance-subtitle">Compare system payments against actual bank and SchoolPay statement lines.</div>
+        </div>
+        <div class="finance-actions">
+            <a href="#" data-bs-toggle="modal" data-bs-target="#uploadStatementModal" class="finance-btn primary"><i class="fa fa-upload"></i> Upload Statement</a>
+            <a href="{% url 'payment_ledger' %}" class="finance-btn"><i class="fa fa-book"></i> Ledger</a>
+            <a href="{% url 'financial_dashboard' %}" class="finance-btn"><i class="fa fa-chart-line"></i> Dashboard</a>
+        </div>
+    </div>
+
+    <nav class="finance-nav" aria-label="Finance navigation">
+        <a href="{% url 'financial_dashboard' %}"><i class="fa fa-chart-line"></i> Dashboard</a>
+        <a href="{% url 'student_bill_page' %}"><i class="fa fa-file-invoice-dollar"></i> Charges</a>
+        <a href="{% url 'fees_status' %}"><i class="fa fa-users"></i> Balances</a>
+        <a href="{% url 'payment_ledger' %}"><i class="fa fa-book"></i> Ledger</a>
+        <a href="{% url 'bank_reconciliation' %}" class="active"><i class="fa fa-university"></i> Reconciliation</a>
+        <a href="{% url 'financial_summary_report' %}"><i class="fa fa-file-alt"></i> Reports</a>
+        <a href="{% url 'budget_page' %}"><i class="fa fa-clipboard-list"></i> Budgets</a>
+    </nav>
+
+    <div class="clearfix"></div>
+
+    <div class="row">
+        <div class="col-md-12">
+            <div class="x_panel">
+                <div class="x_title" style="display:none;">
+                    <h2><i class="fa fa-bank"></i> Bank Reconciliation</h2>
+                    <ul class="nav navbar-right panel_toolbox">
+                        <li><a class="collapse-link"><i class="fa fa-chevron-up"></i></a></li>
+                        <li><a href="#" data-bs-toggle="modal" data-bs-target="#uploadStatementModal"><i class="fa fa-upload"></i> Upload Statement</a></li>
+                    </ul>
+                    <div class="clearfix"></div>
+                </div>
+                <div class="x_content">
+
+                    <!-- Scope Filters: Academic Year / Term / Show All -->
+                    <form method="get" class="finance-filter-row mb-3">
+                        <div class="finance-field">
+                            <label for="academic_year"><strong>Academic Year:</strong></label>
+                            <select name="academic_year" id="academic_year" class="form-control">
+                                <option value="">Current</option>
+                                {% if academic_years %}
+                                    {% for y in academic_years %}
+                                        <option value="{{ y.id }}" {% if selected_academic_year and y.id == selected_academic_year %}selected{% endif %}>
+                                            {{ y.academic_year }}
+                                        </option>
+                                    {% endfor %}
+                                {% endif %}
+                            </select>
+                        </div>
+
+                        <div class="finance-field">
+                            <label for="term"><strong>Term:</strong></label>
+                            <select name="term" id="term" class="form-control">
+                                <option value="">Current</option>
+                                {% if terms %}
+                                    {% for t in terms %}
+                                        <option value="{{ t.id }}" {% if selected_term and t.id == selected_term %}selected{% endif %}>
+                                            {{ t.term }}
+                                        </option>
+                                    {% endfor %}
+                                {% endif %}
+                            </select>
+                        </div>
+
+                        <div class="form-group form-check mr-3 ml-2">
+                            <input type="checkbox" class="form-check-input" id="show_all" name="show_all" value="1" {% if show_all %}checked{% endif %}>
+                            <label class="form-check-label" for="show_all">Show all terms</label>
+                        </div>
+
+                        <button type="submit" class="finance-btn primary">
+                            <i class="fa fa-filter"></i> Apply
+                        </button>
+                        <a href="{% url 'bank_reconciliation' %}" class="finance-btn">Reset</a>
+                    </form>
+
+                    <!-- Current Scope Summary -->
+                    <div class="alert alert-info py-2" style="border-radius:8px;">
+                        <strong>Scope:</strong>
+                        {% if show_all %}
+                            All terms
+                        {% else %}
+                            {% if selected_academic_year %}
+                                {% for y in academic_years %}{% if y.id == selected_academic_year %}{{ y.academic_year }}{% endif %}{% endfor %}
+                            {% else %}
+                                Current Year
+                            {% endif %}
+                            —
+                            {% if selected_term %}
+                                {% for t in terms %}{% if t.id == selected_term %}Term {{ t.term }}{% endif %}{% endfor %}
+                            {% else %}
+                                Current Term
+                            {% endif %}
+                        {% endif %}
+                    </div>
+
+                    <!-- Bank Accounts Overview -->
+                    <div class="finance-kpi-grid">
+                        {% for account in bank_accounts %}
+                        <div class="finance-kpi">
+                            <div class="finance-kpi-top">
+                                <span class="finance-kpi-icon"><i class="fa fa-building-columns"></i></span>
+                                <span class="finance-pill info">{{ account.account_type }}</span>
+                            </div>
+                            <div class="finance-kpi-label">{{ account.bank_name }}</div>
+                            <div class="finance-kpi-value">UGX {{ account.balance|floatformat:0|intcomma }}</div>
+                            <div class="finance-kpi-note">{{ account.account_name }} - {{ account.account_number }}</div>
+                        </div>
+                        {% endfor %}
+                    </div>
+
+                    <!-- Unreconciled Transactions -->
+                    <div class="row" style="margin-top: 30px;">
+                        <div class="col-md-12">
+                            <div class="finance-table-toolbar">
+                                <h3 class="finance-table-title"><i class="fa fa-exclamation-triangle"></i> Unreconciled Transactions</h3>
+                                <span class="finance-pill warning">{{ unreconciled_transactions|length }} pending</span>
+                            </div>
+                            <div class="table-responsive">
+                                <table class="finance-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Date</th>
+                                            <th>Description</th>
+                                            <th>Amount</th>
+                                            <th>Type</th>
+                                            <th>Bank</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for transaction in unreconciled_transactions %}
+                                        <tr>
+                                            <td>{{ transaction.transaction_date|date:"M d, Y" }}</td>
+                                            <td>{{ transaction.description }}</td>
+                                            <td class="{% if transaction.transaction_type == 'Credit' %}text-success{% else %}text-danger{% endif %}">
+                                                UGX {{ transaction.amount|floatformat:0|intcomma }}
+                                            </td>
+                                            <td>
+                                                <span class="badge {% if transaction.transaction_type == 'Credit' %}badge-success{% else %}badge-danger{% endif %}">
+                                                    {{ transaction.transaction_type }}
+                                                </span>
+                                            </td>
+                                            <td>{{ transaction.bank_statement.bank_account.bank_name }}</td>
+                                            <td>
+                                                <button class="finance-btn primary" type="button" data-transaction-id="{{ transaction.id }}" data-bs-toggle="modal" data-bs-target="#reconcileModal">
+                                                    <i class="fa fa-link"></i> Reconcile
+                                                </button>
+                                            </td>
+                                        </tr>
+                                        {% empty %}
+                                        <tr>
+                                            <td colspan="6" class="finance-empty">
+                                                <i class="fa fa-check-circle"></i> All transactions are reconciled!
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Unmatched Payments -->
+                    <div class="row" style="margin-top: 30px;">
+                        <div class="col-md-12">
+                            <div class="finance-table-toolbar">
+                                <h3 class="finance-table-title"><i class="fa fa-money"></i> Unmatched Payments</h3>
+                                <span class="finance-pill warning">{{ unmatched_payments|length }} unmatched</span>
+                            </div>
+                            <div class="table-responsive">
+                                <table class="finance-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Payment Date</th>
+                                            <th>Student</th>
+                                            <th>Amount</th>
+                                            <th>Reference</th>
+                                            <th>Bill</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for payment in unmatched_payments %}
+                                        <tr>
+                                            <td>{{ payment.payment_date|date:"M d, Y" }}</td>
+                                            <td>{{ payment.bill.student.student_name }}</td>
+                                            <td class="text-success">UGX {{ payment.amount|floatformat:0|intcomma }}</td>
+                                            <td>{{ payment.reference_no }}</td>
+                                            <td>{{ payment.bill }}</td>
+                                            <td>
+                                                <button class="finance-btn" type="button" data-payment-id="{{ payment.id }}" data-bs-toggle="modal" data-bs-target="#reconcileModal">
+                                                    <i class="fa fa-link"></i> Match
+                                                </button>
+                                            </td>
+                                        </tr>
+                                        {% empty %}
+                                        <tr>
+                                            <td colspan="6" class="finance-empty">
+                                                <i class="fa fa-check-circle"></i> All payments are matched!
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Upload Statement Modal -->
+    <div class="modal fade" id="uploadStatementModal" tabindex="-1" role="dialog">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Upload Bank Statement</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form method="post" enctype="multipart/form-data" data-protect-unsaved="true">
+                    {% csrf_token %}
+                    <div class="modal-body">
+                        <div class="form-group">
+                            <label for="bank_account">Bank Account</label>
+                            <select name="bank_account" class="form-control" required>
+                                <option value="">Select Bank Account</option>
+                                {% for account in bank_accounts %}
+                                <option value="{{ account.id }}">{{ account.bank_name }} - {{ account.account_name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="statement_date">Statement Date</label>
+                            <input type="date" name="statement_date" class="form-control" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="opening_balance">Opening Balance</label>
+                            <input type="number" step="0.01" name="opening_balance" class="form-control" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="closing_balance">Closing Balance</label>
+                            <input type="number" step="0.01" name="closing_balance" class="form-control" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="statement_file">Statement File (CSV)</label>
+                            <input type="file" name="statement_file" accept=".csv" class="form-control" required>
+                            <small class="form-text text-muted">Upload CSV file exported from your bank</small>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Upload Statement</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Reconciliation Modal -->
+    <div class="modal fade" id="reconcileModal" tabindex="-1" role="dialog">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Reconcile Transaction</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form method="post" data-protect-unsaved="true">
+                    {% csrf_token %}
+                    <div class="modal-body">
+                        <div class="form-group">
+                            <label for="payment_id">Match with Payment</label>
+                            <select name="payment_id" class="form-control" required>
+                                <option value="">Select Payment</option>
+                                {% for payment in unmatched_payments %}
+                                <option value="{{ payment.id }}">{{ payment.bill.student.student_name }} - UGX {{ payment.amount|intcomma }} - {{ payment.payment_date|date:"M d, Y" }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-success">Reconcile</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('button[data-transaction-id]').forEach(function(btn) {
+                btn.addEventListener('click', function() {
+                    var form = document.querySelector('#reconcileModal form');
+                    var id = btn.getAttribute('data-transaction-id');
+                    if (form && id) {
+                        form.setAttribute('action', '/finance/reconcile/' + id + '/');
+                    }
+                });
+            });
+        });
+    </script>
+
+</div><!-- /finance-shell -->
+{% endblock %}

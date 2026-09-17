@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+
+{% block title %}System User Guide{% endblock %}
+{% block page_title %}System User Guide{% endblock %}
+
+{% block content %}
+<div class="commercial-hero">
+  <div>
+    <span class="commercial-eyebrow">Commercial polish layer</span>
+    <h1><i class="fa fa-life-ring"></i> Simple Staff User Guide</h1>
+    <p>Active role: <strong>{{ active_role_name }}</strong>. This page helps staff complete common school tasks without getting lost in advanced menus.</p>
+  </div>
+</div>
+
+<div class="row g-3 mb-3">
+  {% for guide in universal_guides %}
+  <div class="col-lg-4 col-md-6">
+    <div class="commercial-card h-100">
+      <h4>{{ guide.title }}</h4>
+      <p>{{ guide.body }}</p>
+      <a href="{{ guide.url }}" class="btn btn-sm btn-outline-primary">{{ guide.button }}</a>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="x_panel commercial-panel">
+  <div class="x_title">
+    <h2><i class="fa fa-user-check"></i> What your role should do first</h2>
+    <div class="clearfix"></div>
+  </div>
+  <div class="x_content">
+    <div class="row g-3">
+      {% for card in role_cards %}
+      <div class="col-lg-3 col-md-6">
+        <div class="commercial-step h-100">
+          <h5>{{ forloop.counter }}. {{ card.title }}</h5>
+          <p>{{ card.body }}</p>
+          <a href="{{ card.url }}" class="btn btn-sm btn-primary">{{ card.button }}</a>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<div class="x_panel commercial-panel border-danger-subtle">
+  <div class="x_title">
+    <h2><i class="fa fa-shield-alt"></i> Live system safety rules</h2>
+    <div class="clearfix"></div>
+  </div>
+  <div class="x_content">
+    <div class="alert alert-warning mb-3">
+      These rules protect existing fees, attendance, results and historical records.
+    </div>
+    <div class="commercial-rules">
+      {% for rule in danger_rules %}
+      <div class="commercial-rule"><i class="fa fa-exclamation-triangle"></i><span>{{ rule }}</span></div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endblock %}

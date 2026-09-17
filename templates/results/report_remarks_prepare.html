@@ -1,0 +1,222 @@
+{% extends "../base.html" %}
+
+{% block page_title %}Report Remarks{% endblock page_title %}
+
+{% block content %}
+<div class="remarks-page">
+  <div class="x_panel">
+    <div class="x_title">
+      <h2><i class="fa fa-commenting-o"></i> Report Remarks Preparation</h2>
+      <ul class="nav navbar-right panel_toolbox">
+        <li><a href="{% url 'class_assessment_combined' %}" class="btn-link">Back to reports</a></li>
+      </ul>
+      <div class="clearfix"></div>
+    </div>
+    <div class="x_content">
+      <div class="scope-strip">
+        <strong>{{ academic_class }}</strong>
+        <span>{{ academic_class.academic_year }}</span>
+        <span>Term {{ academic_class.term.term }}</span>
+        <span>{{ scope_label }}</span>
+      </div>
+      <div class="alert alert-info">
+        Review the evidence before commenting. Submitted class-teacher remarks publish directly to the reports.
+        Head-teacher remarks and report approval are managed separately.
+      </div>
+
+      {% if rows %}
+      <form method="post" id="remarksForm" data-protect-unsaved="true">
+        {% csrf_token %}
+        <input type="hidden" name="academic_class_id" value="{{ academic_class.id }}">
+        {% for assessment_type in assessment_types %}
+        <input type="hidden" name="assessment_type_ids" value="{{ assessment_type.id }}">
+        {% endfor %}
+
+        {% if can_edit_head_remark %}
+        <div class="review-toolbar">
+          <div>
+            <strong>Head teacher review</strong>
+            <small>Generate suggestions, edit where necessary, then approve.</small>
+          </div>
+          <button type="button" class="btn btn-warning" id="fillSuggestedRemarks">
+            <i class="fa fa-magic"></i> Generate Missing Suggestions
+          </button>
+        </div>
+        {% endif %}
+
+        <div class="learner-review-list">
+          {% for row in rows %}
+          <section class="learner-review-card {% if row.performance.flags %}has-flags{% endif %}">
+            <header class="learner-review-head">
+              <div>
+                <h4>{{ row.student.student_name }}</h4>
+                <small>{{ row.student.reg_no }}</small>
+              </div>
+              <div class="performance-kpis">
+                <span><small>Overall</small><strong>{% if row.performance.average != None %}{{ row.performance.average|floatformat:1 }}%{% else %}—{% endif %}</strong></span>
+                <span><small>Grade</small><strong>{{ row.performance.grade }}</strong></span>
+                <span class="{% if row.performance.trend != None %}{% if row.performance.trend < 0 %}trend-down{% elif row.performance.trend > 0 %}trend-up{% endif %}{% endif %}">
+                  <small>Trend</small>
+                  <strong>{% if row.performance.trend != None %}{% if row.performance.trend > 0 %}+{% endif %}{{ row.performance.trend|floatformat:1 }}{% else %}—{% endif %}</strong>
+                </span>
+              </div>
+              <div class="workflow-status">
+                {% if row.remark.head_teacher_approved_at %}
+                  <span class="label label-success">Approved</span>
+                {% elif row.remark.class_teacher_submitted_at %}
+                  {% if row.performance.missing_count or row.performance.unverified_count %}
+                  <span class="label label-warning">Results incomplete</span>
+                  {% else %}
+                  <span class="label label-info">Published to reports</span>
+                  {% endif %}
+                {% else %}
+                  <span class="label label-default">Class draft</span>
+                {% endif %}
+              </div>
+            </header>
+
+            <div class="evidence-panel">
+              <div class="assessment-snapshot">
+                <small class="evidence-label">Assessment performance</small>
+                {% for item in row.performance.type_averages %}
+                <span class="assessment-chip">{{ item.name }} <strong>{% if item.average != None %}{{ item.average|floatformat:1 }}%{% else %}—{% endif %}</strong></span>
+                {% endfor %}
+              </div>
+              <div class="evidence-group">
+                <small class="evidence-label">Strengths</small>
+                {% for item in row.performance.strengths %}<span class="subject-chip strength">{{ item.0 }} {{ item.1|floatformat:0 }}%</span>{% empty %}<span>—</span>{% endfor %}
+              </div>
+              <div class="evidence-group">
+                <small class="evidence-label">Needs attention</small>
+                {% for item in row.performance.focus_subjects %}<span class="subject-chip focus">{{ item.0 }} {{ item.1|floatformat:0 }}%</span>{% empty %}<span>—</span>{% endfor %}
+              </div>
+              {% if row.performance.flags %}
+              <div class="exception-flags">
+                {% for flag in row.performance.flags %}<span><i class="fa fa-exclamation-triangle"></i> {{ flag }}</span>{% endfor %}
+              </div>
+              {% endif %}
+            </div>
+
+            <div class="remark-grid">
+              <div class="remark-block">
+                <label>Class Teacher Remark</label>
+                <textarea name="class_remark_{{ row.student.id }}" maxlength="{{ remark_max_length }}"
+                  class="form-control remark-editor" data-counter="class-count-{{ row.student.id }}"
+                  {% if not can_edit_class_remark %}readonly{% endif %}>{{ row.remark.class_teacher_remark|default:"" }}</textarea>
+                <small class="counter" id="class-count-{{ row.student.id }}"></small>
+                {% if can_edit_head_remark and not row.remark.class_teacher_submitted_at %}
+                <small class="waiting-note"><i class="fa fa-clock-o"></i> Waiting for class-teacher submission</small>
+                {% endif %}
+              </div>
+              <div class="remark-block">
+                <label>Head Teacher Remark <small>Suggested from performance; review before approval</small></label>
+                <textarea name="head_remark_{{ row.student.id }}" maxlength="{{ remark_max_length }}"
+                  class="form-control remark-editor head-remark-editor" data-counter="head-count-{{ row.student.id }}"
+                  data-suggestion="{{ row.performance.suggested_head_remark }}"
+                  {% if not can_edit_head_remark %}readonly{% endif %}>{{ row.remark.head_teacher_remark|default:"" }}</textarea>
+                <small class="counter" id="head-count-{{ row.student.id }}"></small>
+              </div>
+            </div>
+          </section>
+          {% endfor %}
+        </div>
+
+        <div class="action-bar">
+          {% if can_edit_class_remark %}
+          <button type="submit" name="action" value="save_class" class="btn btn-default">
+            <i class="fa fa-save"></i> Save Class Drafts
+          </button>
+          <button type="submit" name="action" value="submit_class" class="btn btn-primary"
+            onclick="return confirm('Publish the completed class-teacher remarks directly to the reports? Blank learners will be left for later.');">
+            <i class="fa fa-send"></i> Submit Class Remarks
+          </button>
+          {% endif %}
+          {% if can_edit_head_remark %}
+          <button type="submit" name="action" value="save_head" class="btn btn-default">
+            <i class="fa fa-save"></i> Save Head Teacher Drafts
+          </button>
+          {% endif %}
+          {% if can_approve_report %}
+          <button type="submit" name="action" value="approve_ready" class="btn btn-success"
+            onclick="return confirm('Approve all ready reports and allow official signatures to appear?');">
+            <i class="fa fa-check"></i> Approve All Ready Reports
+          </button>
+          {% endif %}
+        </div>
+      </form>
+      {% else %}
+      <div class="well text-center">
+        <h4>No learners found</h4>
+        <p>No active learners are registered in your class/stream for this term.</p>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<style>
+  .scope-strip { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:14px; }
+  .scope-strip span, .scope-strip strong { padding:6px 10px; border:1px solid #dce5ee; border-radius:16px; background:#f8fbfd; }
+  .review-toolbar { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:12px 14px; margin-bottom:12px; border:1px solid #f0cf8a; background:#fff9e9; border-radius:10px; }
+  .review-toolbar small { display:block; color:#73879c; }
+  .learner-review-list { display:grid; gap:14px; }
+  .learner-review-card { border:1px solid #dce5ee; border-radius:12px; background:#fff; overflow:hidden; box-shadow:0 2px 8px rgba(16,42,67,.05); }
+  .learner-review-card.has-flags { border-left:4px solid #f0ad4e; }
+  .learner-review-head { display:flex; align-items:center; gap:18px; padding:14px 16px; background:#f8fafc; border-bottom:1px solid #e8eef4; }
+  .learner-review-head h4 { margin:0 0 3px; color:#24364b; }
+  .performance-kpis { display:flex; gap:8px; margin-left:auto; }
+  .performance-kpis span { min-width:70px; padding:6px 10px; text-align:center; background:#fff; border:1px solid #dce5ee; border-radius:8px; }
+  .performance-kpis small { display:block; color:#73879c; }
+  .performance-kpis strong { color:#24364b; font-size:16px; }
+  .performance-kpis .trend-up strong { color:#198754; }
+  .performance-kpis .trend-down strong { color:#c0392b; }
+  .workflow-status { min-width:110px; text-align:right; }
+  .evidence-panel { display:flex; flex-wrap:wrap; gap:10px 18px; padding:12px 16px; border-bottom:1px solid #eef2f6; }
+  .assessment-snapshot { flex:1 1 100%; }
+  .evidence-label { display:block; margin-bottom:5px; color:#65758b; font-weight:700; text-transform:uppercase; letter-spacing:.04em; }
+  .assessment-chip, .subject-chip, .exception-flags span { display:inline-block; padding:4px 8px; margin:0 4px 4px 0; border-radius:12px; background:#edf3f8; }
+  .subject-chip.strength { background:#e6f6ed; color:#176b3a; }
+  .subject-chip.focus { background:#fff1e6; color:#9a4b12; }
+  .exception-flags { flex:1 1 100%; }
+  .exception-flags span { background:#fff0f0; color:#a12622; }
+  .remark-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; padding:14px 16px 18px; }
+  .remark-block label { display:block; color:#34495e; }
+  .remark-block label small { color:#7c8b9b; font-weight:400; }
+  .remark-editor { width:100%; height:76px; resize:vertical; }
+  .counter { float:right; color:#73879c; }
+  .counter.near-limit { color:#d58512; font-weight:600; }
+  .waiting-note { color:#b06b00; }
+  .action-bar { position:sticky; bottom:0; padding:12px; background:rgba(255,255,255,.96); border-top:1px solid #dce5ee; z-index:3; }
+  @media (max-width:767px) { .learner-review-head { align-items:flex-start; flex-wrap:wrap; } .performance-kpis { margin-left:0; width:100%; } .workflow-status { text-align:left; } .remark-grid { grid-template-columns:1fr; } .action-bar .btn { width:100%; margin:4px 0; } }
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  document.querySelectorAll('.remark-editor').forEach(function (editor) {
+    var counter = document.getElementById(editor.dataset.counter);
+    function updateCounter() {
+      var length = editor.value.length;
+      counter.textContent = length + '/{{ remark_max_length }} letters';
+      counter.classList.toggle('near-limit', length >= {{ remark_max_length }});
+      editor.setCustomValidity(length > {{ remark_max_length }} ? 'Use no more than {{ remark_max_length }} letters.' : '');
+    }
+    editor.addEventListener('input', updateCounter);
+    updateCounter();
+  });
+  var fillButton = document.getElementById('fillSuggestedRemarks');
+  if (fillButton) {
+    fillButton.addEventListener('click', function () {
+      var filled = 0;
+      document.querySelectorAll('.head-remark-editor:not([readonly])').forEach(function (editor) {
+        if (!editor.value.trim() && editor.dataset.suggestion) {
+          editor.value = editor.dataset.suggestion;
+          editor.dispatchEvent(new Event('input'));
+          filled += 1;
+        }
+      });
+      fillButton.innerHTML = '<i class="fa fa-check"></i> ' + filled + ' suggestion' + (filled === 1 ? '' : 's') + ' added';
+    });
+  }
+});
+</script>
+{% endblock content %}

@@ -1,0 +1,296 @@
+{% extends "base.html" %}
+{% load humanize %}
+
+{% block page_title %}Admin Control Tower · {{ dashboard_section_title }}{% endblock %}
+
+{% block content %}
+<div class="clearfix"></div>
+
+<style>
+  .control-tower-shell {
+    --ct-blue: #1d4ed8;
+    --ct-slate: #0f172a;
+    --ct-muted: #64748b;
+    --ct-green: #16a34a;
+    --ct-amber: #f59e0b;
+    --ct-red: #dc2626;
+    --ct-cyan: #0891b2;
+    --ct-line: #e2e8f0;
+    --ct-soft: #f8fafc;
+  }
+  .control-tower-hero {
+    position: relative;
+    overflow: hidden;
+    margin-bottom: 16px;
+    border: 1px solid #dbeafe;
+    border-radius: 22px;
+    background:
+      radial-gradient(circle at 8% 10%, rgba(59, 130, 246, .20), transparent 32%),
+      radial-gradient(circle at 92% 18%, rgba(20, 184, 166, .18), transparent 34%),
+      linear-gradient(135deg, #ffffff 0%, #f8fbff 48%, #eef6ff 100%);
+    box-shadow: 0 18px 44px rgba(15, 23, 42, .09);
+    padding: 20px 22px;
+  }
+  .control-tower-hero h1 {
+    margin: 6px 0 4px;
+    font-weight: 850;
+    letter-spacing: -.03em;
+    color: var(--ct-slate);
+  }
+  .control-eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border: 1px solid #bfdbfe;
+    border-radius: 999px;
+    background: #eff6ff;
+    color: #1e40af;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: .08em;
+    padding: 5px 10px;
+    text-transform: uppercase;
+  }
+  .control-term-pill {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 999px;
+    margin-top: 8px;
+    padding: 5px 10px;
+    background: #ecfdf5;
+    color: #166534;
+    font-weight: 800;
+    font-size: 12px;
+  }
+  .control-term-form {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+    padding: 8px;
+    border: 1px solid var(--ct-line);
+    border-radius: 14px;
+    background: #fff;
+  }
+  .control-term-form label {
+    margin: 0;
+    font-size: 11px;
+    font-weight: 800;
+    color: var(--ct-muted);
+    text-transform: uppercase;
+    letter-spacing: .05em;
+  }
+  .control-term-form .form-control { min-width: 170px; }
+  .control-tabs-title {
+    margin: 4px 0 8px;
+    color: var(--ct-muted);
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+  }
+  .control-tower-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 0 0 16px;
+    border: 0;
+  }
+  .control-tower-tabs > li { float: none; }
+  .control-tower-tabs > li > a {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    border: 1px solid var(--ct-line);
+    border-radius: 999px;
+    background: #fff;
+    color: #334155;
+    font-weight: 800;
+    box-shadow: 0 8px 18px rgba(15, 23, 42, .05);
+  }
+  .control-tower-tabs > li.active > a,
+  .control-tower-tabs > li.active > a:hover,
+  .control-tower-tabs > li.active > a:focus {
+    border-color: #1d4ed8;
+    background: linear-gradient(135deg, #1d4ed8, #0f766e);
+    color: #fff;
+  }
+  .control-kpi-card {
+    position: relative;
+    overflow: hidden;
+    min-height: 174px;
+    border: 1px solid var(--ct-line);
+    border-radius: 18px;
+    background: #fff;
+    box-shadow: 0 15px 35px rgba(15, 23, 42, .08);
+  }
+  .control-kpi-card:before {
+    content: "";
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 4px;
+    background: var(--ct-blue);
+  }
+  .control-kpi-card.tone-green:before { background: var(--ct-green); }
+  .control-kpi-card.tone-amber:before { background: var(--ct-amber); }
+  .control-kpi-card.tone-red:before { background: var(--ct-red); }
+  .control-kpi-card.tone-cyan:before { background: var(--ct-cyan); }
+  .control-kpi-card .x_content {
+    min-height: 174px;
+    display: flex;
+    flex-direction: column;
+    padding: 17px 18px 14px;
+  }
+  .control-kpi-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+  .control-kpi-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 14px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: #eff6ff;
+    color: #1d4ed8;
+    font-size: 17px;
+  }
+  .tone-green .control-kpi-icon { background: #dcfce7; color: #15803d; }
+  .tone-amber .control-kpi-icon { background: #fef3c7; color: #b45309; }
+  .tone-red .control-kpi-icon { background: #fee2e2; color: #b91c1c; }
+  .tone-cyan .control-kpi-icon { background: #cffafe; color: #0e7490; }
+  .control-kpi-label {
+    margin-top: 14px;
+    color: var(--ct-muted);
+    font-size: 11px;
+    font-weight: 850;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+  }
+  .control-kpi-value {
+    margin-top: 4px;
+    font-size: 28px;
+    line-height: 1.1;
+    font-weight: 850;
+    color: var(--ct-slate);
+    overflow-wrap: anywhere;
+  }
+  .control-kpi-note {
+    margin-top: 3px;
+    color: var(--ct-muted);
+    font-size: 12px;
+  }
+  .kpi-mini-chart { margin-top: auto; }
+  .kpi-mini-track {
+    height: 8px;
+    border-radius: 999px;
+    background: #e8edf3;
+    overflow: hidden;
+  }
+  .kpi-mini-fill {
+    display: block;
+    height: 100%;
+    max-width: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, #3b82f6, #2563eb);
+  }
+  .kpi-mini-fill.success { background: linear-gradient(90deg, #34d399, #10b981); }
+  .kpi-mini-fill.warn { background: linear-gradient(90deg, #fbbf24, #f59e0b); }
+  .kpi-mini-fill.danger { background: linear-gradient(90deg, #f87171, #ef4444); }
+  .kpi-mini-caption { margin-top: 6px; font-size: 11px; color: var(--ct-muted); line-height: 1.2; }
+  .control-chart-card .x_content { min-height: 320px; }
+  .control-chart { min-height: 275px; }
+  .control-action-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .control-action-grid .btn { border-radius: 12px; font-weight: 800; }
+  .control-table-scroll { max-height: 390px; overflow: auto; }
+  .control-list-soft { margin: 0; padding: 0; list-style: none; }
+  .control-list-soft li {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid #edf2f7;
+  }
+  .control-list-soft li:last-child { border-bottom: 0; }
+  .control-status-dot {
+    width: 9px;
+    height: 9px;
+    display: inline-block;
+    border-radius: 999px;
+    margin-right: 7px;
+    background: #94a3b8;
+  }
+  .control-status-dot.ok { background: var(--ct-green); }
+  .control-status-dot.warn { background: var(--ct-amber); }
+  .control-status-dot.risk { background: var(--ct-red); }
+  .control-muted-panel {
+    border: 1px dashed #cbd5e1;
+    border-radius: 16px;
+    background: #f8fafc;
+    padding: 18px;
+    text-align: center;
+    color: var(--ct-muted);
+  }
+  @media (max-width: 767px) {
+    .control-tower-hero { padding: 16px; }
+    .control-term-form { width: 100%; justify-content: space-between; }
+    .control-term-form .form-control { min-width: 0; width: 100%; }
+    .control-action-grid { grid-template-columns: 1fr; }
+  }
+</style>
+
+<div class="control-tower-shell">
+  <section class="control-tower-hero">
+    <div class="row align-items-center">
+      <div class="col-md-8 col-sm-12">
+        <span class="control-eyebrow"><i class="fa fa-rocket"></i> Admin Control Tower</span>
+        <h1>{{ dashboard_section_title }}</h1>
+        <p class="text-muted" style="margin-bottom: 0;">
+          Professional visibility for finance, academics, attendance, submissions, and operational risk.
+        </p>
+        {% if selected_term_label %}
+        <span class="control-term-pill"><i class="fa fa-calendar"></i>&nbsp; {{ selected_term_label }}</span>
+        {% endif %}
+      </div>
+      <div class="col-md-4 col-sm-12 text-right">
+        {% if term_options %}
+        <form method="get" class="control-term-form pull-right">
+          <label for="dashboard-term-select">Term</label>
+          <select id="dashboard-term-select" name="term" class="form-control input-sm" onchange="this.form.submit()">
+            {% for opt in term_options %}
+            <option value="{{ opt.id }}" {% if selected_term == opt.id|stringformat:"s" %}selected{% endif %}>
+              Term {{ opt.term }} {{ opt.academic_year.academic_year }}
+            </option>
+            {% endfor %}
+          </select>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+  </section>
+
+  <div class="control-tabs-title">Dashboard Sections</div>
+  <ul class="nav nav-pills control-tower-tabs">
+    {% for item in dashboard_sections %}
+    <li role="presentation" class="{% if item.is_active %}active{% endif %}">
+      <a href="{{ item.url }}">
+        <span class="tab-icon"><i class="fa {{ item.icon }}"></i></span>
+        <span class="tab-label">{{ item.label }}</span>
+      </a>
+    </li>
+    {% endfor %}
+  </ul>
+
+  {% if not scope_is_configured %}
+  <div class="alert alert-warning">
+    Academic year/term is not fully configured. Some metrics may appear as zero.
+  </div>
+  {% endif %}
+
+  {% block dashboard_section_content %}{% endblock %}
+</div>
+{% endblock %}

@@ -1,0 +1,796 @@
+{% extends "base.html" %}
+{% load static %}
+{% load humanize %}
+
+{% block page_title %}Class Subject Allocation{% endblock page_title %}
+{% block content %}
+<div class="clearfix"></div>
+
+<style>
+  .allocation-center {
+    --navy: #0f172a;
+    --navy-soft: #1e293b;
+    --accent: #2563eb;
+    --success: #10b981;
+    --warning: #f59e0b;
+    --danger: #ef4444;
+    --muted: #64748b;
+    --line: #e2e8f0;
+    --soft: #f8fafc;
+  }
+  .allocation-hero {
+    border: 1px solid #dbeafe;
+    border-radius: 22px;
+    padding: 20px 22px;
+    margin-bottom: 16px;
+    background:
+      radial-gradient(circle at 8% 12%, rgba(37, 99, 235, .18), transparent 30%),
+      radial-gradient(circle at 94% 12%, rgba(16, 185, 129, .14), transparent 28%),
+      linear-gradient(135deg, #fff, #f8fbff 56%, #eef6ff);
+    box-shadow: 0 18px 40px rgba(15, 23, 42, .08);
+  }
+  .allocation-breadcrumb {
+    font-size: 12px;
+    color: var(--muted);
+    font-weight: 700;
+    margin-bottom: 8px;
+  }
+  .allocation-hero h1 {
+    color: var(--navy);
+    margin: 0 0 6px;
+    font-weight: 850;
+    letter-spacing: -.03em;
+  }
+  .allocation-chip-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+  .allocation-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    border-radius: 999px;
+    border: 1px solid #bfdbfe;
+    background: #eff6ff;
+    color: #1e40af;
+    font-size: 12px;
+    font-weight: 800;
+  }
+  .allocation-toolbar { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+  .allocation-toolbar .btn { border-radius: 12px; font-weight: 800; }
+  .allocation-filter-panel,
+  .allocation-card,
+  .allocation-table-panel,
+  .allocation-sidebar-panel {
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    background: #fff;
+    box-shadow: 0 12px 28px rgba(15, 23, 42, .06);
+  }
+  .allocation-filter-panel { padding: 16px; margin-bottom: 16px; }
+  .allocation-filter-panel label {
+    font-size: 11px;
+    font-weight: 850;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: .06em;
+  }
+  .allocation-stats {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+  .allocation-card {
+    position: relative;
+    overflow: hidden;
+    padding: 13px 14px;
+    min-height: 92px;
+    margin-bottom: 0;
+    display: grid;
+    grid-template-columns: 40px minmax(0, 1fr);
+    gap: 12px;
+    align-items: center;
+    border-radius: 14px;
+    box-shadow: 0 8px 22px rgba(15, 23, 42, .05);
+  }
+  .allocation-card:before {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 3px;
+    background: var(--accent);
+  }
+  .allocation-card.success:before { background: var(--success); }
+  .allocation-card.warning:before { background: var(--warning); }
+  .allocation-card.danger:before { background: var(--danger); }
+  .allocation-card .card-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: #eff6ff;
+    color: var(--accent);
+    font-size: 17px;
+    margin-bottom: 0;
+  }
+  .allocation-card.success .card-icon { background: #d1fae5; color: #047857; }
+  .allocation-card.warning .card-icon { background: #fef3c7; color: #b45309; }
+  .allocation-card.danger .card-icon { background: #fee2e2; color: #b91c1c; }
+  .allocation-card .card-copy { min-width: 0; }
+  .allocation-card .card-label {
+    font-size: 11px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: .07em;
+    font-weight: 850;
+  }
+  .allocation-card .card-value { font-size: 24px; line-height: 1.1; font-weight: 850; color: var(--navy); margin-top: 2px; }
+  .allocation-card .card-note { color: var(--muted); font-size: 12px; margin-top: 4px; line-height: 1.25; }
+  .allocation-table-panel .panel-head,
+  .allocation-sidebar-panel .panel-head {
+    padding: 16px 18px;
+    border-bottom: 1px solid var(--line);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .allocation-table-panel .panel-head h2,
+  .allocation-sidebar-panel .panel-head h2 { margin: 0; color: var(--navy); font-size: 18px; font-weight: 850; }
+  .allocation-table-panel .panel-body,
+  .allocation-sidebar-panel .panel-body { padding: 16px 18px; }
+  .smart-filter-row { display: grid; grid-template-columns: 1.3fr .8fr .8fr; gap: 10px; margin-bottom: 12px; }
+  .allocation-table-wrap { max-height: 520px; overflow: auto; border: 1px solid var(--line); border-radius: 14px; }
+  .allocation-table { margin-bottom: 0; }
+  .allocation-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: #f8fafc;
+    color: #475569;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    border-bottom: 1px solid var(--line);
+  }
+  .allocation-table td { vertical-align: middle !important; }
+  .subject-title { font-weight: 850; color: var(--navy); }
+  .subject-code { color: var(--muted); font-size: 12px; }
+  .teacher-person { display: flex; align-items: center; gap: 10px; }
+  .teacher-avatar {
+    width: 38px;
+    height: 38px;
+    border-radius: 999px;
+    object-fit: cover;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #1d4ed8, #0f766e);
+    color: #fff;
+    font-weight: 850;
+    flex: 0 0 auto;
+  }
+  .teacher-name { font-weight: 800; color: #1f2937; }
+  .teacher-meta { color: var(--muted); font-size: 12px; }
+  .status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 9px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 850;
+    text-transform: uppercase;
+  }
+  .status-pill.active { background: #dcfce7; color: #166534; }
+  .category-pill { background: #eef2ff; color: #3730a3; }
+  .category-pill.elective { background: #fef3c7; color: #92400e; }
+  .row-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+  .row-actions .btn { border-radius: 10px; font-weight: 800; }
+  .subject-card-grid { display: none; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .subject-mini-card {
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 14px;
+    background: #fff;
+  }
+  .subject-mini-card h4 { margin: 0 0 6px; color: var(--navy); font-weight: 850; }
+  .detail-row { display: flex; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px dashed #e2e8f0; }
+  .detail-row:last-child { border-bottom: 0; }
+  .detail-row span { color: var(--muted); }
+  .detail-row strong { color: var(--navy); text-align: right; }
+  .alert-stack { display: grid; gap: 8px; margin-bottom: 14px; }
+  .allocation-alert {
+    border-radius: 14px;
+    padding: 10px 12px;
+    border: 1px solid #e2e8f0;
+    background: #f8fafc;
+    color: #334155;
+    font-weight: 700;
+  }
+  .allocation-alert.warning { border-color: #fde68a; background: #fffbeb; color: #92400e; }
+  .allocation-alert.success { border-color: #bbf7d0; background: #f0fdf4; color: #166534; }
+  .activity-list { list-style: none; margin: 0; padding: 0; }
+  .activity-list li { padding: 9px 0; border-bottom: 1px dashed #e2e8f0; color: #475569; }
+  .activity-list li:last-child { border-bottom: 0; }
+  .empty-allocation {
+    border: 1px dashed #cbd5e1;
+    background: #f8fafc;
+    border-radius: 18px;
+    padding: 34px 18px;
+    text-align: center;
+    color: var(--muted);
+  }
+  @media (max-width: 991px) {
+    .allocation-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .smart-filter-row { grid-template-columns: 1fr; }
+    .allocation-toolbar { justify-content: flex-start; }
+    .subject-card-grid { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 767px) {
+    .allocation-stats { grid-template-columns: 1fr; }
+    .allocation-table-wrap { display: none; }
+    .subject-card-grid { display: grid; }
+  }
+</style>
+
+<div class="allocation-center">
+  <section class="allocation-hero">
+    <div class="row align-items-center">
+      <div class="col-md-8 col-sm-12">
+        <div class="allocation-breadcrumb">Dashboard / Academics / Subject Allocation</div>
+        <h1>Class Subject Allocation</h1>
+        <p class="text-muted" style="margin:0;">Manage subjects, teachers, workload, and academic assignments from one control center.</p>
+        <div class="allocation-chip-row">
+          <span class="allocation-chip"><i class="fa fa-calendar"></i> {% if selected_stream %}{{ selected_stream.academic_class.academic_year.academic_year }}{% else %}Academic Year{% endif %}</span>
+          <span class="allocation-chip"><i class="fa fa-clock-o"></i> {% if selected_stream %}Term {{ selected_stream.academic_class.term.term }}{% else %}Term{% endif %}</span>
+          <span class="allocation-chip"><i class="fa fa-users"></i> {% if selected_stream %}{{ selected_stream.academic_class.Class.code }}{{ selected_stream.stream.stream }}{% else %}Class Stream{% endif %}</span>
+        </div>
+      </div>
+      <div class="col-md-4 col-sm-12">
+        <div class="allocation-toolbar">
+          {% if can_manage %}
+          <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#addAllocationModal" {% if not selected_stream %}disabled{% endif %}>
+            <i class="fa fa-plus"></i> Assign Teacher
+          </button>
+          <a href="{% url 'copy_allocations' %}" class="btn btn-default" onclick="return confirm('Copy allocations from previous term to current term? Existing records stay unchanged.');">
+            <i class="fa fa-copy"></i> Copy Previous
+          </a>
+          {% else %}
+          <span class="status-pill"><i class="fa fa-lock"></i> View Only</span>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <form method="get" id="allocationFilterForm" class="allocation-filter-panel">
+    <div class="row">
+      <div class="col-md-3 col-sm-6 col-xs-12">
+        <label>Academic Year</label>
+        <select name="academic_year" id="yearFilter" class="form-control allocation-filter">
+          <option value="">Select year</option>
+          {% for year in academic_years %}
+          <option value="{{ year.id }}" {% if selected_year_id == year.id|stringformat:"s" %}selected{% endif %}>{{ year.academic_year }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-3 col-sm-6 col-xs-12">
+        <label>Term</label>
+        <select name="term" id="termFilter" class="form-control allocation-filter">
+          <option value="">Select term</option>
+          {% for term in terms %}
+          <option value="{{ term.id }}" {% if selected_term_id == term.id|stringformat:"s" %}selected{% endif %}>Term {{ term.term }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-3 col-sm-6 col-xs-12">
+        <label>Class Stream</label>
+        <select name="class_stream" id="streamFilter" class="form-control allocation-filter">
+          <option value="">Select stream</option>
+          {% for class_stream in class_streams %}
+          <option value="{{ class_stream.id }}" {% if selected_stream_id == class_stream.id|stringformat:"s" %}selected{% endif %}>
+            {{ class_stream.academic_class.Class.code }}{{ class_stream.stream.stream }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-3 col-sm-6 col-xs-12">
+        <label>Smart Search</label>
+        <input type="text" id="allocationSearch" class="form-control" placeholder="Subject, teacher, code, department">
+      </div>
+    </div>
+  </form>
+
+  {% if selected_stream %}
+  <div class="allocation-stats">
+      <div class="allocation-card">
+        <div class="card-icon"><i class="fa fa-book"></i></div>
+        <div class="card-copy">
+          <div class="card-label">Total Subjects</div>
+          <div class="card-value">{{ total_subjects|intcomma }}</div>
+          <div class="card-note">Available for this stream</div>
+        </div>
+      </div>
+      <div class="allocation-card success">
+        <div class="card-icon"><i class="fa fa-user-circle"></i></div>
+        <div class="card-copy">
+          <div class="card-label">Assigned Staff</div>
+          <div class="card-value">{{ assigned_staff_count|intcomma }}</div>
+          <div class="card-note">Teachers on this stream</div>
+        </div>
+      </div>
+      <div class="allocation-card">
+        <div class="card-icon"><i class="fa fa-users"></i></div>
+        <div class="card-copy">
+          <div class="card-label">Total Students</div>
+          <div class="card-value">{{ total_students|intcomma }}</div>
+          <div class="card-note">Active learners</div>
+        </div>
+      </div>
+      <div class="allocation-card {% if unassigned_count %}warning{% else %}success{% endif %}">
+        <div class="card-icon"><i class="fa fa-exclamation-triangle"></i></div>
+        <div class="card-copy">
+          <div class="card-label">Unassigned</div>
+          <div class="card-value">{{ unassigned_count|intcomma }}</div>
+          <div class="card-note">Need teachers</div>
+        </div>
+      </div>
+  </div>
+
+  <div class="row">
+    <div class="col-lg-8 col-md-12">
+      <div class="allocation-table-panel">
+        <div class="panel-head">
+          <div>
+            <h2><i class="fa fa-sitemap"></i> Allocation Workspace</h2>
+            <small class="text-muted">Subject, teacher, workload, category, status, and action controls.</small>
+          </div>
+          <div class="btn-group" role="group">
+            <button type="button" class="btn btn-default btn-sm" id="tableViewBtn"><i class="fa fa-table"></i> Table</button>
+            <button type="button" class="btn btn-default btn-sm" id="cardViewBtn"><i class="fa fa-th-large"></i> Cards</button>
+          </div>
+        </div>
+        <div class="panel-body">
+          <div class="smart-filter-row">
+            <select id="categoryFilter" class="form-control">
+              <option value="">All categories</option>
+              <option value="core">Core</option>
+              <option value="elective">Elective</option>
+            </select>
+            <select id="statusFilter" class="form-control">
+              <option value="">All statuses</option>
+              <option value="active">Active</option>
+            </select>
+            <select id="loadFilter" class="form-control">
+              <option value="">All workloads</option>
+              <option value="heavy">Heavy workload</option>
+              <option value="normal">Normal workload</option>
+            </select>
+          </div>
+
+          {% if allocation_rows %}
+          <div class="allocation-table-wrap" id="allocationTableWrap">
+            <table class="table table-hover allocation-table" id="allocationsTable">
+              <thead>
+                <tr>
+                  <th>Subject</th>
+                  <th>Teacher</th>
+                  <th>Teacher Load</th>
+                  <th>Category</th>
+                  <th>Status</th>
+                  {% if can_manage %}<th>Actions</th>{% endif %}
+                </tr>
+              </thead>
+              <tbody>
+                {% for row in allocation_rows %}
+                <tr class="allocation-row"
+                    data-search="{{ row.subject_name }} {{ row.subject_code }} {{ row.teacher_name }} {{ row.teacher_department }} {{ row.category }}"
+                    data-category="{{ row.category|lower }}"
+                    data-status="{{ row.status|lower }}"
+                    data-load="{% if row.teacher_load >= 8 %}heavy{% else %}normal{% endif %}"
+                    data-subject="{{ row.subject_name }}"
+                    data-code="{{ row.subject_code }}"
+                    data-teacher="{{ row.teacher_name }}"
+                    data-department="{{ row.teacher_department }}"
+                    data-load-label="{{ row.teacher_load }} subject{% if row.teacher_load != 1 %}s{% endif %}"
+                    data-classes="{{ row.teacher_classes|join:", " }}"
+                    data-category-label="{{ row.category }}"
+                    data-students="{{ total_students }}"
+                    data-status-label="{{ row.status }}">
+                  <td>
+                    <div class="subject-title">{{ row.subject_name }}</div>
+                    <div class="subject-code">{{ row.subject_code|default:"No code" }}</div>
+                  </td>
+                  <td>
+                    <div class="teacher-person">
+                      {% if row.teacher.staff_photo %}
+                      <img class="teacher-avatar" src="{{ row.teacher.staff_photo.url }}" alt="{{ row.teacher_name }}">
+                      {% else %}
+                      <span class="teacher-avatar">{{ row.teacher_initials }}</span>
+                      {% endif %}
+                      <div>
+                        <div class="teacher-name">{{ row.teacher_name }}</div>
+                        <div class="teacher-meta">{{ row.teacher_department }}</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td>
+                    <strong>{{ row.teacher_load }} subject{% if row.teacher_load != 1 %}s{% endif %}</strong><br>
+                    <small class="text-muted">{{ row.teacher_classes|length }} class stream{% if row.teacher_classes|length != 1 %}s{% endif %}</small>
+                  </td>
+                  <td>
+                    <span class="status-pill category-pill {% if row.category == 'Elective' %}elective{% endif %}">{{ row.category }}</span>
+                  </td>
+                  <td><span class="status-pill active"><i class="fa fa-check-circle"></i> {{ row.status }}</span></td>
+                  {% if can_manage %}
+                  <td>
+                    <div class="row-actions">
+                      <button type="button" class="btn btn-info btn-xs open-edit-modal" data-toggle="modal" data-target="#editAllocationModal" data-allocation-id="{{ row.allocation.id }}" data-subject-name="{{ row.subject_name }}" data-teacher-id="{{ row.allocation.subject_teacher_id }}">
+                        <i class="fa fa-pencil"></i> Edit
+                      </button>
+                      <button type="button" class="btn btn-warning btn-xs open-deactivate-modal" data-toggle="modal" data-target="#deactivateAllocationModal" data-allocation-id="{{ row.allocation.id }}" data-subject-name="{{ row.subject_name }}">
+                        <i class="fa fa-ban"></i> Deactivate
+                      </button>
+                    </div>
+                  </td>
+                  {% endif %}
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+
+          <div class="subject-card-grid" id="allocationCardGrid">
+            {% for row in allocation_rows %}
+            <div class="subject-mini-card allocation-card-item"
+                 data-search="{{ row.subject_name }} {{ row.subject_code }} {{ row.teacher_name }} {{ row.teacher_department }} {{ row.category }}"
+                 data-category="{{ row.category|lower }}"
+                 data-status="{{ row.status|lower }}"
+                 data-load="{% if row.teacher_load >= 8 %}heavy{% else %}normal{% endif %}">
+              <h4>{{ row.subject_name }}</h4>
+              <p class="text-muted">{{ row.category }} - {{ row.subject_code|default:"No code" }}</p>
+              <div class="teacher-person" style="margin:12px 0;">
+                {% if row.teacher.staff_photo %}
+                <img class="teacher-avatar" src="{{ row.teacher.staff_photo.url }}" alt="{{ row.teacher_name }}">
+                {% else %}
+                <span class="teacher-avatar">{{ row.teacher_initials }}</span>
+                {% endif %}
+                <div>
+                  <div class="teacher-name">{{ row.teacher_name }}</div>
+                  <div class="teacher-meta">{{ row.teacher_load }} subject{% if row.teacher_load != 1 %}s{% endif %} assigned</div>
+                </div>
+              </div>
+              {% if can_manage %}
+              <button type="button" class="btn btn-info btn-xs open-edit-modal" data-toggle="modal" data-target="#editAllocationModal" data-allocation-id="{{ row.allocation.id }}" data-subject-name="{{ row.subject_name }}" data-teacher-id="{{ row.allocation.subject_teacher_id }}">
+                <i class="fa fa-pencil"></i> Edit Allocation
+              </button>
+              {% endif %}
+            </div>
+            {% endfor %}
+          </div>
+          {% else %}
+          <div class="empty-allocation">
+            <div style="font-size:36px;"><i class="fa fa-folder-open-o"></i></div>
+            <h4>No subjects allocated yet</h4>
+            <p>Start by assigning teachers to subjects for this class stream.</p>
+            {% if can_manage %}
+            <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#addAllocationModal"><i class="fa fa-plus"></i> Allocate Subjects</button>
+            {% endif %}
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-4 col-md-12">
+      <div class="allocation-sidebar-panel" style="margin-bottom:14px;">
+        <div class="panel-head">
+          <h2><i class="fa fa-info-circle"></i> Subject Details</h2>
+        </div>
+        <div class="panel-body" id="allocationDetailsPanel">
+          <div class="detail-row"><span>Subject</span><strong id="detailSubject">{% if allocation_rows %}{{ allocation_rows.0.subject_name }}{% else %}-{% endif %}</strong></div>
+          <div class="detail-row"><span>Teacher</span><strong id="detailTeacher">{% if allocation_rows %}{{ allocation_rows.0.teacher_name }}{% else %}-{% endif %}</strong></div>
+          <div class="detail-row"><span>Department</span><strong id="detailDepartment">{% if allocation_rows %}{{ allocation_rows.0.teacher_department }}{% else %}-{% endif %}</strong></div>
+          <div class="detail-row"><span>Teacher Load</span><strong id="detailLoad">{% if allocation_rows %}{{ allocation_rows.0.teacher_load }} subjects{% else %}-{% endif %}</strong></div>
+          <div class="detail-row"><span>Allocated Classes</span><strong id="detailClasses">{% if allocation_rows %}{{ allocation_rows.0.teacher_classes|join:", " }}{% else %}-{% endif %}</strong></div>
+          <div class="detail-row"><span>Students</span><strong id="detailStudents">{{ total_students }}</strong></div>
+          <div class="detail-row"><span>Status</span><strong id="detailStatus">{% if allocation_rows %}{{ allocation_rows.0.status }}{% else %}-{% endif %}</strong></div>
+        </div>
+      </div>
+
+      <div class="allocation-sidebar-panel" style="margin-bottom:14px;">
+        <div class="panel-head"><h2><i class="fa fa-warning"></i> Conflict Alerts</h2></div>
+        <div class="panel-body">
+          <div class="alert-stack">
+            {% for alert in conflict_alerts %}
+            <div class="allocation-alert {{ alert.level }}"><i class="fa {% if alert.level == 'success' %}fa-check-circle{% else %}fa-exclamation-triangle{% endif %}"></i> {{ alert.message }}</div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+
+      <div class="allocation-sidebar-panel">
+        <div class="panel-head"><h2><i class="fa fa-history"></i> Recent Activity</h2></div>
+        <div class="panel-body">
+          <ul class="activity-list">
+            {% for activity in recent_activities %}
+            <li><i class="fa fa-circle text-success" style="font-size:8px;"></i> {{ activity }}</li>
+            {% empty %}
+            <li class="text-muted">No allocation activity yet.</li>
+            {% endfor %}
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% else %}
+  <div class="empty-allocation">
+    <div style="font-size:36px;"><i class="fa fa-filter"></i></div>
+    <h4>Select Academic Year, Term, and Class Stream</h4>
+    <p>Choose the academic context above to view and manage allocations.</p>
+  </div>
+  {% endif %}
+</div>
+
+{% if can_manage %}
+<div class="modal fade" id="addAllocationModal" tabindex="-1" role="dialog" aria-labelledby="addAllocationModalLabel">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <form method="post" id="addAllocationForm">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="add_allocation">
+        <input type="hidden" name="academic_year" value="{{ selected_year_id }}">
+        <input type="hidden" name="term" value="{{ selected_term_id }}">
+        <input type="hidden" name="class_stream" value="{{ selected_stream_id }}">
+        <div class="modal-header">
+          <button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
+          <h4 class="modal-title" id="addAllocationModalLabel">Assign Teacher{% if selected_stream %} to {{ selected_stream.academic_class.Class.code }}{{ selected_stream.stream.stream }}{% endif %}</h4>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label for="subjectSelect">Subject</label>
+            <select class="form-control" id="subjectSelect" name="subject" required>
+              <option value="">Select subject</option>
+              {% for subject in subjects %}
+              <option value="{{ subject.id }}" {% if subject.id in allocated_subject_ids %}disabled{% endif %}>
+                {{ subject.name }}{% if subject.id in allocated_subject_ids %} (Already Assigned){% endif %}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="addTeacherSelect">Teacher</label>
+            <select class="form-control teacher-select" id="addTeacherSelect" name="subject_teacher" required>
+              <option value="">Select teacher</option>
+              {% for teacher in teachers %}
+              <option value="{{ teacher.id }}">{{ teacher }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="well" id="addTeacherInfo">Select a teacher to view workload details.</div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary submit-btn"><i class="fa fa-save"></i> Save Allocation</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="editAllocationModal" tabindex="-1" role="dialog" aria-labelledby="editAllocationModalLabel">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <form method="post" id="editAllocationForm">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="edit_allocation">
+        <input type="hidden" name="academic_year" value="{{ selected_year_id }}">
+        <input type="hidden" name="term" value="{{ selected_term_id }}">
+        <input type="hidden" name="class_stream" value="{{ selected_stream_id }}">
+        <input type="hidden" name="allocation_id" id="editAllocationId">
+        <div class="modal-header">
+          <button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
+          <h4 class="modal-title" id="editAllocationModalLabel">Edit Allocation</h4>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label>Subject</label>
+            <input type="text" class="form-control" id="editSubjectName" readonly>
+          </div>
+          <div class="form-group">
+            <label for="editTeacherSelect">Subject Teacher</label>
+            <select class="form-control teacher-select" id="editTeacherSelect" name="subject_teacher" required>
+              <option value="">Select teacher</option>
+              {% for teacher in teachers %}
+              <option value="{{ teacher.id }}">{{ teacher }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="well" id="editTeacherInfo">Select a teacher to view workload details.</div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary submit-btn"><i class="fa fa-save"></i> Save Changes</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="deactivateAllocationModal" tabindex="-1" role="dialog" aria-labelledby="deactivateAllocationModalLabel">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <form method="post" id="deactivateAllocationForm">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="deactivate_allocation">
+        <input type="hidden" name="academic_year" value="{{ selected_year_id }}">
+        <input type="hidden" name="term" value="{{ selected_term_id }}">
+        <input type="hidden" name="class_stream" value="{{ selected_stream_id }}">
+        <input type="hidden" name="allocation_id" id="deactivateAllocationId">
+        <div class="modal-header">
+          <button type="button" class="close" data-dismiss="modal"><span>&times;</span></button>
+          <h4 class="modal-title" id="deactivateAllocationModalLabel">Deactivate Allocation</h4>
+        </div>
+        <div class="modal-body">
+          <p>Deactivate allocation for <strong id="deactivateSubjectName"></strong>?</p>
+          <p class="text-muted">This preserves historical academic records but removes the allocation from active workflows.</p>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-warning submit-btn"><i class="fa fa-ban"></i> Deactivate</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{{ teacher_stats|json_script:"teacher-stats-data" }}
+
+<script>
+(function () {
+  function safeJson(el) {
+    if (!el || !el.textContent) return {};
+    try { return JSON.parse(el.textContent); } catch (err) { return {}; }
+  }
+
+  var filterForm = document.getElementById('allocationFilterForm');
+  var allocationSearch = document.getElementById('allocationSearch');
+  var teacherStats = safeJson(document.getElementById('teacher-stats-data'));
+  var categoryFilter = document.getElementById('categoryFilter');
+  var statusFilter = document.getElementById('statusFilter');
+  var loadFilter = document.getElementById('loadFilter');
+  var tableWrap = document.getElementById('allocationTableWrap');
+  var cardGrid = document.getElementById('allocationCardGrid');
+
+  document.querySelectorAll('.allocation-filter').forEach(function (el) {
+    el.addEventListener('change', function () { if (filterForm) filterForm.submit(); });
+  });
+
+  function normalize(value) { return (value || '').toString().toLowerCase(); }
+
+  function matchesFilters(node) {
+    var searchValue = normalize(allocationSearch ? allocationSearch.value : '');
+    var categoryValue = normalize(categoryFilter ? categoryFilter.value : '');
+    var statusValue = normalize(statusFilter ? statusFilter.value : '');
+    var loadValue = normalize(loadFilter ? loadFilter.value : '');
+    var searchable = normalize(node.getAttribute('data-search'));
+    if (searchValue && searchable.indexOf(searchValue) === -1) return false;
+    if (categoryValue && normalize(node.getAttribute('data-category')) !== categoryValue) return false;
+    if (statusValue && normalize(node.getAttribute('data-status')) !== statusValue) return false;
+    if (loadValue && normalize(node.getAttribute('data-load')) !== loadValue) return false;
+    return true;
+  }
+
+  function applySmartFilters() {
+    document.querySelectorAll('.allocation-row, .allocation-card-item').forEach(function (node) {
+      node.style.display = matchesFilters(node) ? '' : 'none';
+    });
+  }
+
+  [allocationSearch, categoryFilter, statusFilter, loadFilter].forEach(function (input) {
+    if (!input) return;
+    input.addEventListener('keyup', applySmartFilters);
+    input.addEventListener('change', applySmartFilters);
+  });
+
+  function setDetailFromRow(row) {
+    if (!row) return;
+    var map = {
+      detailSubject: row.getAttribute('data-subject') || '-',
+      detailTeacher: row.getAttribute('data-teacher') || '-',
+      detailDepartment: row.getAttribute('data-department') || '-',
+      detailLoad: row.getAttribute('data-load-label') || '-',
+      detailClasses: row.getAttribute('data-classes') || '-',
+      detailStudents: row.getAttribute('data-students') || '-',
+      detailStatus: row.getAttribute('data-status-label') || '-'
+    };
+    Object.keys(map).forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el) el.textContent = map[id] || '-';
+    });
+  }
+
+  document.querySelectorAll('.allocation-row').forEach(function (row) {
+    row.addEventListener('click', function (event) {
+      if (event.target.closest('button, a')) return;
+      setDetailFromRow(row);
+    });
+  });
+
+  function renderTeacherInfo(selectEl, targetId) {
+    var container = document.getElementById(targetId);
+    if (!container || !selectEl) return;
+    var teacherId = selectEl.value;
+    if (!teacherId || !teacherStats[teacherId]) {
+      container.innerHTML = 'Select a teacher to view workload details.';
+      return;
+    }
+    var info = teacherStats[teacherId];
+    var streamText = info.class_streams && info.class_streams.length ? info.class_streams.join(', ') : '-';
+    container.innerHTML = '<strong>' + info.name + '</strong><br>' +
+      'Subjects Teaching: ' + info.subjects_count + '<br>' +
+      'Classes Handling: ' + streamText;
+  }
+
+  var addTeacherSelect = document.getElementById('addTeacherSelect');
+  var editTeacherSelect = document.getElementById('editTeacherSelect');
+  if (addTeacherSelect) addTeacherSelect.addEventListener('change', function () { renderTeacherInfo(addTeacherSelect, 'addTeacherInfo'); });
+  if (editTeacherSelect) editTeacherSelect.addEventListener('change', function () { renderTeacherInfo(editTeacherSelect, 'editTeacherInfo'); });
+
+  document.querySelectorAll('.open-edit-modal').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var allocationId = btn.getAttribute('data-allocation-id');
+      var subjectName = btn.getAttribute('data-subject-name');
+      var teacherId = btn.getAttribute('data-teacher-id');
+      var idEl = document.getElementById('editAllocationId');
+      var subjectEl = document.getElementById('editSubjectName');
+      if (idEl) idEl.value = allocationId || '';
+      if (subjectEl) subjectEl.value = subjectName || '';
+      if (editTeacherSelect) {
+        editTeacherSelect.value = teacherId || '';
+        renderTeacherInfo(editTeacherSelect, 'editTeacherInfo');
+      }
+    });
+  });
+
+  document.querySelectorAll('.open-deactivate-modal').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var idEl = document.getElementById('deactivateAllocationId');
+      var subjectEl = document.getElementById('deactivateSubjectName');
+      if (idEl) idEl.value = btn.getAttribute('data-allocation-id') || '';
+      if (subjectEl) subjectEl.textContent = btn.getAttribute('data-subject-name') || '';
+    });
+  });
+
+  var tableViewBtn = document.getElementById('tableViewBtn');
+  var cardViewBtn = document.getElementById('cardViewBtn');
+  if (tableViewBtn && cardViewBtn && tableWrap && cardGrid) {
+    tableViewBtn.addEventListener('click', function () {
+      tableWrap.style.display = '';
+      cardGrid.style.display = 'none';
+    });
+    cardViewBtn.addEventListener('click', function () {
+      tableWrap.style.display = 'none';
+      cardGrid.style.display = 'grid';
+    });
+  }
+
+  ['addAllocationForm', 'editAllocationForm', 'deactivateAllocationForm'].forEach(function (formId) {
+    var form = document.getElementById(formId);
+    if (!form) return;
+    form.addEventListener('submit', function () {
+      var submitButton = form.querySelector('.submit-btn');
+      if (!submitButton) return;
+      submitButton.disabled = true;
+      submitButton.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Saving...';
+    });
+  });
+
+  var firstRow = document.querySelector('.allocation-row');
+  if (firstRow) setDetailFromRow(firstRow);
+})();
+</script>
+{% endblock %}

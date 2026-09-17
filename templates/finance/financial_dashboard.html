@@ -1,0 +1,349 @@
+{% extends "../base.html" %}
+{% load static %}
+{% load humanize %}
+{% load custom_filters %}
+
+{% block page_title %}Financial Dashboard{% endblock %}
+
+{% block extra_css %}
+{{ block.super }}
+<link rel="stylesheet" href="{% static 'css/finance_pro.css' %}?v=1">
+{% endblock %}
+
+{% block content %}
+<div class="finance-shell">
+  <div class="finance-topbar">
+    <div>
+      <div class="finance-eyebrow">Finance</div>
+      <h1 class="finance-title">Financial Dashboard</h1>
+      <div class="finance-subtitle">
+        {% if dashboard_data %}
+          {{ dashboard_data.current_term }} - {{ dashboard_data.current_year }}
+        {% else %}
+          Collections, balances, reconciliation, and approvals
+        {% endif %}
+      </div>
+    </div>
+    <div class="finance-actions">
+      <a href="#" onclick="location.reload();return false;" class="finance-btn"><i class="fa fa-refresh"></i> Refresh</a>
+      <a href="#" data-bs-toggle="modal" data-bs-target="#sendRemindersModal" class="finance-btn warning"><i class="fa fa-bell"></i> Reminders</a>
+      <a href="{% url 'payment_ledger' %}" class="finance-btn primary"><i class="fa fa-book"></i> Ledger</a>
+    </div>
+  </div>
+
+  <nav class="finance-nav" aria-label="Finance navigation">
+    <a href="{% url 'financial_dashboard' %}" class="active"><i class="fa fa-chart-line"></i> Dashboard</a>
+    <a href="{% url 'student_bill_page' %}"><i class="fa fa-file-invoice-dollar"></i> Charges</a>
+    <a href="{% url 'fees_status' %}"><i class="fa fa-users"></i> Balances</a>
+    <a href="{% url 'payment_ledger' %}"><i class="fa fa-book"></i> Ledger</a>
+    <a href="{% url 'bank_reconciliation' %}"><i class="fa fa-university"></i> Reconciliation</a>
+    <a href="{% url 'financial_summary_report' %}"><i class="fa fa-file-alt"></i> Reports</a>
+    <a href="{% url 'budget_page' %}"><i class="fa fa-clipboard-list"></i> Budgets</a>
+  </nav>
+
+  {% if dashboard_data %}
+  <section class="finance-kpi-grid" aria-label="Finance KPIs">
+    <div class="finance-kpi">
+      <div class="finance-kpi-top">
+        <span class="finance-kpi-icon"><i class="fa fa-cash-register"></i></span>
+        <span class="finance-pill success">Today</span>
+      </div>
+      <div class="finance-kpi-label">Today Collections</div>
+      <div class="finance-kpi-value">UGX {{ dashboard_data.today_collected|floatformat:0|intcomma }}</div>
+      <div class="finance-kpi-note">Payments recorded today</div>
+    </div>
+
+    <div class="finance-kpi">
+      <div class="finance-kpi-top">
+        <span class="finance-kpi-icon"><i class="fa fa-scale-balanced"></i></span>
+        <span class="finance-pill {% if dashboard_data.collection_rate >= 80 %}success{% elif dashboard_data.collection_rate >= 45 %}warning{% else %}danger{% endif %}">
+          {{ dashboard_data.collection_rate }}%
+        </span>
+      </div>
+      <div class="finance-kpi-label">Outstanding Fees</div>
+      <div class="finance-kpi-value">UGX {{ dashboard_data.total_billed|subtract:dashboard_data.total_collected|floatformat:0|intcomma }}</div>
+      <div class="finance-kpi-note">Amount still unpaid</div>
+    </div>
+
+    <div class="finance-kpi">
+      <div class="finance-kpi-top">
+        <span class="finance-kpi-icon"><i class="fa fa-user-clock"></i></span>
+        <span class="finance-pill {% if dashboard_data.overdue_students > 0 %}danger{% else %}success{% endif %}">
+          {% if dashboard_data.overdue_students > 0 %}Overdue{% else %}None{% endif %}
+        </span>
+      </div>
+      <div class="finance-kpi-label">Overdue Students</div>
+      <div class="finance-kpi-value">{{ dashboard_data.overdue_students|intcomma }}</div>
+      <div class="finance-kpi-note">Students past due date</div>
+    </div>
+
+    <div class="finance-kpi">
+      <div class="finance-kpi-top">
+        <span class="finance-kpi-icon"><i class="fa fa-link"></i></span>
+        <span class="finance-pill warning">Open</span>
+      </div>
+      <div class="finance-kpi-label">Unmatched Payments</div>
+      <div class="finance-kpi-value">UGX {{ dashboard_data.pending_reconciliation_amount|floatformat:0|intcomma }}</div>
+      <div class="finance-kpi-note">Not yet linked to bank lines</div>
+    </div>
+  </section>
+
+  <section class="finance-grid-2">
+    <div class="finance-panel">
+      <div class="finance-panel-header">
+        <h2 class="finance-panel-title"><i class="fa fa-line-chart"></i> Collections and Expenditure</h2>
+        <span class="finance-pill info">Current term</span>
+      </div>
+      <div class="finance-panel-body">
+        <canvas id="monthlyTrendChart" class="finance-chart"></canvas>
+      </div>
+    </div>
+
+    <div class="finance-panel">
+      <div class="finance-panel-header">
+        <h2 class="finance-panel-title"><i class="fa fa-bolt"></i> Common Tasks</h2>
+      </div>
+      <div class="finance-panel-body">
+        <div class="finance-bars">
+          <a href="{% url 'bulk_create_class_bills' %}" class="finance-btn primary"><i class="fa fa-layer-group"></i> Generate Fees</a>
+          <a href="{% url 'student_bill_page' %}" class="finance-btn"><i class="fa fa-file-invoice"></i> Student Bills</a>
+          <a href="{% url 'fees_status' %}?status=outstanding" class="finance-btn"><i class="fa fa-user-clock"></i> Outstanding Balances</a>
+          <a href="{% url 'bank_reconciliation' %}" class="finance-btn"><i class="fa fa-university"></i> Reconcile Payments</a>
+          <a href="{% url 'export_financial_data' %}?type=quickbooks" class="finance-btn"><i class="fa fa-download"></i> Export Data</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="finance-grid-2">
+    <div class="finance-panel">
+      <div class="finance-panel-header">
+        <h2 class="finance-panel-title"><i class="fa fa-table"></i> Collections Breakdown</h2>
+      </div>
+      <div class="finance-panel-body">
+        <div class="row">
+          <div class="col-md-6">
+            <div class="finance-eyebrow">Payment Methods</div>
+            <div class="finance-bars" style="margin-top:10px;">
+              {% for method in dashboard_data.payment_method_breakdown %}
+              <div class="finance-bar-row">
+                <span>{{ method.payment_method|default:"Other" }}</span>
+                <span class="finance-bar-track"><span class="finance-bar-fill" style="width:{% widthratio method.total dashboard_data.total_collected 100 %}%;"></span></span>
+                <strong class="finance-money">UGX {{ method.total|floatformat:0|intcomma }}</strong>
+              </div>
+              {% empty %}
+              <div class="finance-muted">No collections have been posted for this term.</div>
+              {% endfor %}
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="finance-eyebrow">Fee Categories</div>
+            <div class="finance-bars" style="margin-top:10px;">
+              {% for category in dashboard_data.fee_category_breakdown %}
+              <div class="finance-bar-row">
+                <span>{{ category.fee_category|default:"Other" }}</span>
+                <span class="finance-bar-track"><span class="finance-bar-fill" style="width:{% widthratio category.total dashboard_data.total_billed 100 %}%;"></span></span>
+                <strong class="finance-money">UGX {{ category.total|floatformat:0|intcomma }}</strong>
+              </div>
+              {% empty %}
+              <div class="finance-muted">No charges have been generated for this term.</div>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="finance-panel">
+      <div class="finance-panel-header">
+        <h2 class="finance-panel-title"><i class="fa fa-clock"></i> Recent Payments</h2>
+      </div>
+      <div class="finance-panel-body">
+        <div class="finance-activity">
+          {% for payment in recent_payments|slice:":5" %}
+          <div class="finance-activity-item">
+            <div class="finance-activity-time">{{ payment.payment_date|date:"d M" }}</div>
+            <div>
+              <div class="finance-activity-title">{{ payment.bill.student.student_name }}</div>
+              <div class="finance-activity-note">UGX {{ payment.amount|floatformat:0|intcomma }} via {{ payment.payment_method }}{% if payment.recorded_by %} - {{ payment.recorded_by }}{% endif %}</div>
+            </div>
+          </div>
+          {% empty %}
+          <div class="finance-empty">No recent payment activity for the current term.</div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="finance-grid-2">
+    <div class="finance-table-shell">
+      <div class="finance-table-toolbar">
+        <h2 class="finance-table-title"><i class="fa fa-receipt"></i> Recent Transactions</h2>
+        <a href="{% url 'payment_ledger' %}" class="finance-btn">View Ledger</a>
+      </div>
+      <div class="table-responsive">
+        <table class="finance-table">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Student</th>
+              <th>Method</th>
+              <th>Reference</th>
+              <th class="money">Amount</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for payment in recent_payments %}
+            <tr>
+              <td>{{ payment.payment_date|date:"d M Y" }}</td>
+              <td>
+                <strong>{{ payment.bill.student.student_name }}</strong><br>
+                <span class="finance-muted">{{ payment.bill.student.display_student_id }}</span>
+              </td>
+              <td>{{ payment.payment_method }}</td>
+              <td>{{ payment.reference_no|default:"-" }}</td>
+              <td class="money">UGX {{ payment.amount|floatformat:0|intcomma }}</td>
+              <td><span class="finance-pill success">Posted</span></td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="6" class="finance-empty">No recent transactions found.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="finance-table-shell">
+      <div class="finance-table-toolbar">
+        <h2 class="finance-table-title"><i class="fa fa-check-double"></i> Pending Approvals</h2>
+        <a href="{% url 'approval_workflow' %}" class="finance-btn">Open</a>
+      </div>
+      <div class="table-responsive">
+        <table class="finance-table">
+          <thead>
+            <tr>
+              <th>Department</th>
+              <th class="money">Amount</th>
+              <th>Level</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for approval in pending_approvals %}
+            <tr>
+              <td>{{ approval.expenditure.budget_item.department }}</td>
+              <td class="money">UGX {{ approval.expenditure.amount|floatformat:0|intcomma }}</td>
+              <td><span class="finance-pill warning">{{ approval.approval_level }}/{{ approval.max_approval_level }}</span></td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="3" class="finance-empty">No pending approvals.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+  {% else %}
+  <div class="finance-panel">
+    <div class="finance-empty">
+      <h4>No current term financial data found</h4>
+      <p>Select the current academic year and term, then generate student bills.</p>
+      <a href="{% url 'financial_summary_report' %}" class="finance-btn primary">Open Financial Reports</a>
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+<div class="modal fade" id="sendRemindersModal" tabindex="-1" aria-labelledby="sendRemindersLabel" aria-hidden="true">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="sendRemindersLabel">Send Payment Reminders</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <form method="post" action="{% url 'send_payment_reminders' %}" data-protect-unsaved="true">
+        {% csrf_token %}
+        <div class="modal-body">
+          <div class="form-group">
+            <label for="reminder_type">Reminder Type</label>
+            <select name="reminder_type" id="reminder_type" class="form-control" required>
+              <option value="upcoming_deadline">Upcoming Deadline (7 days)</option>
+              <option value="overdue">Overdue Payments</option>
+              <option value="final_notice">Final Notice (30+ days overdue)</option>
+            </select>
+          </div>
+          <small class="form-text text-muted">This creates in-app fee reminder notifications for matching outstanding bills.</small>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary">Send Reminders</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  {% if dashboard_data and dashboard_data.monthly_collection %}
+  var trendEl = document.getElementById('monthlyTrendChart');
+  if (trendEl && window.Chart) {
+    new Chart(trendEl.getContext('2d'), {
+      type: 'line',
+      data: {
+        labels: [
+          {% for month in dashboard_data.monthly_collection %}
+          '{{ month.month|date:"M Y" }}'{% if not forloop.last %}, {% endif %}
+          {% endfor %}
+        ],
+        datasets: [{
+          label: 'Collections',
+          data: [
+            {% for month in dashboard_data.monthly_collection %}
+            {{ month.total|default:0 }}{% if not forloop.last %}, {% endif %}
+            {% endfor %}
+          ],
+          borderColor: '#0f2f57',
+          backgroundColor: 'rgba(15, 47, 87, .08)',
+          fill: true,
+          borderWidth: 2,
+          pointRadius: 3,
+          tension: .28
+        }, {
+          label: 'Expenditure',
+          data: [
+            {% for month in dashboard_data.monthly_expenditure %}
+            {{ month.total|default:0 }}{% if not forloop.last %}, {% endif %}
+            {% endfor %}
+          ],
+          borderColor: '#b42318',
+          backgroundColor: 'rgba(180, 35, 24, .06)',
+          fill: true,
+          borderWidth: 2,
+          pointRadius: 3,
+          tension: .28
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'bottom', labels: { boxWidth: 10, usePointStyle: true } }
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            ticks: {
+              callback: function(value) { return 'UGX ' + Number(value).toLocaleString(); }
+            }
+          }
+        }
+      }
+    });
+  }
+  {% endif %}
+});
+</script>
+{% endblock %}

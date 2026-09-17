@@ -1,0 +1,54 @@
+{% extends 'parent_portal/base.html' %}
+{% load humanize %}
+{% block title %}{{ student.student_name }} · Overview{% endblock %}
+{% block content %}
+<section class="pp-child-profile-hero">
+  <div class="pp-child-profile-hero__identity">
+    <span class="pp-child-profile-hero__avatar">{% if student.photo %}<img src="{{ student.photo.url }}" alt="{{ student.student_name }}">{% else %}{{ student.student_name|first|upper }}{% endif %}</span>
+    <div><span class="pp-eyebrow">Student 360°</span><h1>{{ student.student_name }}</h1><p>{{ student.reg_no }} · {{ student.current_class }}{% if student.stream %} {{ student.stream }}{% endif %}{% if current_term %} · Term {{ current_term.term }}, {{ current_term.academic_year }}{% endif %}</p></div>
+  </div>
+  <a class="pp-button" href="{% url 'parent_message_new' student.id %}"><i class="ph ph-chat-circle-dots"></i> Message a teacher</a>
+</section>
+{% include 'parent_portal/_child_tabs.html' %}
+
+<div class="pp-metrics pp-metrics--four">
+  {% if access.can_view_attendance %}<a class="pp-metric-card" href="{% url 'parent_attendance' student.id %}"><span class="pp-metric-card__top"><span class="pp-metric-card__label">Attendance</span><span class="pp-metric-card__icon"><i class="ph ph-calendar-check"></i></span></span><span class="pp-metric-card__value">{% if summary.attendance_percent != None %}{{ summary.attendance_percent }}%{% else %}—{% endif %}</span><span class="pp-metric-card__meta"><span>{{ summary.attendance_total }} published sessions</span><i class="ph ph-arrow-right"></i></span></a>{% endif %}
+  {% if access.can_view_academics %}<a class="pp-metric-card" href="{% url 'parent_results' student.id %}"><span class="pp-metric-card__top"><span class="pp-metric-card__label">Academic average</span><span class="pp-metric-card__icon"><i class="ph ph-chart-line-up"></i></span></span><span class="pp-metric-card__value">{% if summary.academic_average != None %}{{ summary.academic_average|floatformat:1 }}%{% else %}—{% endif %}</span><span class="pp-metric-card__meta"><span>Verified assessments</span><i class="ph ph-arrow-right"></i></span></a>{% endif %}
+  {% if access.can_view_finance %}<a class="pp-metric-card" href="{% url 'parent_finance' student.id %}"><span class="pp-metric-card__top"><span class="pp-metric-card__label">Fees outstanding</span><span class="pp-metric-card__icon"><i class="ph ph-wallet"></i></span></span><span class="pp-metric-card__value">UGX {{ summary.balance|floatformat:0|intcomma }}</span><span class="pp-metric-card__meta"><span>{% if summary.paid_percent != None %}{{ summary.paid_percent|floatformat:0 }}% paid{% else %}No active bill{% endif %}</span><i class="ph ph-arrow-right"></i></span></a>{% endif %}
+  {% if library_enabled %}<a class="pp-metric-card" href="{% url 'parent_library' student.id %}"><span class="pp-metric-card__top"><span class="pp-metric-card__label">Library</span><span class="pp-metric-card__icon"><i class="ph ph-books"></i></span></span><span class="pp-metric-card__value">{{ summary.active_loan_count }}</span><span class="pp-metric-card__meta"><span>{% if summary.overdue_loan_count %}{{ summary.overdue_loan_count }} overdue{% else %}Active loans{% endif %}</span><i class="ph ph-arrow-right"></i></span></a>{% endif %}
+</div>
+
+<div class="pp-grid">
+  <section class="pp-card pp-span-7">
+    <header class="pp-card__header"><div><h2>Subject performance</h2><p>Student average compared with the class</p></div>{% if access.can_view_academics %}<a class="pp-text-link" href="{% url 'parent_results' student.id %}">Full analysis</a>{% endif %}</header>
+    <div class="pp-card__body pp-subject-bars">
+      {% for row in subject_rows|slice:':6' %}
+      <div class="pp-subject-bar"><div><strong>{{ row.subject }}</strong><span>{{ row.average|floatformat:1 }}% · {{ row.grade }}{% if row.rank %} · Rank {{ row.rank }}/{{ row.class_size }}{% endif %}</span></div><div class="pp-comparison-bar"><span class="pp-comparison-bar__class" style="width:{{ row.class_average|floatformat:0 }}%"></span><span class="pp-comparison-bar__student" style="width:{{ row.average|floatformat:0 }}%"></span></div></div>
+      {% empty %}
+      <div class="pp-empty-state pp-empty-state--compact"><span class="pp-empty-state__icon"><i class="ph ph-chart-bar"></i></span><h3>No verified results yet</h3><p>Subject analysis appears after results are verified.</p></div>
+      {% endfor %}
+    </div>
+  </section>
+
+  <section class="pp-card pp-span-5">
+    <header class="pp-card__header"><div><h2>Today’s timetable</h2><p>{% now "l, j F" %}</p></div><a class="pp-text-link" href="{% url 'parent_timetable' student.id %}">Full week</a></header>
+    <div class="pp-card__body pp-today-list">
+      {% for entry in today_entries %}<div class="pp-today-row"><time>{{ entry.time_slot.start_time|time:"H:i" }}</time><span class="pp-today-row__line"></span><span class="pp-today-row__copy"><strong>{{ entry.subject }}</strong><small>{% if entry.teacher %}{{ entry.teacher }}{% endif %}{% if entry.classroom %} · {{ entry.classroom }}{% endif %}</small></span></div>{% empty %}<div class="pp-empty-state pp-empty-state--compact"><span class="pp-empty-state__icon"><i class="ph ph-clock"></i></span><h3>No lessons today</h3><p>No timetable entries are published for today.</p></div>{% endfor %}
+    </div>
+  </section>
+
+  <section class="pp-card pp-span-6">
+    <header class="pp-card__header"><div><h2>Teacher feedback</h2><p>Published report comments</p></div></header>
+    <div class="pp-card__body pp-feedback-list">
+      {% for item in feedback %}<blockquote><i class="ph ph-quotes"></i><p>{{ item.text }}</p><footer><strong>{{ item.role }}</strong><span>{{ item.scope }}</span></footer></blockquote>{% empty %}<div class="pp-empty-state pp-empty-state--compact"><span class="pp-empty-state__icon"><i class="ph ph-chats"></i></span><h3>No comments published</h3><p>Approved report comments will appear here.</p></div>{% endfor %}
+    </div>
+  </section>
+
+  <section class="pp-card pp-span-6">
+    <header class="pp-card__header"><div><h2>Recent documents</h2><p>Student files shared by the school</p></div><a class="pp-text-link" href="{% url 'parent_documents' student.id %}">All documents</a></header>
+    <div class="pp-card__body pp-document-list">
+      {% for document in documents %}<a href="{% url 'parent_document_download' student.id document.id %}"><span><i class="ph ph-file-text"></i></span><span><strong>{{ document.get_document_type_display }}</strong><small>Uploaded {{ document.uploaded_at|date:"d M Y" }}</small></span><i class="ph ph-download-simple"></i></a>{% empty %}<div class="pp-empty-state pp-empty-state--compact"><span class="pp-empty-state__icon"><i class="ph ph-folder-open"></i></span><h3>No documents shared</h3><p>Student documents will appear here.</p></div>{% endfor %}
+    </div>
+  </section>
+</div>
+{% endblock %}

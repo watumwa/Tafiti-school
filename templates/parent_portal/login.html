@@ -1,0 +1,76 @@
+{% extends 'parent_portal/base.html' %}
+{% block title %}Parent login{% endblock %}
+{% block content %}
+<div class="pp-auth-layout">
+  <section class="pp-auth-brand" aria-label="Parent portal introduction">
+    <div class="pp-auth-logo">
+      <span class="pp-auth-logo__mark">
+        {% if school_settings.school_logo %}<img src="{{ school_settings.school_logo.url }}" alt="{{ school_settings.school_name|default:'School' }} logo">{% else %}<i class="ph ph-graduation-cap" aria-hidden="true"></i>{% endif %}
+      </span>
+      <span><strong>{{ school_settings.school_name|default:"School" }}</strong><small>Parent Portal</small></span>
+    </div>
+
+    <div class="pp-auth-copy">
+      <span class="pp-auth-copy__eyebrow">Stay informed. Stay connected.</span>
+      <h1>Your child’s school life, in one secure place.</h1>
+      <p>Follow academic progress, attendance, fee balances and important school updates without needing to visit the office.</p>
+      <div class="pp-auth-benefits">
+        <div class="pp-auth-benefit"><i class="ph ph-chart-line-up" aria-hidden="true"></i><strong>Academic progress</strong><small>See verified results and reports.</small></div>
+        <div class="pp-auth-benefit"><i class="ph ph-calendar-check" aria-hidden="true"></i><strong>Daily attendance</strong><small>Keep up with attendance records.</small></div>
+        <div class="pp-auth-benefit"><i class="ph ph-shield-check" aria-hidden="true"></i><strong>Private and secure</strong><small>Only your linked children are visible.</small></div>
+      </div>
+    </div>
+
+    <p class="pp-auth-footer">© {% now "Y" %} {{ school_settings.school_name|default:"School" }}. Parent access is managed by the school.</p>
+  </section>
+
+  <section class="pp-auth-panel">
+    <div class="pp-login-box">
+      <div class="pp-login-box__mobile-brand">
+        <span class="pp-auth-logo__mark">
+          {% if school_settings.school_logo %}<img src="{{ school_settings.school_logo.url }}" alt="">{% else %}<i class="ph ph-graduation-cap" aria-hidden="true"></i>{% endif %}
+        </span>
+        <span><strong>{{ school_settings.school_name|default:"School" }}</strong><small>Parent Portal</small></span>
+      </div>
+
+      <span class="pp-login-box__eyebrow"><i class="ph ph-lock-key" aria-hidden="true"></i> Secure parent access</span>
+      <h2>Welcome back</h2>
+      <p class="pp-login-box__intro">Sign in with the guardian phone number registered at the school.</p>
+
+      {% if form.non_field_errors %}
+        <div class="pp-session-error" role="alert">
+          <strong>We couldn’t sign you in.</strong>
+          {{ form.non_field_errors }}
+        </div>
+      {% endif %}
+
+      <form method="post" novalidate>
+        {% csrf_token %}
+        <div class="pp-field">
+          <label for="id_phone">Guardian phone number</label>
+          <div class="pp-field__control">
+            <i class="ph ph-phone" aria-hidden="true"></i>
+            <input id="id_phone" name="phone" type="tel" inputmode="tel" autocomplete="username" value="{{ form.phone.value|default_if_none:'' }}" placeholder="e.g. 0772 000 000" required autofocus>
+          </div>
+          {{ form.phone.errors }}
+        </div>
+
+        <div class="pp-field">
+          <label for="id_password">Password</label>
+          <div class="pp-field__control">
+            <i class="ph ph-lock" aria-hidden="true"></i>
+            <input id="id_password" name="password" type="password" autocomplete="current-password" placeholder="Enter your password" required>
+            <button class="pp-password-toggle" type="button" data-password-toggle aria-controls="id_password" aria-label="Show password"><i class="ph ph-eye" aria-hidden="true"></i></button>
+          </div>
+          {{ form.password.errors }}
+        </div>
+
+        <button class="pp-button pp-button--full" type="submit">Sign in to parent portal <i class="ph ph-arrow-right" aria-hidden="true"></i></button>
+      </form>
+
+      <div class="pp-login-box__security"><i class="ph ph-shield-check" aria-hidden="true"></i><span>First-time users must replace the temporary password before any student information is shown.</span></div>
+      <p class="pp-login-box__support">Having trouble signing in? {% if school_settings.office_phone_number1 %}<a href="tel:{{ school_settings.office_phone_number1 }}">Contact the school office</a>{% else %}Contact the school office for assistance.{% endif %}</p>
+    </div>
+  </section>
+</div>
+{% endblock %}

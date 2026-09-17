@@ -1,0 +1,251 @@
+{% extends "dashboard/base_dashboard.html" %}
+{% load humanize %}
+
+{% block dashboard_section_content %}
+<div class="row">
+  <div class="col-md-3 col-sm-6">
+    <div class="x_panel control-kpi-card tone-cyan">
+      <div class="x_content">
+        <div class="control-kpi-top">
+          <span class="control-kpi-icon"><i class="fa fa-graduation-cap"></i></span>
+          <span class="label label-success">Live</span>
+        </div>
+        <div class="control-kpi-label">Active Students</div>
+        <div class="control-kpi-value">{{ total_students_active|intcomma }}</div>
+        <div class="control-kpi-note">Inactive: {{ total_students_inactive|intcomma }}</div>
+        {% with total_students=total_students_active|add:total_students_inactive %}
+        {% widthratio total_students_active total_students 100 as students_active_rate %}
+        <div class="kpi-mini-chart">
+          <div class="kpi-mini-track"><span class="kpi-mini-fill success" style="width: {{ students_active_rate }}%;"></span></div>
+          <div class="kpi-mini-caption">Active share: {{ students_active_rate }}%</div>
+        </div>
+        {% endwith %}
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3 col-sm-6">
+    <div class="x_panel control-kpi-card">
+      <div class="x_content">
+        <div class="control-kpi-top">
+          <span class="control-kpi-icon"><i class="fa fa-users"></i></span>
+          <span class="label label-info">Teaching</span>
+        </div>
+        <div class="control-kpi-label">Teachers</div>
+        <div class="control-kpi-value">{{ total_teachers|intcomma }}</div>
+        <div class="control-kpi-note">{{ total_classes|intcomma }} classes · {{ total_streams|intcomma }} streams</div>
+        <div class="kpi-mini-chart">
+          <div class="kpi-mini-track"><span class="kpi-mini-fill" style="width: 100%;"></span></div>
+          <div class="kpi-mini-caption">Teaching structure coverage</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3 col-sm-6">
+    <div class="x_panel control-kpi-card tone-green">
+      <div class="x_content">
+        <div class="control-kpi-top">
+          <span class="control-kpi-icon"><i class="fa fa-money"></i></span>
+          <span class="label {% if collection_rate >= 80 %}label-success{% elif collection_rate >= 50 %}label-warning{% else %}label-danger{% endif %}">{{ collection_rate|floatformat:1 }}%</span>
+        </div>
+        <div class="control-kpi-label">Fees Collected</div>
+        <div class="control-kpi-value">UGX {{ total_fees_collected|floatformat:0|intcomma }}</div>
+        <div class="control-kpi-note">Expected: UGX {{ total_fees_expected|floatformat:0|intcomma }}</div>
+        <div class="kpi-mini-chart">
+          <div class="kpi-mini-track"><span class="kpi-mini-fill success" style="width: {{ collection_rate|floatformat:0 }}%;"></span></div>
+          <div class="kpi-mini-caption">Collection progress</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3 col-sm-6">
+    <div class="x_panel control-kpi-card tone-red">
+      <div class="x_content">
+        <div class="control-kpi-top">
+          <span class="control-kpi-icon"><i class="fa fa-exclamation-circle"></i></span>
+          <span class="label {% if outstanding_fees %}label-danger{% else %}label-success{% endif %}">{% if outstanding_fees %}Follow up{% else %}Clear{% endif %}</span>
+        </div>
+        <div class="control-kpi-label">Outstanding Fees</div>
+        <div class="control-kpi-value">UGX {{ outstanding_fees|floatformat:0|intcomma }}</div>
+        <div class="control-kpi-note">Attendance today: {{ attendance_today_rate|floatformat:1 }}%</div>
+        <div class="kpi-mini-chart">
+          <div class="kpi-mini-track"><span class="kpi-mini-fill danger" style="width: {{ outstanding_rate|floatformat:0 }}%;"></span></div>
+          <div class="kpi-mini-caption">Outstanding load: {{ outstanding_rate|floatformat:1 }}%</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row">
+  <div class="col-md-8">
+    <div class="x_panel control-chart-card">
+      <div class="x_title">
+        <h2><i class="fa fa-area-chart"></i> School Performance Pulse</h2>
+        <div class="clearfix"></div>
+      </div>
+      <div class="x_content">
+        <div class="row">
+          <div class="col-md-6">
+            <h4 class="chart-title">Operations Mix</h4>
+            <div id="overview-operations-chart" class="control-chart"></div>
+          </div>
+          <div class="col-md-6">
+            <h4 class="chart-title">Attendance Health</h4>
+            <div id="overview-attendance-chart" class="control-chart"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="x_panel control-chart-card">
+      <div class="x_title">
+        <h2><i class="fa fa-dashboard"></i> Health Score</h2>
+        <div class="clearfix"></div>
+      </div>
+      <div class="x_content">
+        <div id="overview-health-chart" class="control-chart"></div>
+        <p class="text-muted text-center" style="margin-top: -12px;">
+          Blends collection, today attendance, and weekly attendance.
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row">
+  <div class="col-md-5">
+    <div class="x_panel control-chart-card">
+      <div class="x_title">
+        <h2><i class="fa fa-pie-chart"></i> Fees Position</h2>
+        <div class="clearfix"></div>
+      </div>
+      <div class="x_content">
+        <div id="overview-finance-chart" class="control-chart"></div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-7">
+    <div class="x_panel control-chart-card">
+      <div class="x_title">
+        <h2><i class="fa fa-warning"></i> Priority Alerts</h2>
+        <div class="clearfix"></div>
+      </div>
+      <div class="x_content">
+        <div id="overview-risk-chart" style="height: 210px;"></div>
+        <div class="control-table-scroll" style="margin-top: 8px;">
+          <table class="table table-striped table-hover">
+            <thead>
+              <tr><th>Alert</th><th>Count</th><th>Action</th></tr>
+            </thead>
+            <tbody>
+              {% for alert in overview_alerts %}
+              <tr>
+                <td><span class="control-status-dot {% if alert.severity == 'danger' %}risk{% elif alert.severity == 'warning' %}warn{% else %}ok{% endif %}"></span>{{ alert.label }}</td>
+                <td><strong>{{ alert.count|floatformat:0|intcomma }}</strong></td>
+                <td><a href="{{ alert.url }}" class="btn btn-xs btn-primary">Open</a></td>
+              </tr>
+              {% empty %}
+              <tr><td colspan="3" class="text-center text-muted">No active alerts.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row">
+  <div class="col-md-12">
+    <div class="x_panel">
+      <div class="x_title">
+        <h2><i class="fa fa-bolt"></i> Quick Actions</h2>
+        <div class="clearfix"></div>
+      </div>
+      <div class="x_content">
+        <div class="control-action-grid">
+          {% for action in overview_quick_actions %}
+          <a href="{{ action.url }}" class="btn btn-default">
+            <i class="fa {{ action.icon }}"></i> {{ action.label }}
+          </a>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{{ overview_finance_labels|json_script:"overview-finance-labels" }}
+{{ overview_finance_values|json_script:"overview-finance-values" }}
+{{ overview_operations_labels|json_script:"overview-operations-labels" }}
+{{ overview_operations_values|json_script:"overview-operations-values" }}
+{{ overview_attendance_labels|json_script:"overview-attendance-labels" }}
+{{ overview_attendance_values|json_script:"overview-attendance-values" }}
+{{ overview_risk_labels|json_script:"overview-risk-labels" }}
+{{ overview_risk_values|json_script:"overview-risk-values" }}
+{{ operational_health_score|json_script:"overview-health-score" }}
+
+<script>
+(function () {
+  if (typeof ApexCharts === 'undefined') return;
+  function data(id, fallback) {
+    var el = document.getElementById(id);
+    if (!el) return fallback || [];
+    try { return JSON.parse(el.textContent || '[]'); } catch (e) { return fallback || []; }
+  }
+  function mount(selector, options) {
+    var el = document.querySelector(selector);
+    if (!el || el.dataset.chartRendered === 'true') return;
+    new ApexCharts(el, options).render();
+    el.dataset.chartRendered = 'true';
+  }
+  var blue = '#1d4ed8', green = '#16a34a', amber = '#f59e0b', red = '#dc2626', slate = '#64748b', cyan = '#0891b2';
+  mount('#overview-operations-chart', {
+    chart: { type: 'bar', height: 275, toolbar: { show: false } },
+    series: [{ name: 'Count', data: data('overview-operations-values') }],
+    xaxis: { categories: data('overview-operations-labels') },
+    colors: [blue],
+    plotOptions: { bar: { borderRadius: 8, columnWidth: '48%' } },
+    dataLabels: { enabled: false },
+    grid: { borderColor: '#e2e8f0', strokeDashArray: 4 }
+  });
+  mount('#overview-attendance-chart', {
+    chart: { type: 'area', height: 275, toolbar: { show: false } },
+    series: [{ name: 'Attendance %', data: data('overview-attendance-values') }],
+    xaxis: { categories: data('overview-attendance-labels') },
+    yaxis: { min: 0, max: 100, labels: { formatter: function (v) { return Math.round(v) + '%'; } } },
+    colors: [green],
+    dataLabels: { enabled: false },
+    stroke: { curve: 'smooth', width: 3 },
+    fill: { type: 'gradient', gradient: { opacityFrom: .35, opacityTo: .05 } },
+    grid: { borderColor: '#e2e8f0', strokeDashArray: 4 }
+  });
+  mount('#overview-health-chart', {
+    chart: { type: 'radialBar', height: 285, toolbar: { show: false } },
+    series: [Number(data('overview-health-score', 0) || 0)],
+    labels: ['Operational Health'],
+    colors: [cyan],
+    plotOptions: { radialBar: { hollow: { size: '58%' }, dataLabels: { value: { fontSize: '28px', fontWeight: 800 } } } }
+  });
+  mount('#overview-finance-chart', {
+    chart: { type: 'donut', height: 300, toolbar: { show: false } },
+    series: data('overview-finance-values'),
+    labels: data('overview-finance-labels'),
+    colors: [green, red],
+    legend: { position: 'bottom' },
+    dataLabels: { enabled: false },
+    plotOptions: { pie: { donut: { size: '68%' } } }
+  });
+  mount('#overview-risk-chart', {
+    chart: { type: 'bar', height: 210, toolbar: { show: false } },
+    series: [{ name: 'Open Items', data: data('overview-risk-values') }],
+    xaxis: { categories: data('overview-risk-labels') },
+    colors: [amber],
+    dataLabels: { enabled: false },
+    plotOptions: { bar: { borderRadius: 7, columnWidth: '46%' } },
+    grid: { borderColor: '#e2e8f0', strokeDashArray: 4 }
+  });
+})();
+</script>
+{% endblock %}

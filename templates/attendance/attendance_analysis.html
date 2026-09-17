@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+
+{% block page_title %}Attendance Analytics{% endblock page_title %}
+
+{% block content %}
+<style>
+.attendance-analytics-kpi { border:1px solid #e2e8f0; border-left:4px solid #1d4ed8; border-radius:16px; background:#fff; padding:15px; margin-bottom:14px; box-shadow:0 12px 26px rgba(15,23,42,.07); min-height:130px; }
+.attendance-analytics-kpi.good { border-left-color:#16a34a; }
+.attendance-analytics-kpi.warn { border-left-color:#f59e0b; }
+.attendance-analytics-kpi.risk { border-left-color:#dc2626; }
+.attendance-analytics-kpi .label-text { color:#64748b; font-size:11px; font-weight:850; letter-spacing:.06em; text-transform:uppercase; }
+.attendance-analytics-kpi .value { margin-top:5px; color:#0f172a; font-size:30px; font-weight:850; line-height:1.1; }
+.attendance-analytics-kpi .note { margin-top:4px; color:#64748b; font-size:12px; }
+.attendance-chart-box { min-height:300px; }
+</style>
+
+<div class="row">
+  <div class="col-md-12">
+    <div class="x_panel">
+      <div class="x_title">
+        <h2><i class="fa fa-bar-chart"></i> Class Attendance Analytics</h2>
+        <div class="clearfix"></div>
+      </div>
+      <div class="x_content">
+        <div class="alert alert-info">
+          <strong><i class="fa fa-lock"></i> Official analytics use submitted/locked sessions only.</strong>
+          Draft sessions are traced separately so they do not inflate attendance percentages.
+        </div>
+
+        <form method="get" class="form-inline" style="margin-bottom: 12px;">
+          <div class="form-group" style="margin-right:8px; margin-bottom:8px;">{{ filter_form.class_stream.label_tag }} {{ filter_form.class_stream }}</div>
+          <div class="form-group" style="margin-right:8px; margin-bottom:8px;">{{ filter_form.subject.label_tag }} {{ filter_form.subject }}</div>
+          <div class="form-group" style="margin-right:8px; margin-bottom:8px;">{{ filter_form.academic_year.label_tag }} {{ filter_form.academic_year }}</div>
+          <div class="form-group" style="margin-right:8px; margin-bottom:8px;">{{ filter_form.term.label_tag }} {{ filter_form.term }}</div>
+          <div class="form-group" style="margin-right:8px; margin-bottom:8px;">{{ filter_form.date_from.label_tag }} {{ filter_form.date_from }}</div>
+          <div class="form-group" style="margin-right:8px; margin-bottom:8px;">{{ filter_form.date_to.label_tag }} {{ filter_form.date_to }}</div>
+          <button type="submit" class="btn btn-primary" style="margin-bottom:8px;"><i class="fa fa-search"></i> Analyze</button>
+        </form>
+
+        <div class="row">
+          <div class="col-md-3 col-sm-6 col-xs-12"><div class="attendance-analytics-kpi good"><div class="label-text">Average Attendance</div><div class="value">{{ average_rate }}%</div><div class="note">Present + late from locked sessions</div></div></div>
+          <div class="col-md-3 col-sm-6 col-xs-12"><div class="attendance-analytics-kpi risk"><div class="label-text">Below {{ minimum_threshold }}%</div><div class="value">{{ students_below_threshold }}</div><div class="note">Students needing follow-up</div></div></div>
+          <div class="col-md-3 col-sm-6 col-xs-12"><div class="attendance-analytics-kpi"><div class="label-text">Submitted Lessons</div><div class="value">{{ total_lessons }}</div><div class="note">Locked official lessons</div></div></div>
+          <div class="col-md-3 col-sm-6 col-xs-12"><div class="attendance-analytics-kpi warn"><div class="label-text">Draft Sessions</div><div class="value">{{ draft_sessions_count|default:0 }}</div><div class="note">Opened but not official</div></div></div>
+        </div>
+
+        <div class="row">
+          <div class="col-md-7">
+            <div class="x_panel">
+              <div class="x_title"><h2>Daily Attendance Trend</h2><div class="clearfix"></div></div>
+              <div class="x_content"><div id="trendChart" class="attendance-chart-box"></div></div>
+            </div>
+          </div>
+          <div class="col-md-5">
+            <div class="x_panel">
+              <div class="x_title"><h2>Attendance Distribution</h2><div class="clearfix"></div></div>
+              <div class="x_content"><div id="distributionChart" class="attendance-chart-box"></div></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="col-md-12">
+            <div class="x_panel">
+              <div class="x_title"><h2>Term Attendance Percentage</h2><div class="clearfix"></div></div>
+              <div class="x_content"><div id="termLineChart" style="min-height:300px;"></div></div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  if (typeof ApexCharts === 'undefined') return;
+  var trendLabels = {{ trend_labels_json|safe }};
+  var trendValues = {{ trend_values_json|safe }};
+  var distLabels = {{ distribution_labels_json|safe }};
+  var distValues = {{ distribution_values_json|safe }};
+  var termLabels = {{ term_labels_json|safe }};
+  var termValues = {{ term_values_json|safe }};
+  function mount(selector, options) {
+    var el = document.querySelector(selector);
+    if (!el || el.dataset.chartRendered === 'true') return;
+    new ApexCharts(el, options).render();
+    el.dataset.chartRendered = 'true';
+  }
+  var green = '#16a34a', blue = '#1d4ed8', amber = '#f59e0b', red = '#dc2626';
+  mount('#trendChart', {
+    chart: { type: 'bar', height: 300, toolbar: { show: false } },
+    series: [{ name: 'Attendance %', data: trendValues }],
+    xaxis: { categories: trendLabels },
+    yaxis: { min: 0, max: 100, labels: { formatter: function (v) { return Math.round(v) + '%'; } } },
+    colors: [green],
+    dataLabels: { enabled: false },
+    plotOptions: { bar: { borderRadius: 7, columnWidth: '48%' } },
+    grid: { borderColor: '#e2e8f0', strokeDashArray: 4 }
+  });
+  mount('#distributionChart', {
+    chart: { type: 'donut', height: 300, toolbar: { show: false } },
+    series: distValues,
+    labels: distLabels,
+    colors: [green, red, amber, blue, '#7f8c8d'],
+    legend: { position: 'bottom' },
+    dataLabels: { enabled: false },
+    plotOptions: { pie: { donut: { size: '68%' } } }
+  });
+  mount('#termLineChart', {
+    chart: { type: 'area', height: 300, toolbar: { show: false } },
+    series: [{ name: 'Attendance %', data: termValues }],
+    xaxis: { categories: termLabels },
+    yaxis: { min: 0, max: 100, labels: { formatter: function (v) { return Math.round(v) + '%'; } } },
+    colors: [blue],
+    dataLabels: { enabled: false },
+    stroke: { curve: 'smooth', width: 3 },
+    fill: { type: 'gradient', gradient: { opacityFrom: .35, opacityTo: .05 } },
+    grid: { borderColor: '#e2e8f0', strokeDashArray: 4 }
+  });
+})();
+</script>
+{% endblock content %}

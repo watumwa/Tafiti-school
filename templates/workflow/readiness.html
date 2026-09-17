@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+
+{% block page_title %}Workflow Readiness{% endblock %}
+
+{% block content %}
+<div class="workflow-page">
+  <div class="card mb-3">
+    <div class="card-body d-flex flex-wrap align-items-center justify-content-between gap-3">
+      <div>
+        <span class="text-uppercase text-muted small fw-semibold">System workflow guide</span>
+        <h3 class="mb-1">Know what must happen next</h3>
+        <p class="text-muted mb-0">Each task shows the setup it depends on and links directly to the correct page.</p>
+      </div>
+      <div class="readiness-score">
+        <strong>{{ ready_count }}/{{ total_count }}</strong>
+        <span>workflows ready</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="workflow-grid">
+    {% for step in workflow_steps %}
+    <article class="workflow-card {% if step.is_ready %}is-ready{% else %}needs-action{% endif %}">
+      <div class="workflow-card-head">
+        <span class="module-label">{{ step.module }}</span>
+        <span class="badge {% if step.is_ready %}bg-success{% else %}bg-warning text-dark{% endif %}">{{ step.status }}</span>
+      </div>
+      <h5>{{ step.task }}</h5>
+      <p>{{ step.description }}</p>
+      {% if step.missing %}
+      <div class="missing-box">
+        <strong>Complete first</strong>
+        <ul>
+          {% for item in step.missing %}<li>{{ item }}</li>{% endfor %}
+        </ul>
+      </div>
+      {% else %}
+      <div class="ready-box"><i class="fa fa-check-circle me-1"></i> Required setup is available.</div>
+      {% endif %}
+      {% if step.url %}
+      <a href="{{ step.url }}" class="btn btn-sm {% if step.is_ready %}btn-outline-primary{% else %}btn-primary{% endif %}">
+        {% if step.is_ready %}Open module{% else %}Complete setup{% endif %}
+      </a>
+      {% endif %}
+    </article>
+    {% endfor %}
+  </div>
+</div>
+
+<style>
+  .readiness-score { min-width:150px; text-align:center; padding:12px 20px; border-radius:10px; background:#eef7ff; color:#184d78; }
+  .readiness-score strong { display:block; font-size:26px; }
+  .readiness-score span { font-size:12px; }
+  .workflow-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:14px; }
+  .workflow-card { display:flex; flex-direction:column; padding:16px; border:1px solid #dfe6ed; border-top:4px solid #e0a128; border-radius:10px; background:#fff; box-shadow:0 2px 8px rgba(31,45,61,.05); }
+  .workflow-card.is-ready { border-top-color:#26a269; }
+  .workflow-card-head { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px; }
+  .module-label { color:#66788a; font-size:11px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; }
+  .workflow-card h5 { margin-bottom:6px; }
+  .workflow-card > p { min-height:40px; color:#66788a; font-size:13px; }
+  .missing-box, .ready-box { margin:4px 0 14px; padding:10px; border-radius:7px; font-size:12px; }
+  .missing-box { background:#fff7e6; color:#765216; }
+  .missing-box ul { margin:5px 0 0; padding-left:18px; }
+  .ready-box { background:#edf9f3; color:#19704b; }
+  .workflow-card > .btn { margin-top:auto; align-self:flex-start; }
+  @media (max-width:575px) { .workflow-grid { grid-template-columns:1fr; } .workflow-card > .btn { width:100%; } }
+</style>
+{% endblock content %}

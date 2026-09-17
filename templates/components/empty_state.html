@@ -1,0 +1,6 @@
+<div class="ui-empty">
+  <span class="ui-empty__icon"><i class="{{ icon|default:'ph ph-folder-open' }}"></i></span>
+  <h3>{{ title }}</h3>
+  {% if description %}<p>{{ description }}</p>{% endif %}
+  {% if action_url and action_label %}<a class="btn btn-primary" href="{{ action_url }}">{{ action_label }}</a>{% endif %}
+</div>

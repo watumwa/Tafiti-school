@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+
+{% block page_title %}{{ page_heading }}{% endblock page_title %}
+
+{% block content %}
+{% include 'secondary/_nav.html' %}
+
+<div class="x_panel">
+  <div class="x_title"><h2>{{ page_heading }}</h2><div class="clearfix"></div></div>
+  <div class="x_content">
+    <p>{{ page_description }}</p>
+  </div>
+</div>
+{% endblock content %}

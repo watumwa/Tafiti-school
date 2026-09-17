@@ -1,0 +1,22 @@
+{% extends 'parent_portal/base.html' %}
+{% block title %}Conversation with {{ conversation.staff }}{% endblock %}
+{% block content %}
+<header class="pp-page-header">
+  <div><span class="pp-eyebrow">Regarding {{ conversation.student.student_name }}</span><h1>{{ conversation.staff }}</h1><p>{{ conversation.thread.subject }}</p></div>
+  <div class="pp-page-actions"><a class="pp-button pp-button--secondary" href="{% url 'parent_messages' %}"><i class="ph ph-arrow-left"></i> All messages</a></div>
+</header>
+
+<section class="pp-card pp-conversation">
+  <header class="pp-card__header"><div><h2>Conversation</h2><p>Messages are visible to you and this teacher.</p></div><span class="pp-status pp-status--success"><i class="ph ph-lock-simple"></i> Private</span></header>
+  <div class="pp-chat-area">
+    {% for item in thread_messages %}
+      <div class="pp-bubble {% if item.sender_id == request.user.id %}is-mine{% endif %}">{{ item.body|linebreaksbr }}<small>{% if item.sender_id == request.user.id %}You{% else %}{{ item.sender.get_full_name|default:item.sender.username }}{% endif %} · {{ item.created_at|date:"d M Y, H:i" }}</small></div>
+    {% empty %}<div class="pp-empty-state"><h3>No messages in this conversation</h3></div>{% endfor %}
+  </div>
+  <form class="pp-reply-box" method="post">
+    {% csrf_token %}
+    <div class="pp-field"><label for="id_body">Reply</label>{{ form.body }}{{ form.body.errors }}</div>
+    <button class="pp-button" type="submit"><i class="ph ph-paper-plane-tilt"></i> Send reply</button>
+  </form>
+</section>
+{% endblock %}

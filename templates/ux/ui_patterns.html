@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}UI Patterns · School MIS{% endblock %}
+{% block page_title %}UI Patterns{% endblock %}
+{% block legacy_page_header %}{% endblock %}
+{% block content %}
+<div class="ui-page ui-stack">
+  {% include "components/page_header.html" with eyebrow="Internal reference" title="Approved staff UI patterns" description="The shared components and states used while modules are migrated. This page is visible to administrators only." %}
+
+  <section class="ui-metric-grid" aria-label="Metric card examples">
+    {% include "components/metric_card.html" with icon="ph ph-student" label="Students" value="1,284" hint="42 new this term" %}
+    {% include "components/metric_card.html" with icon="ph ph-calendar-check" label="Attendance" value="94.2%" hint="Today" %}
+    {% include "components/metric_card.html" with icon="ph ph-wallet" label="Collections" value="UGX 18.4m" hint="Current term" %}
+    {% include "components/metric_card.html" with icon="ph ph-books" label="Books on loan" value="176" hint="12 overdue" %}
+  </section>
+
+  <section class="ui-card">
+    <header class="ui-card__header"><div><h2>Actions and statuses</h2><p>Use one primary action per work area and concise status labels.</p></div></header>
+    <div class="ui-card__body ui-stack">
+      <div class="ui-cluster">
+        <button class="btn btn-primary" type="button"><i class="ph ph-check"></i> Primary action</button>
+        <button class="btn btn-default" type="button">Secondary action</button>
+        <button class="btn btn-danger" type="button">Destructive action</button>
+        <button class="btn btn-primary" type="button" disabled>Disabled</button>
+      </div>
+      <div class="ui-cluster">
+        <span class="ui-status ui-status--success"><i class="ph ph-check-circle"></i> Active</span>
+        <span class="ui-status ui-status--warning"><i class="ph ph-warning"></i> Pending</span>
+        <span class="ui-status ui-status--danger"><i class="ph ph-x-circle"></i> Overdue</span>
+        <span class="ui-status ui-status--info">In review</span>
+        <span class="ui-status ui-status--neutral">Draft</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="ui-card">
+    <header class="ui-card__header"><div><h2>Forms and filters</h2><p>Labels remain visible and validation is placed beside the affected control.</p></div></header>
+    <div class="ui-card__body">
+      <form class="ui-filter-bar" onsubmit="return false">
+        <div class="ui-field ui-field--wide"><label for="pattern-search">Search</label><input class="form-control" id="pattern-search" type="search" placeholder="Student name or registration number"></div>
+        <div class="ui-field"><label for="pattern-status">Status</label><select class="form-select" id="pattern-status"><option>All statuses</option><option>Active</option></select></div>
+        <div class="ui-field"><button class="btn btn-primary w-100" type="submit">Apply filters</button></div>
+      </form>
+    </div>
+  </section>
+
+  <section class="ui-card">
+    <header class="ui-card__header"><div><h2>Feedback states</h2><p>Messages state what happened and what the user can do next.</p></div></header>
+    <div class="ui-card__body ui-stack">
+      <div class="ui-alert ui-alert--success"><i class="ph ph-check-circle"></i><div><strong>Payment recorded</strong><p>The receipt is ready to print.</p></div></div>
+      <div class="ui-alert ui-alert--warning"><i class="ph ph-warning"></i><div><strong>Review required</strong><p>Two records are missing guardian contacts.</p></div></div>
+      <div class="ui-alert ui-alert--danger"><i class="ph ph-x-circle"></i><div><strong>Could not save</strong><p>Correct the highlighted fields and try again.</p></div></div>
+    </div>
+  </section>
+
+  <section class="ui-card">
+    <header class="ui-card__header"><div><h2>Data table</h2><p>Tables use short labels, explicit state, and actions at the end.</p></div></header>
+    <div class="ui-table-wrap"><table class="ui-table"><thead><tr><th>Student</th><th>Class</th><th>Status</th><th>Balance</th><th></th></tr></thead><tbody><tr><td><strong>John Musoke</strong><br><small>ST0042</small></td><td>S.4 A</td><td><span class="ui-status ui-status--success">Active</span></td><td>UGX 120,000</td><td><button class="btn btn-sm btn-default" type="button">View</button></td></tr><tr><td><strong>Amina Nakanwagi</strong><br><small>ST0043</small></td><td>S.3 B</td><td><span class="ui-status ui-status--warning">Pending</span></td><td>UGX 0</td><td><button class="btn btn-sm btn-default" type="button">View</button></td></tr></tbody></table></div>
+  </section>
+
+  <section class="ui-card">
+    {% include "components/empty_state.html" with icon="ph ph-magnifying-glass" title="No matching records" description="Try removing a filter or searching with a registration number." %}
+  </section>
+</div>
+{% endblock %}

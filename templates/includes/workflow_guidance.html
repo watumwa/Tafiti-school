@@ -1,0 +1,42 @@
+{% if request.user.is_authenticated %}
+  {% if workflow_page_notices %}
+  <section class="workflow-guidance" aria-labelledby="workflow-guidance-title">
+    <div class="workflow-guidance-head">
+      <div>
+        <strong id="workflow-guidance-title"><i class="fa fa-route me-1"></i> Before you continue</strong>
+        <span>Complete these prerequisites to avoid incomplete or conflicting work.</span>
+      </div>
+      <a href="{% url 'workflow_readiness' %}" class="btn btn-sm btn-outline-primary">
+        View full workflow{% if workflow_action_count %} ({{ workflow_action_count }}){% endif %}
+      </a>
+    </div>
+    <div class="workflow-guidance-items">
+      {% for notice in workflow_page_notices %}
+      <div class="workflow-guidance-item">
+        <span class="workflow-step-icon"><i class="fa fa-exclamation"></i></span>
+        <div class="workflow-step-copy">
+          <strong>{{ notice.task }}</strong>
+          <span>{{ notice.missing|join:"; " }}</span>
+        </div>
+        {% if notice.url %}
+        <a href="{{ notice.url }}" class="btn btn-sm btn-warning">Complete setup</a>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+{% endif %}
+
+<style>
+  .workflow-guidance { margin:0 0 16px; border:1px solid #f0cf8a; border-left:4px solid #e0a128; border-radius:8px; background:#fffaf0; overflow:hidden; }
+  .workflow-guidance-head { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 14px; border-bottom:1px solid #f2dfb7; }
+  .workflow-guidance-head > div { display:flex; flex-direction:column; gap:2px; }
+  .workflow-guidance-head span { color:#6c6251; font-size:12px; }
+  .workflow-guidance-items { display:grid; grid-template-columns:repeat(auto-fit,minmax(290px,1fr)); gap:1px; background:#f2dfb7; }
+  .workflow-guidance-item { display:flex; align-items:center; gap:10px; padding:11px 14px; background:#fffdf8; }
+  .workflow-step-icon { flex:0 0 28px; width:28px; height:28px; display:inline-flex; align-items:center; justify-content:center; border-radius:50%; background:#fff0c9; color:#a86a00; }
+  .workflow-step-copy { min-width:0; flex:1; display:flex; flex-direction:column; }
+  .workflow-step-copy span { color:#6c6251; font-size:12px; }
+  @media (max-width:767px) { .workflow-guidance-head, .workflow-guidance-item { align-items:flex-start; flex-direction:column; } .workflow-guidance-head .btn, .workflow-guidance-item .btn { width:100%; } }
+</style>

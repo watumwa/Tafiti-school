@@ -1,0 +1,23 @@
+{% extends 'parent_portal/base.html' %}
+{% block title %}Timetable · {{ student.student_name }}{% endblock %}
+{% block content %}
+<header class="pp-page-header"><div><span class="pp-eyebrow">{{ student.student_name }}</span><h1>Weekly timetable</h1><p>{% if class_stream %}{{ class_stream }}{% if current_term %} · Term {{ current_term.term }}, {{ current_term.academic_year }}{% endif %}{% else %}The current class timetable will appear here when it is published.{% endif %}</p></div><div class="pp-page-actions"><a class="pp-button" href="{% url 'parent_message_new' student.id %}"><i class="ph ph-chat-circle-dots"></i> Message teacher</a></div></header>
+{% include 'parent_portal/_child_tabs.html' %}
+
+{% if has_timetable %}<div class="pp-timetable-days">
+  {% for day in weekday_rows %}
+  {% if day.entries %}
+  <section class="pp-card pp-timetable-day {% if day.code == today_code %}is-today{% endif %}">
+    <header class="pp-card__header"><div><span class="pp-section-kicker">{% if day.code == today_code %}Today{% else %}School day{% endif %}</span><h2>{{ day.label }}</h2></div><span class="pp-status">{{ day.entries|length }} lesson{{ day.entries|length|pluralize }}</span></header>
+    <div class="pp-timetable-list">
+      {% for entry in day.entries %}
+      <div class="pp-timetable-row"><time><strong>{{ entry.time_slot.start_time|time:"H:i" }}</strong><small>{{ entry.time_slot.end_time|time:"H:i" }}</small></time><span class="pp-timetable-row__subject"><strong>{{ entry.subject }}</strong><small>{% if entry.teacher %}{{ entry.teacher }}{% else %}Teacher not assigned{% endif %}</small></span><span class="pp-timetable-row__room"><i class="ph ph-map-pin"></i>{% if entry.classroom %}{{ entry.classroom }}{% else %}Room TBA{% endif %}</span></div>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+  {% endfor %}
+</div>{% else %}
+<section class="pp-card"><div class="pp-empty-state"><span class="pp-empty-state__icon"><i class="ph ph-calendar-x"></i></span><h3>No timetable published</h3><p>{% if class_stream %}The school has not published timetable entries for this class yet.{% else %}Contact the school if this student should have an active class timetable.{% endif %}</p></div></section>
+{% endif %}
+{% endblock %}

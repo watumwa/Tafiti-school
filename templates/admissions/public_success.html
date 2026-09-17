@@ -1,0 +1,3 @@
+{% extends 'admissions/public_base.html' %}
+{% block title %}Application received{% endblock %}
+{% block content %}<div class="card"><div class="notice"><h1>Application received</h1><p>Your application was submitted successfully.</p></div><p class="muted">Application number</p><p class="status">{{ application.application_number }}</p><p>Save or write down this number. You will need it together with the guardian telephone number to track the application.</p><a class="btn" href="{% url 'public_admission_track' %}">Track application</a></div>{% endblock %}

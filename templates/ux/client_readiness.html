@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+
+{% block title %}Client Readiness Checklist{% endblock %}
+{% block page_title %}Client Readiness Checklist{% endblock %}
+
+{% block content %}
+<div class="commercial-hero readiness-hero">
+  <div>
+    <span class="commercial-eyebrow">Before client handover</span>
+    <h1><i class="fa fa-clipboard-check"></i> Client Readiness Checklist</h1>
+    <p>Use this page to close the gap between a functional custom system and a system that feels simple, guided and reliable to school staff.</p>
+  </div>
+  <a href="{% url 'system_user_guide' %}" class="btn btn-light"><i class="fa fa-life-ring"></i> User Guide</a>
+</div>
+
+<div class="alert alert-info commercial-alert">
+  <strong>Professional note:</strong> The system does not need to copy every commercial product feature. It needs predictable workflows, clear menus, trusted reports and safe live-data behavior.
+</div>
+
+<div class="commercial-check-table">
+  {% for check in checks %}
+  <div class="commercial-check-item priority-{{ check.priority|lower }}">
+    <div class="check-area">{{ check.area }}</div>
+    <div class="check-body">
+      <h4>{{ check.title }}</h4>
+      <p>{{ check.detail }}</p>
+    </div>
+    <div class="check-priority">
+      <span class="badge {% if check.priority == 'High' %}bg-danger{% else %}bg-warning text-dark{% endif %}">{{ check.priority }}</span>
+    </div>
+    <a href="{{ check.url }}" class="btn btn-sm btn-outline-primary">Test</a>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="x_panel commercial-panel mt-4">
+  <div class="x_title"><h2><i class="fa fa-comments"></i> How to explain this to the client</h2><div class="clearfix"></div></div>
+  <div class="x_content">
+    <p class="mb-2">Use this wording during handover:</p>
+    <blockquote class="commercial-quote">
+      The system is operational and built around Bayan Learning Center’s daily workflows. We have improved finance reporting, preserved existing records, simplified role workflows and added guidance pages. We recommend using the readiness checklist during the first days of staff testing so any remaining confusion is handled before full rollout.
+    </blockquote>
+  </div>
+</div>
+{% endblock %}

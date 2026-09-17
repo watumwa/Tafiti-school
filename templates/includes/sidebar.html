@@ -1,0 +1,489 @@
+{% load static %}
+<nav class="pc-sidebar">
+  <div class="navbar-wrapper">
+    <div class="m-header" style="padding:18px 20px 14px;border-bottom:1px solid rgba(255,255,255,0.08);">
+      <a href="{% url 'index_page' %}" class="b-brand text-decoration-none d-flex align-items-center gap-3">
+        {% if school_settings and school_settings.school_logo %}
+        <img src="{{ school_settings.school_logo.url }}" alt="logo" style="height:52px;width:52px;object-fit:contain;border-radius:10px;background:rgba(255,255,255,0.1);padding:4px;flex-shrink:0;" />
+        {% else %}
+        <div class="school-brand-mark">
+          {% if school_settings and school_settings.school_name and school_settings.school_name != "None" %}{{ school_settings.school_name|slice:":1"|upper }}{% else %}S{% endif %}
+        </div>
+        {% endif %}
+        <div class="school-brand-name">{% if school_settings and school_settings.school_name and school_settings.school_name != "None" %}{{ school_settings.school_name }}{% else %}School MIS{% endif %}</div>
+      </a>
+    </div>
+    <div class="navbar-content">
+      {% if request.user.is_authenticated %}
+      <div class="pc-user-card">
+        <div class="d-flex align-items-center gap-3 px-3 py-3">
+          <div class="flex-shrink-0">
+            {% if request.user.staff_account.staff.staff_photo %}
+            <img src="{{ request.user.staff_account.staff.staff_photo.url }}"
+                 style="width:42px;height:42px;border-radius:50%;object-fit:cover;border:2px solid rgba(255,255,255,0.25);" />
+            {% else %}
+            <div style="width:42px;height:42px;border-radius:50%;background:rgba(255,255,255,0.2);border:2px solid rgba(255,255,255,0.3);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:1rem;color:#fff;">
+              {{ request.user.username|first|upper }}
+            </div>
+            {% endif %}
+          </div>
+          <div class="flex-grow-1" style="min-width:0;">
+            <div style="font-weight:600;font-size:.875rem;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+              {{ request.user.username }}
+            </div>
+            <div style="font-size:.75rem;color:rgba(255,255,255,0.6);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+              {{ active_role|default:request.user.staff_account.role.name|default:"Staff" }}
+            </div>
+          </div>
+          <a href="{% url 'logout' %}" title="Logout"
+             style="color:rgba(255,255,255,0.5);flex-shrink:0;font-size:1.1rem;line-height:1;"
+             onmouseover="this.style.color='#fff'" onmouseout="this.style.color='rgba(255,255,255,0.5)'">
+            <i class="ph ph-sign-out"></i>
+          </a>
+        </div>
+      </div>
+      {% endif %}
+
+      <ul class="pc-navbar">
+
+        {% if request.user.is_authenticated %}
+        {% with effective_role=active_role|default:request.user.staff_account.role.name|default:"" %}
+        {% with role_key=effective_role|lower %}
+
+        <!-- ===== COMMON ITEMS ===== -->
+
+        {% if role_key == "admin" or role_key == "super admin" or role_key == "super-admin" %}
+
+        <li class="pc-item pc-caption"><label>Control Tower</label></li>
+
+        <li class="pc-item">
+          <a href="{% url 'index_page' %}" class="pc-link">
+            <span class="pc-micon"><i class="ph ph-house-line"></i></span>
+            <span class="pc-mtext">Dashboard</span>
+          </a>
+        </li>
+
+        <li class="pc-item pc-hasmenu">
+          <a href="#!" class="pc-link">
+            <span class="pc-micon"><i class="ph ph-chart-pie-slice"></i></span>
+            <span class="pc-mtext">Analytics</span>
+            <span class="pc-arrow"><i class="ti ti-chevron-right"></i></span>
+          </a>
+          <ul class="pc-submenu">
+            <li class="pc-item"><a class="pc-link" href="{% url 'dashboard_overview' %}">Overview</a></li>
+            <li class="pc-item"><a class="pc-link" href="{% url 'dashboard_finance' %}">Finance</a></li>
+            <li class="pc-item"><a class="pc-link" href="{% url 'dashboard_academics' %}">Academics</a></li>
+            <li class="pc-item"><a class="pc-link" href="{% url 'dashboard_attendance' %}">Attendance</a></li>
+            <li class="pc-item"><a class="pc-link" href="{% url 'dashboard_reports' %}">Reports</a></li>
+          </ul>
+        </li>
+
+        <li class="pc-item pc-caption"><label>Administration</label></li>
+
+        {% if admissions_enabled %}
+        <li class="pc-item pc-hasmenu"><a href="#!" class="pc-link"><span class="pc-micon"><i class="ph ph-user-plus"></i></span><span class="pc-mtext">Admissions</span><span class="pc-arrow"><i class="ti ti-chevron-right"></i></span></a><ul class="pc-submenu"><li class="pc-item"><a class="pc-link" href="{% url 'admission_dashboard' %}">Overview</a></li><li class="pc-item"><a class="pc-link" href="{% url 'admission_list' %}">Applications</a></li><li class="pc-item"><a class="pc-link" href="{% url 'admission_create' %}">New Application</a></li><li class="pc-item"><a class="pc-link" href="{% url 'admission_list' %}?status=waitlisted">Waitlist</a></li><li class="pc-item"><a class="pc-link" href="{% url 'admission_list' %}?status=accepted">Accepted</a></li><li class="pc-item"><a class="pc-link" href="{% url 'admission_list' %}?status=enrolled">Enrolled</a></li></ul></li>
+        {% endif %}
+        {% if library_enabled %}
+        <li class="pc-item"><a href="{% url 'library_dashboard' %}" class="pc-link"><span class="pc-micon"><i class="ph ph-books"></i></span><span class="pc-mtext">Library</span></a></li>
+        {% endif %}
+
+        <li class="pc-item pc-hasmenu">
+          <a href="#!" class="pc-link">
+            <span class="pc-micon"><i class="ph ph-gear"></i></span>
+            <span class="pc-mtext">Administration</span>
+            <span class="pc-arrow"><i class="ti ti-chevron-right"></i></span>
+          </a>
+          <ul class="pc-submenu">
+            <li class="pc-item"><a class="pc-link" href="{% url 'settings_page' %}">School Profile</a></li>
+            <li class="pc-item"><a class="pc-link" href="{% url 'user_list' %}">Manage Users</a></li>
+            {% if parent_portal_enabled %}<li class="pc-item"><a class="pc-link" href="{% url 'parent_access_management' %}">Parent Accounts</a></li>{% endif %}
+          </ul>
+        </li>
+
+        <li class="pc-item pc-caption"><label>Academics</label></li>
+
+        <li class="pc-item pc-hasmenu">
+          <a href="#!" class="pc-link">
+            <span class="pc-micon"><i class="ph ph-books"></i></span>
+            <span class="pc-mtext">Academics</span>
+            <span class="pc-arrow"><i class="ti ti-chevron-right"></i></span>
+          </a>
+          <ul class="pc-submenu">
+            <li class="pc-item"><a class="pc-link" href="{% url 'class_page' %}">Classes</a></li>
+            <li class="pc-item"><a class="pc-link" href="{% url 'stream_page' %}">Streams</a></li>
+            <li class="pc-item"><a class="pc-link" href="{% url 'subjects_page' %}">Subjects</a></li>
+            <li class="pc-item"><a class="pc-link" href="{% url 'subject_allocation_page' %}">Subject Allocation</a></li>
+            <li class="pc-item"><a class="pc-link" href="{% url 'academic_class_page' %}">Academic Classes</a></li>
+          </ul>
+        </li>
+
+        <li class="pc-item pc-hasmenu">
+          <a href="#!" class="pc-link">
+            <span class="pc-micon"><i class="ph ph-users"></i></span>
+            <span class="pc-mtext">Students</span>
+            <span class="pc-arrow"><i class="ti ti-chevron-right"></i></span>
+          </a>
+          <ul class="pc-submenu">
+            <li class="pc-item"><a class="pc-link" href="{% url 'student_page' %}">Students</a></li>
+            <li class="pc-item"><a class="pc-link" href="{% url 'take_attendance' %}">Take Attendance</a></li>
+            <li class="pc-item"><a class="pc-link" href="{% url 'student_attendance_report' %}">Student Attendance</a></li>
+            <li class="pc-item"><a class="pc-link" href="{% url 'class_attendance_report' %}">Class Attendance</a></li>
+            <li class="pc-item"><a class="pc-link" href="{% url 'attendance_dashboard' %}">Attendance Dashboard</a></li>
+            <li class="pc-item"><a class="pc-link" href="{% url 'attendance_analysis' %}">Attendance Analysis</a></li>
+          </ul>
+        </li>
+
+        <li class="pc-item pc-hasmenu">
+          <a href="#!" class="pc-link">
+            <span class="pc-micon"><i class="ph ph-user-list"></i></span>
+            <span class="pc-mtext">Human Resource</span>
+            <span class="pc-arrow"><i class="ti ti-chevron-right"></i></span>
+          </a>
+          <ul class="pc-submenu">
+            <li class="pc-item"><a class="pc-link" href="{% url 'staff_page' %}">Manage Staff</a></li>
+          </ul>
+        </li>
+
+        <li class="pc-item pc-hasmenu">
+          <a href="#!" class="pc-link">
+            <span class="pc-micon"><i class="ph ph-calendar-blank"></i></span>
+            <span class="pc-mtext">Timetable</span>
+            <span class="pc-arrow"><i class="ti ti-chevron-right"></i></span>
+          </a>
+          <ul class="pc-submenu">
+            <li class="pc-item"><a class="pc-link" href="{% url 'timetable_center' %}">Set Timetable</a></li>
+            <li class="pc-item"><a class="pc-link" href="{% url 'exam_timetable' %}">Exam Timetable</a></li>
+          </ul>
+        </li>
+
+        <li class="pc-item pc-hasmenu">
+          <a href="#!" class="pc-link">
+            <span class="pc-micon"><i class="ph ph-graduation-cap"></i></span>
+            <span class="pc-mtext">Results</span>
+            <span class="pc-arrow"><i class="ti ti-chevron-right"></i></span>
+          </a>
+          <ul class="pc-submenu">
+            <li class="pc-item"><a class="pc-link" href="{% url 'school_results_dashboard' %}">Results Overview</a></li>
+            {% if result_verification_enabled %}<li class="pc-item"><a class="pc-link" href="{% url 'verification_overview' %}">Verify Assessments</a></li>{% endif %}
+            <li class="pc-item"><a class="pc-link" href="{% url 'assesment_type_page' %}">Assessment Types</a></li>
+            <li class="pc-item"><a class="pc-link" href="{% url 'assessment_create' %}">Assessment Control</a></li>
+            <li class="pc-item"><a class="pc-link" href="{% url 'add_grading_system_page' %}">Grading System</a></li>
+            <li class="pc-item"><a class="pc-link" href="{% url 'add_results_page' %}">Results Work Queue</a></li>
+            <li class="pc-item"><a class="pc-link" href="{% url 'bulk_result_entry' %}">Bulk Result Import</a></li>
+            <li class="pc-item"><a class="pc-link" href="{% url 'class_stream_filter' %}">Academic Reports</a></li>
+            <li class="pc-item"><a class="pc-link" href="{% url 'class_performance_summary' %}">Performance Analytics</a></li>
+            <li class="pc-item"><a class="pc-link" href="{% url 'class_assessment_combined' %}">Combined Assessments</a></li>
+            <li class="pc-item"><a class="pc-link" href="{% url 'assessment_sheet' %}">Assessment Sheet</a></li>
+          </ul>
+        </li>
+
+        <li class="pc-item pc-caption"><label>Finance</label></li>
+
+        <li class="pc-item pc-hasmenu">
+          <a href="#!" class="pc-link">
+            <span class="pc-micon"><i class="ph ph-money"></i></span>
+            <span class="pc-mtext">Fees & Payments</span>
+            <span class="pc-arrow"><i class="ti ti-chevron-right"></i></span>
+          </a>
+          <ul class="pc-submenu">
+            <li class="pc-item"><a class="pc-link" href="{% url 'quick_payment' %}">Record Payment</a></li>
+            <li class="pc-item"><a class="pc-link" href="{% url 'student_bill_page' %}">Student Bills</a></li>
+            <li class="pc-item"><a class="pc-link" href="{% url 'class_bill_list' %}">Class Bills</a></li>
+            <li class="pc-item"><a class="pc-link" href="{% url 'bulk_create_class_bills' %}">Bulk Create Bills</a></li>
+            <li class="pc-item"><a class="pc-link" href="{% url 'fees_status' %}">Fees Status</a></li>
+            <li class="pc-item"><a class="pc-link" href="{% url 'carry_forward_balances' %}">Carry Forward Balances</a></li>
+          </ul>
+        </li>
+
+        <li class="pc-item pc-hasmenu">
+          <a href="#!" class="pc-link">
+            <span class="pc-micon"><i class="ph ph-chart-line-up"></i></span>
+            <span class="pc-mtext">Finance Management</span>
+            <span class="pc-arrow"><i class="ti ti-chevron-right"></i></span>
+          </a>
+          <ul class="pc-submenu">
+            <li class="pc-item"><a class="pc-link" href="{% url 'financial_dashboard' %}">Financial Dashboard</a></li>
+            <li class="pc-item"><a class="pc-link" href="{% url 'income_source_page' %}">Income Sources</a></li>
+            <li class="pc-item"><a class="pc-link" href="{% url 'expense_page' %}">Expenses</a></li>
+            <li class="pc-item"><a class="pc-link" href="{% url 'budget_page' %}">Budget</a></li>
+            <li class="pc-item"><a class="pc-link" href="{% url 'vendor_page' %}">Vendors</a></li>
+            <li class="pc-item"><a class="pc-link" href="{% url 'bank_reconciliation' %}">Bank Reconciliation</a></li>
+            <li class="pc-item"><a class="pc-link" href="{% url 'expenditure_page' %}">Expenditure</a></li>
+            <li class="pc-item"><a class="pc-link" href="{% url 'approval_workflow' %}">Approvals</a></li>
+            <li class="pc-item"><a class="pc-link" href="{% url 'financial_summary_report' %}">Financial Summary</a></li>
+            <li class="pc-item"><a class="pc-link" href="{% url 'income_statement' %}">Income Statement</a></li>
+            <li class="pc-item"><a class="pc-link" href="{% url 'cash_flow' %}">Cash Flow Report</a></li>
+            <li class="pc-item"><a class="pc-link" href="{% url 'vendor_report' %}">Vendor Payments</a></li>
+          </ul>
+        </li>
+
+        <li class="pc-item pc-caption"><label>Communication</label></li>
+
+        <li class="pc-item pc-hasmenu">
+          <a href="#!" class="pc-link">
+            <span class="pc-micon"><i class="ph ph-megaphone"></i></span>
+            <span class="pc-mtext">Communication
+              {% if comm_unread_count > 0 %}<span class="pc-badge">{{ comm_unread_count }}</span>{% endif %}
+            </span>
+            <span class="pc-arrow"><i class="ti ti-chevron-right"></i></span>
+          </a>
+          <ul class="pc-submenu">
+            <li class="pc-item"><a class="pc-link" href="{% url 'announcement_list' %}">Announcements</a></li>
+            <li class="pc-item"><a class="pc-link" href="{% url 'event_list' %}">Events</a></li>
+            <li class="pc-item"><a class="pc-link" href="{% url 'message_inbox' %}">Messages
+              {% if comm_unread_breakdown.messages > 0 %}<span class="badge bg-danger ms-1">{{ comm_unread_breakdown.messages }}</span>{% endif %}
+            </a></li>
+          </ul>
+        </li>
+
+        <!-- ===== TEACHER ===== -->
+        {% elif role_key == "teacher" or role_key == "subject teacher" or role_key == "subject-teacher" %}
+
+        <li class="pc-item pc-caption"><label>Teaching</label></li>
+
+        <li class="pc-item pc-hasmenu">
+          <a href="#!" class="pc-link">
+            <span class="pc-micon"><i class="ph ph-graduation-cap"></i></span>
+            <span class="pc-mtext">Results</span>
+            <span class="pc-arrow"><i class="ti ti-chevron-right"></i></span>
+          </a>
+          <ul class="pc-submenu">
+            <li class="pc-item"><a class="pc-link" href="{% url 'add_results_page' %}">Results Work Queue</a></li>
+            <li class="pc-item"><a class="pc-link" href="{% url 'class_stream_filter' %}">Academic Reports</a></li>
+          </ul>
+        </li>
+
+        <li class="pc-item">
+          <a href="{% url 'teacher_timetable' %}" class="pc-link">
+            <span class="pc-micon"><i class="ph ph-calendar-blank"></i></span>
+            <span class="pc-mtext">My Timetable</span>
+          </a>
+        </li>
+
+        <li class="pc-item pc-hasmenu">
+          <a href="#!" class="pc-link">
+            <span class="pc-micon"><i class="ph ph-megaphone"></i></span>
+            <span class="pc-mtext">Communication</span>
+            <span class="pc-arrow"><i class="ti ti-chevron-right"></i></span>
+          </a>
+          <ul class="pc-submenu">
+            <li class="pc-item"><a class="pc-link" href="{% url 'announcement_list' %}">Announcements</a></li>
+            <li class="pc-item"><a class="pc-link" href="{% url 'message_inbox' %}">Messages</a></li>
+          </ul>
+        </li>
+
+        <!-- ===== BURSAR / FINANCE ===== -->
+        {% elif role_key == "bursar" or role_key == "finance manager" %}
+
+        <li class="pc-item pc-caption"><label>Finance</label></li>
+
+        <li class="pc-item pc-hasmenu">
+          <a href="#!" class="pc-link">
+            <span class="pc-micon"><i class="ph ph-money"></i></span>
+            <span class="pc-mtext">Fees & Payments</span>
+            <span class="pc-arrow"><i class="ti ti-chevron-right"></i></span>
+          </a>
+          <ul class="pc-submenu">
+            <li class="pc-item"><a class="pc-link" href="{% url 'quick_payment' %}">Record Payment</a></li>
+            <li class="pc-item"><a class="pc-link" href="{% url 'student_bill_page' %}">Student Bills</a></li>
+            <li class="pc-item"><a class="pc-link" href="{% url 'class_bill_list' %}">Class Bills</a></li>
+            <li class="pc-item"><a class="pc-link" href="{% url 'fees_status' %}">Fees Status</a></li>
+            <li class="pc-item"><a class="pc-link" href="{% url 'carry_forward_balances' %}">Carry Forward Balances</a></li>
+          </ul>
+        </li>
+
+        <li class="pc-item pc-hasmenu">
+          <a href="#!" class="pc-link">
+            <span class="pc-micon"><i class="ph ph-chart-line-up"></i></span>
+            <span class="pc-mtext">Finance</span>
+            <span class="pc-arrow"><i class="ti ti-chevron-right"></i></span>
+          </a>
+          <ul class="pc-submenu">
+            <li class="pc-item"><a class="pc-link" href="{% url 'financial_dashboard' %}">Financial Dashboard</a></li>
+            <li class="pc-item"><a class="pc-link" href="{% url 'expenditure_page' %}">Expenditure</a></li>
+            <li class="pc-item"><a class="pc-link" href="{% url 'financial_summary_report' %}">Financial Summary</a></li>
+            <li class="pc-item"><a class="pc-link" href="{% url 'income_statement' %}">Income Statement</a></li>
+          </ul>
+        </li>
+
+        <!-- ===== DOS ===== -->
+        {% elif role_key == "director of studies" or role_key == "director-of-studies" or role_key == "dos" %}
+
+        <li class="pc-item pc-caption"><label>Academics</label></li>
+
+        <li class="pc-item">
+          <a href="{% url 'index_page' %}" class="pc-link">
+            <span class="pc-micon"><i class="ph ph-house-line"></i></span>
+            <span class="pc-mtext">Dashboard</span>
+          </a>
+        </li>
+
+        {% if result_verification_enabled %}
+        <li class="pc-item">
+          <a href="{% url 'verification_overview' %}" class="pc-link">
+            <span class="pc-micon"><i class="ph ph-check-square-offset"></i></span>
+            <span class="pc-mtext">Verify Assessments</span>
+            {% if pending_verification_count > 0 %}
+            <span class="pc-badge bg-danger">{{ pending_verification_count }}</span>
+            {% endif %}
+          </a>
+        </li>
+        {% endif %}
+
+        <li class="pc-item pc-hasmenu">
+          <a href="#!" class="pc-link">
+            <span class="pc-micon"><i class="ph ph-books"></i></span>
+            <span class="pc-mtext">Academic Setup</span>
+            <span class="pc-arrow"><i class="ti ti-chevron-right"></i></span>
+          </a>
+          <ul class="pc-submenu">
+            <li class="pc-item"><a class="pc-link" href="{% url 'academic_class_page' %}">Academic Classes</a></li>
+            <li class="pc-item"><a class="pc-link" href="{% url 'subject_allocation_page' %}">Subject Allocation</a></li>
+            <li class="pc-item"><a class="pc-link" href="{% url 'subjects_page' %}">Subjects</a></li>
+          </ul>
+        </li>
+
+        <li class="pc-item pc-hasmenu">
+          <a href="#!" class="pc-link">
+            <span class="pc-micon"><i class="ph ph-calendar-blank"></i></span>
+            <span class="pc-mtext">Timetable</span>
+            <span class="pc-arrow"><i class="ti ti-chevron-right"></i></span>
+          </a>
+          <ul class="pc-submenu">
+            <li class="pc-item"><a class="pc-link" href="{% url 'timetable_center' %}">Timetable Builder</a></li>
+            <li class="pc-item"><a class="pc-link" href="{% url 'school_timetable' %}">School Timetable</a></li>
+            <li class="pc-item"><a class="pc-link" href="{% url 'classrooms' %}">Room Setup</a></li>
+            <li class="pc-item"><a class="pc-link" href="{% url 'exam_timetable' %}">Exam Timetable</a></li>
+          </ul>
+        </li>
+
+        <li class="pc-item pc-hasmenu">
+          <a href="#!" class="pc-link">
+            <span class="pc-micon"><i class="ph ph-graduation-cap"></i></span>
+            <span class="pc-mtext">Results</span>
+            <span class="pc-arrow"><i class="ti ti-chevron-right"></i></span>
+          </a>
+          <ul class="pc-submenu">
+            <li class="pc-item"><a class="pc-link" href="{% url 'school_results_dashboard' %}">Results Overview</a></li>
+            {% if result_verification_enabled %}<li class="pc-item"><a class="pc-link" href="{% url 'verification_overview' %}">Verify Assessments</a></li>{% endif %}
+            <li class="pc-item"><a class="pc-link" href="{% url 'assessment_create' %}">Assessment Control</a></li>
+            <li class="pc-item"><a class="pc-link" href="{% url 'assesment_type_page' %}">Assessment Types</a></li>
+            <li class="pc-item"><a class="pc-link" href="{% url 'add_results_page' %}">Results Work Queue</a></li>
+            <li class="pc-item"><a class="pc-link" href="{% url 'class_stream_filter' %}">Academic Reports</a></li>
+            <li class="pc-item"><a class="pc-link" href="{% url 'class_assessment_combined' %}">Combined Assessment Reports</a></li>
+            <li class="pc-item"><a class="pc-link" href="{% url 'class_performance_summary' %}">Performance Analytics</a></li>
+            <li class="pc-item"><a class="pc-link" href="{% url 'assessment_sheet' %}">Assessment Sheet</a></li>
+          </ul>
+        </li>
+
+        <li class="pc-item pc-hasmenu">
+          <a href="#!" class="pc-link">
+            <span class="pc-micon"><i class="ph ph-users"></i></span>
+            <span class="pc-mtext">Students</span>
+            <span class="pc-arrow"><i class="ti ti-chevron-right"></i></span>
+          </a>
+          <ul class="pc-submenu">
+            <li class="pc-item"><a class="pc-link" href="{% url 'student_page' %}">Students</a></li>
+            <li class="pc-item"><a class="pc-link" href="{% url 'student_attendance_report' %}">Attendance Report</a></li>
+          </ul>
+        </li>
+
+        <!-- ===== HEAD TEACHER / PRINCIPAL ===== -->
+        {% elif role_key == "head teacher" or role_key == "head-teacher" or role_key == "head master" or role_key == "headteacher" or role_key == "headmaster" or role_key == "principal" %}
+
+        <li class="pc-item pc-caption"><label>School Management</label></li>
+
+        <li class="pc-item pc-hasmenu">
+          <a href="#!" class="pc-link">
+            <span class="pc-micon"><i class="ph ph-chart-pie-slice"></i></span>
+            <span class="pc-mtext">Dashboards</span>
+            <span class="pc-arrow"><i class="ti ti-chevron-right"></i></span>
+          </a>
+          <ul class="pc-submenu">
+            <li class="pc-item"><a class="pc-link" href="{% url 'dashboard_overview' %}">Overview</a></li>
+            <li class="pc-item"><a class="pc-link" href="{% url 'dashboard_academics' %}">Academics</a></li>
+            <li class="pc-item"><a class="pc-link" href="{% url 'dashboard_attendance' %}">Attendance</a></li>
+          </ul>
+        </li>
+
+        <li class="pc-item pc-hasmenu">
+          <a href="#!" class="pc-link">
+            <span class="pc-micon"><i class="ph ph-users"></i></span>
+            <span class="pc-mtext">Students</span>
+            <span class="pc-arrow"><i class="ti ti-chevron-right"></i></span>
+          </a>
+          <ul class="pc-submenu">
+            <li class="pc-item"><a class="pc-link" href="{% url 'student_page' %}">Students</a></li>
+            <li class="pc-item"><a class="pc-link" href="{% url 'student_attendance_report' %}">Attendance Report</a></li>
+          </ul>
+        </li>
+
+        <li class="pc-item pc-hasmenu">
+          <a href="#!" class="pc-link">
+            <span class="pc-micon"><i class="ph ph-graduation-cap"></i></span>
+            <span class="pc-mtext">Results</span>
+            <span class="pc-arrow"><i class="ti ti-chevron-right"></i></span>
+          </a>
+          <ul class="pc-submenu">
+            <li class="pc-item"><a class="pc-link" href="{% url 'school_results_dashboard' %}">Results Overview</a></li>
+            <li class="pc-item"><a class="pc-link" href="{% url 'class_stream_filter' %}">Academic Reports</a></li>
+          </ul>
+        </li>
+
+        <!-- ===== CLASS TEACHER ===== -->
+        {% elif role_key == "class teacher" or role_key == "class_teacher" or role_key == "class-teacher" %}
+
+        <li class="pc-item pc-caption"><label>Class Management</label></li>
+
+        <li class="pc-item pc-hasmenu">
+          <a href="#!" class="pc-link">
+            <span class="pc-micon"><i class="ph ph-users"></i></span>
+            <span class="pc-mtext">Students</span>
+            <span class="pc-arrow"><i class="ti ti-chevron-right"></i></span>
+          </a>
+          <ul class="pc-submenu">
+            <li class="pc-item"><a class="pc-link" href="{% url 'student_page' %}">Students</a></li>
+            <li class="pc-item"><a class="pc-link" href="{% url 'take_attendance' %}">Take Attendance</a></li>
+            <li class="pc-item"><a class="pc-link" href="{% url 'student_attendance_report' %}">Attendance Report</a></li>
+          </ul>
+        </li>
+
+        <li class="pc-item pc-hasmenu">
+          <a href="#!" class="pc-link">
+            <span class="pc-micon"><i class="ph ph-graduation-cap"></i></span>
+            <span class="pc-mtext">Results</span>
+            <span class="pc-arrow"><i class="ti ti-chevron-right"></i></span>
+          </a>
+          <ul class="pc-submenu">
+            <li class="pc-item"><a class="pc-link" href="{% url 'add_results_page' %}">Results Work Queue</a></li>
+            <li class="pc-item"><a class="pc-link" href="{% url 'class_stream_filter' %}">Academic Reports</a></li>
+          </ul>
+        </li>
+
+        {% elif role_key == "admissions officer" %}
+        {% if admissions_enabled %}<li class="pc-item pc-caption"><label>Admissions</label></li><li class="pc-item"><a class="pc-link" href="{% url 'admission_dashboard' %}"><span class="pc-micon"><i class="ph ph-chart-pie-slice"></i></span><span class="pc-mtext">Overview</span></a></li><li class="pc-item"><a class="pc-link" href="{% url 'admission_list' %}"><span class="pc-micon"><i class="ph ph-files"></i></span><span class="pc-mtext">Applications</span></a></li><li class="pc-item"><a class="pc-link" href="{% url 'admission_create' %}"><span class="pc-micon"><i class="ph ph-plus-circle"></i></span><span class="pc-mtext">New Application</span></a></li><li class="pc-item"><a class="pc-link" href="{% url 'admission_list' %}?status=waitlisted"><span class="pc-micon"><i class="ph ph-clock"></i></span><span class="pc-mtext">Waitlist</span></a></li>{% endif %}
+
+        {% elif role_key == "librarian" or role_key == "library assistant" %}
+        {% if library_enabled %}<li class="pc-item pc-caption"><label>Library</label></li><li class="pc-item"><a class="pc-link" href="{% url 'library_dashboard' %}"><span class="pc-micon"><i class="ph ph-chart-pie-slice"></i></span><span class="pc-mtext">Dashboard</span></a></li><li class="pc-item"><a class="pc-link" href="{% url 'library_catalogue' %}"><span class="pc-micon"><i class="ph ph-books"></i></span><span class="pc-mtext">Books</span></a></li><li class="pc-item"><a class="pc-link" href="{% url 'library_members' %}"><span class="pc-micon"><i class="ph ph-users"></i></span><span class="pc-mtext">Members</span></a></li><li class="pc-item"><a class="pc-link" href="{% url 'library_loans' %}"><span class="pc-micon"><i class="ph ph-arrows-left-right"></i></span><span class="pc-mtext">Circulation</span></a></li><li class="pc-item"><a class="pc-link" href="{% url 'library_loans' %}?status=overdue"><span class="pc-micon"><i class="ph ph-clock"></i></span><span class="pc-mtext">Overdue</span></a></li><li class="pc-item pc-caption"><label>Quick Operations</label></li><li class="pc-item"><a class="pc-link" href="{% url 'library_issue' %}"><span class="pc-micon"><i class="ph ph-arrow-square-out"></i></span><span class="pc-mtext">Issue Book</span></a></li><li class="pc-item"><a class="pc-link" href="{% url 'library_return_station' %}"><span class="pc-micon"><i class="ph ph-arrow-u-down-left"></i></span><span class="pc-mtext">Return Book</span></a></li><li class="pc-item pc-caption"><label>Management</label></li><li class="pc-item"><a class="pc-link" href="{% url 'library_fines' %}"><span class="pc-micon"><i class="ph ph-receipt"></i></span><span class="pc-mtext">Fines</span></a></li>{% endif %}
+
+        {% else %}
+        <li class="pc-item">
+          <span class="pc-link text-muted">No menu for your role.</span>
+        </li>
+        {% endif %}
+
+        {% endwith %}
+        {% endwith %}
+        {% else %}
+        <li class="pc-item">
+          <a href="{% url 'login' %}" class="pc-link">
+            <span class="pc-micon"><i class="ph ph-sign-in"></i></span>
+            <span class="pc-mtext">Login</span>
+          </a>
+        </li>
+        {% endif %}
+
+      </ul>
+    </div>
+  </div>
+</nav>

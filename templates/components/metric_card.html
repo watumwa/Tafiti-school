@@ -1,0 +1,8 @@
+<article class="ui-card ui-metric">
+  <span class="ui-metric__icon"><i class="{{ icon|default:'ph ph-chart-bar' }}"></i></span>
+  <div>
+    <span class="ui-metric__label">{{ label }}</span>
+    <strong class="ui-metric__value">{{ value }}</strong>
+    {% if hint %}<small class="ui-metric__hint">{{ hint }}</small>{% endif %}
+  </div>
+</article>

@@ -1,0 +1,20 @@
+{% extends 'parent_portal/base.html' %}
+{% block title %}Attendance · {{ student.student_name }}{% endblock %}
+{% block content %}
+<header class="pp-page-header"><div><span class="pp-eyebrow">{{ student.student_name }}</span><h1>Attendance</h1><p>Locked, published attendance records{% if current_term %} for Term {{ current_term.term }}, {{ current_term.academic_year }}{% endif %}.</p></div></header>
+{% include 'parent_portal/_child_tabs.html' %}
+
+<section class="pp-card">
+  <div class="pp-summary-strip"><div class="pp-summary-item"><small>Attendance rate</small><strong>{% if attendance_percent != None %}{{ attendance_percent }}%{% else %}—{% endif %}</strong></div><div class="pp-summary-item"><small>Present</small><strong>{{ counts.present|default:0 }}</strong></div><div class="pp-summary-item"><small>Absent</small><strong>{{ counts.absent|default:0 }}</strong></div><div class="pp-summary-item"><small>Late / excused</small><strong>{{ counts.late|default:0 }} / {{ counts.excused|default:0 }}</strong></div></div>
+  {% if attendance_percent != None %}<div class="pp-card__footer"><div class="pp-progress" aria-label="Attendance rate {{ attendance_percent }} percent"><span style="width:{{ attendance_percent }}%"></span></div></div>{% endif %}
+</section>
+
+<section class="pp-card pp-calendar-card">
+  <header class="pp-card__header"><div><h2>Attendance calendar</h2><p>Select a month to review daily records</p></div><div class="pp-calendar-controls"><a href="?month={{ previous_month|date:'Y-m' }}" aria-label="Previous month"><i class="ph ph-caret-left"></i></a><strong>{{ month|date:"F Y" }}</strong><a href="?month={{ next_month|date:'Y-m' }}" aria-label="Next month"><i class="ph ph-caret-right"></i></a></div></header>
+  <div class="pp-attendance-legend"><span><i class="is-present"></i>Present</span><span><i class="is-late"></i>Late</span><span><i class="is-absent"></i>Absent</span><span><i class="is-excused"></i>Excused</span></div>
+  <div class="pp-calendar-weekdays"><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span></div>
+  <div class="pp-calendar-grid pp-attendance-calendar">{% for week in calendar_weeks %}{% for day in week %}<div class="pp-calendar-day {% if not day.in_month %}is-outside{% endif %} {% if day.is_today %}is-today{% endif %}"><time>{{ day.date|date:"j" }}</time><div class="pp-attendance-marks">{% for record in day.values %}<span class="is-{{ record.status }}" title="{{ record.session.subject }}: {{ record.get_status_display }}"></span>{% endfor %}</div></div>{% endfor %}{% endfor %}</div>
+</section>
+
+<section class="pp-card"><header class="pp-card__header"><div><h2>Recent records</h2><p>Most recent published sessions</p></div></header>{% if records %}<div class="pp-table-wrap"><table class="pp-table"><thead><tr><th>Date</th><th>Subject</th><th>Status</th><th>Remarks</th></tr></thead><tbody>{% for record in records %}<tr><td data-label="Date">{{ record.session.date|date:"d M Y" }}</td><td data-label="Subject" class="pp-table__primary">{{ record.session.subject }}</td><td data-label="Status"><span class="pp-status {% if record.status == 'absent' %}pp-status--danger{% elif record.status == 'late' %}pp-status--warning{% elif record.status == 'present' %}pp-status--success{% else %}pp-status--info{% endif %}">{{ record.get_status_display }}</span></td><td data-label="Remarks">{{ record.remarks|default:"—" }}</td></tr>{% endfor %}</tbody></table></div>{% else %}<div class="pp-empty-state"><span class="pp-empty-state__icon"><i class="ph ph-calendar-check"></i></span><h3>No attendance published</h3><p>Locked attendance records will appear here.</p></div>{% endif %}</section>
+{% endblock %}

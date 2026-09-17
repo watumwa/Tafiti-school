@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% load humanize %}
+{% block title %}Quick Payment · School MIS{% endblock %}
+{% block page_title %}Quick Payment{% endblock %}
+{% block legacy_page_header %}{% endblock %}
+{% block content %}
+<div class="ui-page ui-stack">
+  {% include "components/page_header.html" with eyebrow="Finance desk" title="Record a student payment" description="Find the learner, confirm the bill and balance, then record the payment without leaving this screen." %}
+
+  <section class="ui-card">
+    <header class="ui-card__header"><div><h2>1. Find student</h2><p>Search by student name, registration number, guardian or contact.</p></div></header>
+    <div class="ui-card__body">
+      <form method="get" class="ui-filter-bar">
+        <div class="ui-field ui-field--wide"><label for="student-search">Student</label><input class="form-control" id="student-search" name="q" type="search" value="{{ query }}" placeholder="Name, registration number or guardian…" autofocus></div>
+        <div class="ui-field"><button class="btn btn-primary w-100" type="submit"><i class="ph ph-magnifying-glass"></i> Search</button></div>
+      </form>
+      {% if query %}
+      <div class="ui-table-wrap mt-3"><table class="ui-table"><thead><tr><th>Student</th><th>Class</th><th>Guardian</th><th></th></tr></thead><tbody>
+        {% for row in students %}<tr><td><strong>{{ row.student_name }}</strong><br><small>{{ row.display_student_id }}</small></td><td>{{ row.current_class|default:"—" }} {{ row.stream|default:"" }}</td><td>{{ row.guardian }}<br><small>{{ row.contact }}</small></td><td><a class="btn btn-sm {% if selected_student.id == row.id %}btn-primary{% else %}btn-default{% endif %}" href="?student={{ row.id }}&q={{ query|urlencode }}">Select</a></td></tr>
+        {% empty %}<tr><td colspan="4">No students match “{{ query }}”.</td></tr>{% endfor %}
+      </tbody></table></div>
+      {% endif %}
+    </div>
+  </section>
+
+  {% if selected_student %}
+  <section class="ui-card">
+    <header class="ui-card__header"><div><h2>2. Confirm account</h2><p>{{ selected_student.student_name }} · {{ selected_student.display_student_id }} · {{ selected_student.current_class }} {{ selected_student.stream }}</p></div><a class="btn btn-sm btn-default" href="{% url 'student_details_page' selected_student.id %}?tab=payments">Student 360°</a></header>
+    <div class="ui-card__body ui-stack">
+      <div class="ui-metric-grid">
+        {% include "components/metric_card.html" with icon="ph ph-receipt" label="Total billed" value=totals.total_billed|floatformat:0|intcomma hint="UGX" %}
+        {% include "components/metric_card.html" with icon="ph ph-check-circle" label="Total paid" value=totals.total_paid|floatformat:0|intcomma hint="UGX" %}
+        {% include "components/metric_card.html" with icon="ph ph-wallet" label="Balance" value=totals.balance|floatformat:0|intcomma hint="UGX" %}
+      </div>
+      <form method="get" class="ui-filter-bar">
+        <input type="hidden" name="student" value="{{ selected_student.id }}">
+        <div class="ui-field ui-field--wide"><label for="bill-select">Bill</label><select class="form-select" id="bill-select" name="bill" onchange="this.form.submit()"><option value="">Select bill</option>{% for bill in bills %}<option value="{{ bill.id }}" {% if selected_bill.id == bill.id %}selected{% endif %}>Bill #{{ bill.id }} · {{ bill.academic_class }} · Balance UGX {{ bill.balance|floatformat:0|intcomma }}</option>{% endfor %}</select></div>
+      </form>
+    </div>
+  </section>
+  {% endif %}
+
+  {% if selected_bill and payment_form %}
+  <section class="ui-card">
+    <header class="ui-card__header"><div><h2>3. Record payment</h2><p>Outstanding on Bill #{{ selected_bill.id }}: UGX {{ selected_bill.balance|floatformat:0|intcomma }}</p></div>{% if selected_bill_has_balance %}<span class="ui-status ui-status--warning">Payment due</span>{% else %}<span class="ui-status ui-status--success">Paid</span>{% endif %}</header>
+    <div class="ui-card__body">
+      {% if payment_form.non_field_errors %}<div class="ui-alert ui-alert--danger mb-3"><i class="ph ph-warning"></i><div>{{ payment_form.non_field_errors }}</div></div>{% endif %}
+      <form method="post" action="?student={{ selected_student.id }}&bill={{ selected_bill.id }}" class="ui-stack" data-protect-unsaved="true">
+        {% csrf_token %}<input type="hidden" name="bill" value="{{ selected_bill.id }}">
+        <div class="ui-filter-bar">
+          {% for field in payment_form %}<div class="ui-field {% if field.name == 'notes' %}ui-field--wide{% endif %}"><label for="{{ field.id_for_label }}">{{ field.label }}{% if field.field.required %} *{% endif %}</label>{{ field }}{% if field.help_text %}<small class="form-text text-muted">{{ field.help_text }}</small>{% endif %}{% for error in field.errors %}<small class="text-danger d-block">{{ error }}</small>{% endfor %}</div>{% endfor %}
+        </div>
+        <div class="ui-form-actions"><a class="btn btn-default" href="{% url 'fees_status' %}">Cancel</a><button class="btn btn-primary" type="submit" {% if not selected_bill_has_balance %}disabled{% endif %}><i class="ph ph-check"></i> Confirm payment</button></div>
+      </form>
+    </div>
+  </section>
+  {% endif %}
+
+  {% if recent_payments %}
+  <section class="ui-card"><header class="ui-card__header"><div><h2>Recent payments</h2><p>Latest transactions for this student.</p></div></header><div class="ui-table-wrap"><table class="ui-table"><thead><tr><th>Date</th><th>Reference</th><th>Method</th><th>Amount</th><th></th></tr></thead><tbody>{% for payment in recent_payments %}<tr><td>{{ payment.payment_date|date:"d M Y" }}</td><td>{{ payment.reference_no }}</td><td>{{ payment.payment_method }}</td><td><strong>UGX {{ payment.amount|floatformat:0|intcomma }}</strong></td><td><a class="btn btn-sm btn-default" href="{% url 'student_payment_receipt' payment.id %}"><i class="ph ph-printer"></i> Receipt</a></td></tr>{% endfor %}</tbody></table></div></section>
+  {% endif %}
+</div>
+{% endblock %}

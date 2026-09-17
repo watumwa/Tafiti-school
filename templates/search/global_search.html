@@ -1,0 +1,234 @@
+{% extends "base.html" %}
+{% load humanize %}
+
+{% block page_title %}Search{% endblock %}
+
+{% block content %}
+<div class="production-search-page">
+  <div class="production-page-head">
+    <div>
+      <div class="production-eyebrow">Find anything</div>
+      <h1 class="mb-1">Search the school</h1>
+      <p class="text-muted mb-0">Find students, staff, users, classes, streams and subjects from one place.</p>
+    </div>
+  </div>
+
+  <div class="card production-search-card mb-3">
+    <div class="card-body">
+      <form method="get" action="{% url 'global_search' %}" role="search">
+        <label for="global-search-input" class="visually-hidden">Search the school</label>
+        <div class="input-group input-group-lg production-search-box">
+          <span class="input-group-text"><i class="ph ph-magnifying-glass" aria-hidden="true"></i></span>
+          <input
+            id="global-search-input"
+            type="search"
+            class="form-control"
+            name="q"
+            value="{{ query }}"
+            placeholder="Search by name, registration number, email, class or subject"
+            autocomplete="off"
+            autofocus
+          >
+          <button type="submit" class="btn btn-primary px-4">
+            <i class="ph ph-magnifying-glass me-1" aria-hidden="true"></i> Search
+          </button>
+        </div>
+      </form>
+      {% if has_query %}
+      <div class="production-search-meta mt-3" aria-live="polite">
+        <span><strong>{{ total_results|intcomma }}</strong> match{{ total_results|pluralize }} for <strong>“{{ query }}”</strong></span>
+      </div>
+      {% else %}
+      <div class="production-search-meta mt-3">Enter at least part of a name, identifier or school record.</div>
+      {% endif %}
+    </div>
+  </div>
+
+  {% if has_query %}
+  <div class="production-search-counts mb-3" aria-label="Search result counts">
+    <div class="production-count-card"><strong>{{ result_counts.students }}</strong><span>Students</span></div>
+    <div class="production-count-card"><strong>{{ result_counts.staff }}</strong><span>Staff</span></div>
+    <div class="production-count-card"><strong>{{ result_counts.users }}</strong><span>Users</span></div>
+    <div class="production-count-card"><strong>{{ result_counts.classes }}</strong><span>Classes</span></div>
+    <div class="production-count-card"><strong>{{ result_counts.academic_classes }}</strong><span>Academic classes</span></div>
+    <div class="production-count-card"><strong>{{ result_counts.subjects }}</strong><span>Subjects</span></div>
+  </div>
+
+  {% if total_results %}
+  <div class="row g-3">
+    <div class="col-xl-6">
+      <section class="card production-result-section h-100" aria-labelledby="search-students-title">
+        <div class="card-header d-flex align-items-center justify-content-between">
+          <div><h2 class="h5 mb-0" id="search-students-title">Students</h2><small class="text-muted">Student records and profiles</small></div>
+          <span class="badge bg-light text-dark">{{ result_counts.students }}</span>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-hover mb-0">
+            <thead><tr><th>Student</th><th>Reg No</th><th>Class</th><th class="text-end">Action</th></tr></thead>
+            <tbody>
+              {% for item in students %}
+              <tr>
+                <td><strong>{{ item.student_name }}</strong></td>
+                <td>{{ item.display_student_id }}</td>
+                <td>{{ item.current_class.code|default:item.current_class.name }}</td>
+                <td class="text-end"><a href="{% url 'student_details_page' item.id %}" class="btn btn-sm btn-outline-primary">Open</a></td>
+              </tr>
+              {% empty %}
+              <tr><td colspan="4" class="empty-state">No student matches.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+
+    <div class="col-xl-6">
+      <section class="card production-result-section h-100" aria-labelledby="search-staff-title">
+        <div class="card-header d-flex align-items-center justify-content-between">
+          <div><h2 class="h5 mb-0" id="search-staff-title">Staff</h2><small class="text-muted">Staff profiles and departments</small></div>
+          <span class="badge bg-light text-dark">{{ result_counts.staff }}</span>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-hover mb-0">
+            <thead><tr><th>Staff member</th><th>Department</th><th>Email</th><th class="text-end">Action</th></tr></thead>
+            <tbody>
+              {% for item in staff_members %}
+              <tr>
+                <td><strong>{{ item.first_name }} {{ item.last_name }}</strong></td>
+                <td>{{ item.department|default:"-" }}</td>
+                <td>{{ item.email|default:"-" }}</td>
+                <td class="text-end"><a href="{% url 'staff_details_page' item.id %}" class="btn btn-sm btn-outline-primary">Open</a></td>
+              </tr>
+              {% empty %}
+              <tr><td colspan="4" class="empty-state">No staff matches.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+
+    <div class="col-xl-6">
+      <section class="card production-result-section h-100" aria-labelledby="search-users-title">
+        <div class="card-header d-flex align-items-center justify-content-between">
+          <div><h2 class="h5 mb-0" id="search-users-title">Users</h2><small class="text-muted">System accounts</small></div>
+          <span class="badge bg-light text-dark">{{ result_counts.users }}</span>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-hover mb-0">
+            <thead><tr><th>Username</th><th>Role</th><th>Status</th><th class="text-end">Action</th></tr></thead>
+            <tbody>
+              {% for item in users %}
+              <tr>
+                <td><strong>{{ item.username }}</strong></td>
+                <td>{{ item.role_name }}</td>
+                <td>{% if item.is_active %}<span class="badge bg-success-subtle text-success">Active</span>{% else %}<span class="badge bg-secondary-subtle text-secondary">Inactive</span>{% endif %}</td>
+                <td class="text-end"><a href="{% url 'user_detail' item.id %}" class="btn btn-sm btn-outline-primary">Open</a></td>
+              </tr>
+              {% empty %}
+              <tr><td colspan="4" class="empty-state">No user matches.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+
+    <div class="col-xl-6">
+      <section class="card production-result-section h-100" aria-labelledby="search-classes-title">
+        <div class="card-header d-flex align-items-center justify-content-between">
+          <div><h2 class="h5 mb-0" id="search-classes-title">Classes &amp; streams</h2><small class="text-muted">School structure</small></div>
+          <span class="badge bg-light text-dark">{{ result_counts.classes }}</span>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-hover mb-0">
+            <thead><tr><th>Type</th><th>Name</th><th>Details</th><th class="text-end">Action</th></tr></thead>
+            <tbody>
+              {% for item in classes %}
+              <tr>
+                <td><span class="badge bg-primary-subtle text-primary">Class</span></td>
+                <td><strong>{{ item.code }} - {{ item.name }}</strong></td>
+                <td>{{ item.section.section_name|default:"-" }}</td>
+                <td class="text-end"><a href="{% url 'class_page' %}" class="btn btn-sm btn-outline-primary">Open</a></td>
+              </tr>
+              {% endfor %}
+              {% for item in streams %}
+              <tr>
+                <td><span class="badge bg-info-subtle text-info">Stream</span></td>
+                <td><strong>{{ item.stream }}</strong></td>
+                <td>-</td>
+                <td class="text-end"><a href="{% url 'stream_page' %}" class="btn btn-sm btn-outline-primary">Open</a></td>
+              </tr>
+              {% endfor %}
+              {% if not classes and not streams %}
+              <tr><td colspan="4" class="empty-state">No class or stream matches.</td></tr>
+              {% endif %}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+
+    <div class="col-xl-6">
+      <section class="card production-result-section h-100" aria-labelledby="search-academic-title">
+        <div class="card-header d-flex align-items-center justify-content-between">
+          <div><h2 class="h5 mb-0" id="search-academic-title">Academic classes</h2><small class="text-muted">Class instances by term and year</small></div>
+          <span class="badge bg-light text-dark">{{ result_counts.academic_classes }}</span>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-hover mb-0">
+            <thead><tr><th>Class</th><th>Term / year</th><th>Section</th><th class="text-end">Action</th></tr></thead>
+            <tbody>
+              {% for item in academic_classes %}
+              <tr>
+                <td><strong>{{ item.Class.code }} - {{ item.Class.name }}</strong></td>
+                <td>Term {{ item.term.term }} · {{ item.academic_year.academic_year }}</td>
+                <td>{{ item.section.section_name }}</td>
+                <td class="text-end"><a href="{% url 'academic_class_details_page' item.id %}" class="btn btn-sm btn-outline-primary">Open</a></td>
+              </tr>
+              {% empty %}
+              <tr><td colspan="4" class="empty-state">No academic class matches.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+
+    <div class="col-xl-6">
+      <section class="card production-result-section h-100" aria-labelledby="search-subjects-title">
+        <div class="card-header d-flex align-items-center justify-content-between">
+          <div><h2 class="h5 mb-0" id="search-subjects-title">Subjects</h2><small class="text-muted">Teaching subjects</small></div>
+          <span class="badge bg-light text-dark">{{ result_counts.subjects }}</span>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-hover mb-0">
+            <thead><tr><th>Subject</th><th>Section</th><th class="text-end">Action</th></tr></thead>
+            <tbody>
+              {% for item in subjects %}
+              <tr>
+                <td><strong>{{ item.name }}</strong></td>
+                <td>{{ item.section.section_name|default:"-" }}</td>
+                <td class="text-end"><a href="{% url 'subjects_page' %}" class="btn btn-sm btn-outline-primary">Open</a></td>
+              </tr>
+              {% empty %}
+              <tr><td colspan="3" class="empty-state">No subject matches.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </div>
+  {% else %}
+  <div class="card production-zero-results">
+    <div class="card-body text-center py-5">
+      <i class="ph ph-magnifying-glass display-5 text-muted" aria-hidden="true"></i>
+      <h2 class="h5 mt-3">No matching records</h2>
+      <p class="text-muted mb-0">Try a shorter name, registration number, username, class or subject.</p>
+    </div>
+  </div>
+  {% endif %}
+  {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,17 @@
+{% extends 'parent_portal/base.html' %}
+{% block title %}Announcements{% endblock %}
+{% block content %}
+<header class="pp-page-header"><div><span class="pp-eyebrow">School communication</span><h1>Announcements</h1><p>Important notices and updates shared with parents.</p></div></header>
+
+{% for item in announcements %}
+<article class="pp-card pp-announcement {% if item.priority == 'high' %}pp-announcement--high{% endif %}">
+  <div class="pp-card__body">
+    <div class="pp-announcement__meta"><span class="pp-status {% if item.priority == 'high' %}pp-status--danger{% else %}pp-status--info{% endif %}">{{ item.get_priority_display }}</span><span class="pp-caption"><i class="ph ph-calendar-blank"></i> {{ item.starts_at|date:"d M Y" }}</span></div>
+    <h2>{{ item.title }}</h2>
+    <p>{{ item.body|linebreaksbr }}</p>
+  </div>
+</article>
+{% empty %}
+<section class="pp-card"><div class="pp-empty-state"><span class="pp-empty-state__icon"><i class="ph ph-megaphone"></i></span><h3>No current announcements</h3><p>New parent notices from the school will appear here.</p></div></section>
+{% endfor %}
+{% endblock %}

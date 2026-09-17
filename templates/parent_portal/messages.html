@@ -1,0 +1,20 @@
+{% extends 'parent_portal/base.html' %}
+{% block title %}Messages{% endblock %}
+{% block content %}
+<header class="pp-page-header">
+  <div><span class="pp-eyebrow">Communication</span><h1>Messages</h1><p>Private conversations with teachers currently assigned to your children.</p></div>
+  {% with first=request.parent_accesses.first %}{% if first %}<div class="pp-page-actions"><a class="pp-button" href="{% url 'parent_message_new' first.student_id %}"><i class="ph ph-plus"></i> New message</a></div>{% endif %}{% endwith %}
+</header>
+
+<section class="pp-card pp-notice-list">
+  {% for conversation in conversations %}
+  <a class="pp-notice-row" href="{% url 'parent_message_thread' conversation.id %}">
+    <span class="pp-notice-row__icon"><i class="ph ph-user-circle"></i></span>
+    <span class="pp-notice-row__copy"><strong>{{ conversation.staff }}</strong><p>{{ conversation.student.student_name }} · {{ conversation.thread.subject|default:"School conversation" }}</p></span>
+    <span class="pp-notice-row__time">{{ conversation.thread.updated_at|timesince }} ago</span>
+  </a>
+  {% empty %}
+  <div class="pp-empty-state"><span class="pp-empty-state__icon"><i class="ph ph-chats-circle"></i></span><h3>No conversations yet</h3><p>Start a message from your child’s overview to contact an assigned teacher.</p></div>
+  {% endfor %}
+</section>
+{% endblock %}

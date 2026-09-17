@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+
+{% block page_title %}Learner Report Centre{% endblock %}
+
+{% block content %}
+<div class="report-center-page">
+  <div class="card mb-3">
+    <div class="card-body">
+      <div class="d-flex flex-wrap justify-content-between align-items-start gap-3">
+        <div>
+          <span class="text-uppercase text-muted small fw-semibold">Learner reports</span>
+          <h3 class="mb-1">{{ student.student_name }}</h3>
+          <div class="text-muted">{{ student.reg_no }}{% if academic_class %} · {{ academic_class }}{% endif %}</div>
+        </div>
+        <a href="{% url 'student_performance' student.id %}{% if selected_term_id %}?term={{ selected_term_id }}{% endif %}" class="btn btn-outline-secondary btn-sm">
+          <i class="fa fa-arrow-left me-1"></i> Back to performance
+        </a>
+      </div>
+
+      <form method="get" class="row g-2 align-items-end mt-3">
+        <div class="col-md-5">
+          <label for="reportTerm" class="form-label">Academic term</label>
+          <select name="term_id" id="reportTerm" class="form-select" onchange="this.form.submit()">
+            {% for term in terms %}
+            <option value="{{ term.id }}" {% if selected_term_id == term.id|stringformat:'s' %}selected{% endif %}>
+              {{ term.academic_year.academic_year }} · Term {{ term.term }}
+            </option>
+            {% empty %}
+            <option value="">No enrolled terms found</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-auto">
+          <button class="btn btn-primary" type="submit">Check reports</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  {% if selected_term %}
+  <div class="row g-3">
+    {% for card in report_cards %}
+    <div class="col-lg-6">
+      <article class="report-choice-card {% if card.is_ready %}is-ready{% else %}not-ready{% endif %}">
+        <div class="report-choice-icon">
+          {% if card.format == 'tahfiz' %}<i class="fa fa-book-open"></i>{% else %}<i class="fa fa-graduation-cap"></i>{% endif %}
+        </div>
+        <div class="report-choice-body">
+          <div class="d-flex justify-content-between align-items-start gap-2">
+            <h4>{{ card.title }}</h4>
+            {% if card.is_ready %}<span class="badge bg-success">Ready</span>{% else %}<span class="badge bg-warning text-dark">Not ready</span>{% endif %}
+          </div>
+          <p class="text-muted">{{ card.description }}</p>
+          <div class="readiness-note {% if card.is_ready %}ready{% else %}waiting{% endif %}">{{ card.note }}</div>
+          {% if card.subjects %}
+          <div class="subject-list">
+            {% for subject in card.subjects %}<span>{{ subject }}</span>{% endfor %}
+          </div>
+          {% endif %}
+          {% if card.is_ready %}
+          <a href="{{ card.url }}" class="btn {% if card.format == 'tahfiz' %}btn-success{% else %}btn-primary{% endif %}" target="_blank" rel="noopener">
+            <i class="fa fa-file-pdf me-1"></i> Generate {{ card.title }}
+          </a>
+          {% else %}
+          <button class="btn btn-secondary" type="button" disabled>Generate {{ card.title }}</button>
+          {% endif %}
+        </div>
+      </article>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="alert alert-warning">No academic term enrollment was found for this learner.</div>
+  {% endif %}
+</div>
+
+<style>
+  .report-choice-card { height:100%; display:flex; gap:16px; padding:20px; border:1px solid #dfe6ed; border-top:4px solid #d39e00; border-radius:12px; background:#fff; box-shadow:0 3px 12px rgba(31,45,61,.06); }
+  .report-choice-card.is-ready { border-top-color:#26a269; }
+  .report-choice-icon { flex:0 0 54px; width:54px; height:54px; display:flex; align-items:center; justify-content:center; border-radius:12px; background:#eef5fb; color:#24628f; font-size:23px; }
+  .report-choice-card.is-ready .report-choice-icon { background:#eaf8f1; color:#19704b; }
+  .report-choice-body { flex:1; min-width:0; }
+  .report-choice-body h4 { margin:0 0 8px; }
+  .readiness-note { margin:10px 0; padding:9px 11px; border-radius:7px; font-size:13px; }
+  .readiness-note.ready { background:#edf9f3; color:#19704b; }
+  .readiness-note.waiting { background:#fff7e6; color:#765216; }
+  .subject-list { display:flex; flex-wrap:wrap; gap:6px; margin:0 0 14px; }
+  .subject-list span { padding:4px 8px; border-radius:14px; background:#f1f4f7; color:#526476; font-size:11px; }
+  @media (max-width:575px) { .report-choice-card { flex-direction:column; } .report-choice-body .btn { width:100%; } }
+</style>
+{% endblock content %}

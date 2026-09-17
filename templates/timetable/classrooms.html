@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row">
+  <div class="col-md-12">
+    <div class="x_panel">
+      <div class="x_title">
+        <h2><i class="fa fa-building"></i> Classrooms</h2>
+        <ul class="nav navbar-right panel_toolbox">
+          <li><a class="collapse-link"><i class="fa fa-chevron-up"></i></a></li>
+        </ul>
+        <div class="clearfix"></div>
+      </div>
+      <div class="x_content">
+        <div class="alert alert-info" role="alert">
+          <i class="fa fa-info-circle"></i> Room availability is used for timetable allocation and conflict checks.
+        </div>
+
+        {% if can_manage_classrooms %}
+        <form method="post" class="row" style="margin-bottom:18px;" data-protect-unsaved="true">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="add">
+          <div class="col-md-3"><label>Room name</label>{{ classroom_form.name }}</div>
+          <div class="col-md-4"><label>Block / location</label>{{ classroom_form.location }}</div>
+          <div class="col-md-2"><label>Capacity</label>{{ classroom_form.capacity }}</div>
+          <div class="col-md-3" style="padding-top:24px;"><button class="btn btn-primary" type="submit"><i class="fa fa-plus"></i> Add Classroom</button></div>
+        </form>
+        {% endif %}
+
+        <div class="table-responsive">
+          <table class="table table-striped">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Room</th>
+                <th>Location</th>
+                <th>Capacity</th>
+                {% if can_manage_classrooms %}<th>Actions</th>{% endif %}
+              </tr>
+            </thead>
+            <tbody>
+              {% for room in classrooms %}
+                <tr>
+                  <td>{{ forloop.counter }}</td>
+                  <td>{{ room }}</td>
+                  <td>{{ room.location|default:"—" }}</td>
+                  <td>{{ room.capacity|default:0 }}</td>
+                  {% if can_manage_classrooms %}
+                  <td>
+                    <button type="button" class="btn btn-default btn-xs" data-toggle="modal" data-target="#editRoom{{ room.id }}"><i class="fa fa-edit"></i> Edit</button>
+                    <form method="post" style="display:inline;" onsubmit="return confirm('Delete this unused classroom?');">
+                      {% csrf_token %}<input type="hidden" name="action" value="delete"><input type="hidden" name="room_id" value="{{ room.id }}">
+                      <button class="btn btn-danger btn-xs" type="submit"><i class="fa fa-trash"></i></button>
+                    </form>
+                  </td>
+                  {% endif %}
+                </tr>
+              {% empty %}
+                <tr>
+                  <td colspan="5"><div class="empty-state"><h4>No classrooms configured</h4><p>Add rooms before assigning them in the timetable.</p></div></td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% if can_manage_classrooms %}
+        {% for room in classrooms %}
+        <div class="modal fade" id="editRoom{{ room.id }}" tabindex="-1" role="dialog">
+          <div class="modal-dialog"><div class="modal-content"><form method="post" data-protect-unsaved="true">
+            {% csrf_token %}<input type="hidden" name="action" value="edit"><input type="hidden" name="room_id" value="{{ room.id }}">
+            <div class="modal-header"><h4 class="modal-title">Edit {{ room.name }}</h4></div>
+            <div class="modal-body">
+              <div class="form-group"><label>Room name</label><input class="form-control" name="name" value="{{ room.name }}" required></div>
+              <div class="form-group"><label>Block / location</label><input class="form-control" name="location" value="{{ room.location|default:'' }}"></div>
+              <div class="form-group"><label>Capacity</label><input class="form-control" type="number" min="0" name="capacity" value="{{ room.capacity }}" required></div>
+            </div>
+            <div class="modal-footer"><button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button><button class="btn btn-primary" type="submit">Save</button></div>
+          </form></div></div>
+        </div>
+        {% endfor %}
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock content %}

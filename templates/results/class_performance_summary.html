@@ -1,0 +1,307 @@
+{% extends 'base.html' %}
+
+{% block title %}Class Performance Analytics{% endblock %}
+{% block page_title %}Class Performance Analytics{% endblock %}
+
+{% block extra_css %}
+<style>
+    .analytics-page { color: #0f172a; }
+    .analytics-header { display:flex; justify-content:space-between; align-items:flex-start; gap:16px; margin-bottom:16px; flex-wrap:wrap; }
+    .analytics-header h2 { margin:0; font-size:24px; font-weight:750; }
+    .analytics-header p { margin:5px 0 0; color:#64748b; }
+    .selection-pill { padding:8px 12px; border:1px solid #dbe3ee; background:#f8fafc; border-radius:999px; color:#475569; font-size:13px; }
+    .filter-card, .panel, .metric { background:#fff; border:1px solid #e2e8f0; border-radius:12px; box-shadow:0 5px 16px rgba(15,23,42,.04); }
+    .filter-card { padding:16px; margin-bottom:16px; }
+    .filter-card label { color:#475569; font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; }
+    .filter-actions { display:flex; justify-content:flex-end; gap:8px; margin-top:14px; flex-wrap:wrap; }
+    .metric-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(175px,1fr)); gap:12px; margin-bottom:16px; }
+    .metric { padding:15px; min-width:0; }
+    .metric-label { color:#64748b; font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; }
+    .metric-value { margin-top:5px; font-size:23px; line-height:1.2; font-weight:750; overflow-wrap:anywhere; }
+    .metric-note { color:#64748b; font-size:12px; margin-top:5px; }
+    .panel-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; margin-bottom:16px; }
+    .panel { padding:16px; min-width:0; overflow:hidden; }
+    .panel h3 { margin:0 0 4px; font-size:17px; font-weight:750; }
+    .panel-subtitle { color:#64748b; font-size:12px; margin-bottom:14px; }
+    .panel canvas { display:block; width:100% !important; height:280px !important; }
+    .table { margin-bottom:0; }
+    .table th { background:#f8fafc; color:#475569; border-top:0; font-size:12px; text-transform:uppercase; }
+    .rank { display:inline-flex; align-items:center; justify-content:center; width:25px; height:25px; border-radius:50%; background:#eef2ff; color:#3730a3; font-weight:700; }
+    .risk-score { color:#b91c1c; font-weight:700; }
+    .empty-state { padding:38px 18px; text-align:center; border:1px dashed #cbd5e1; border-radius:12px; background:#fff; color:#64748b; }
+    .empty-state i { font-size:28px; margin-bottom:10px; color:#94a3b8; }
+    .insight-row { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin-bottom:14px; }
+    .insight { padding:12px; background:#f8fafc; border-radius:9px; border:1px solid #e2e8f0; }
+    .insight strong { display:block; margin-top:3px; font-size:17px; }
+    @media (max-width: 900px) { .panel-grid { grid-template-columns:1fr; } }
+    @media (max-width: 600px) {
+        .filter-actions .btn { flex:1 1 150px; }
+        .insight-row { grid-template-columns:1fr; }
+        .panel canvas { height:230px !important; }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="analytics-page">
+    <div class="analytics-header">
+        <div>
+            <h2><i class="fa-solid fa-chart-line text-primary mr-2"></i>Class Performance Analytics</h2>
+            <p>Performance, result completeness, and students who may need support.</p>
+        </div>
+        {% if academic_class_exists %}
+            <div class="selection-pill">
+                {{ selected_academic_year_name }} · Term {{ selected_term_name }}
+                {% if selected_assessment_type_name %} · {{ selected_assessment_type_name }}{% else %} · All assessments{% endif %}
+            </div>
+        {% endif %}
+    </div>
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+        {% endfor %}
+    {% endif %}
+
+    <div class="filter-card">
+        <form method="get" id="analytics-filter">
+            <div class="row">
+                <div class="col-md-3 mb-2">
+                    <label for="academic_year_id">Academic year</label>
+                    <select name="academic_year_id" id="academic_year_id" class="form-control" required>
+                        <option value="">Select year</option>
+                        {% for year in academic_years %}
+                            <option value="{{ year.id }}" {% if year.id|stringformat:"s" == selected_academic_year %}selected{% endif %}>{{ year.academic_year }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3 mb-2">
+                    <label for="term_id">Term</label>
+                    <select name="term_id" id="term_id" class="form-control" required>
+                        <option value="">Select term</option>
+                        {% for term in terms %}
+                            <option value="{{ term.id }}" {% if term.id|stringformat:"s" == selected_term %}selected{% endif %}>Term {{ term.term }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3 mb-2">
+                    <label for="class_id">Class</label>
+                    <select name="class_id" id="class_id" class="form-control" required>
+                        <option value="">Select class</option>
+                        {% for class in classes %}
+                            <option value="{{ class.id }}" {% if class.id|stringformat:"s" == selected_class %}selected{% endif %}>{{ class.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3 mb-2">
+                    <label for="assessment_type_id">Assessment</label>
+                    <select name="assessment_type_id" id="assessment_type_id" class="form-control">
+                        <option value="">All assessment types</option>
+                        {% for assessment_type in assessment_types %}
+                            <option value="{{ assessment_type.id }}" {% if assessment_type.id|stringformat:"s" == selected_assessment_type %}selected{% endif %}>{{ assessment_type.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <input type="hidden" name="report_format" value="{{ selected_report_format }}">
+            </div>
+            <div class="filter-actions">
+                <a href="{% url 'class_performance_summary' %}" class="btn btn-light">Reset</a>
+                <a href="{% url 'class_stream_filter' %}" class="btn btn-outline-secondary">Open Class Reports</a>
+                <button type="submit" class="btn btn-primary"><i class="fa fa-filter mr-1"></i>Show analytics</button>
+            </div>
+        </form>
+    </div>
+
+    {% if academic_class_exists %}
+        <div class="metric-grid">
+            <div class="metric">
+                <div class="metric-label">Enrolled students</div>
+                <div class="metric-value">{{ total_students }}</div>
+                <div class="metric-note">Historical class register</div>
+            </div>
+            <div class="metric">
+                <div class="metric-label">Class average</div>
+                <div class="metric-value">{{ average_score|floatformat:1 }}%</div>
+                <div class="metric-note">{{ assessed_students }} student{{ assessed_students|pluralize }} assessed</div>
+            </div>
+            <div class="metric">
+                <div class="metric-label">Student pass rate</div>
+                <div class="metric-value">{{ pass_rate|floatformat:0 }}%</div>
+                <div class="metric-note">Based on student averages ≥ {{ pass_mark|floatformat:0 }}%</div>
+            </div>
+            <div class="metric">
+                <div class="metric-label">Results entered</div>
+                <div class="metric-value">{{ result_completion_rate|floatformat:0 }}%</div>
+                <div class="metric-note">{{ entered_result_entries }} of {{ expected_result_entries }} expected entries</div>
+            </div>
+            <div class="metric">
+                <div class="metric-label">Top performer</div>
+                <div class="metric-value">{{ top_performer.name|default:"—" }}</div>
+                <div class="metric-note">{% if top_performer %}{{ top_performer.average|floatformat:1 }}% · {{ top_performer.stream }}{% else %}No results yet{% endif %}</div>
+            </div>
+            <div class="metric">
+                <div class="metric-label">Missing results</div>
+                <div class="metric-value">{{ students_without_results }}</div>
+                <div class="metric-note">{{ complete_students }} student{{ complete_students|pluralize }} have complete entries</div>
+            </div>
+        </div>
+
+        {% if assessed_students %}
+            <div class="panel-grid">
+                <section class="panel">
+                    <h3>Subject performance</h3>
+                    <div class="panel-subtitle">Average normalized score; raw marks are converted using each assessment’s “out of” value.</div>
+                    <div class="insight-row">
+                        <div class="insight"><span class="text-muted">Strongest subject</span><strong>{{ highest_subject.subject|default:"—" }}{% if highest_subject %} · {{ highest_subject.average|floatformat:1 }}%{% endif %}</strong></div>
+                        <div class="insight"><span class="text-muted">Needs attention</span><strong>{{ lowest_subject.subject|default:"—" }}{% if lowest_subject %} · {{ lowest_subject.average|floatformat:1 }}%{% endif %}</strong></div>
+                    </div>
+                    <canvas id="subjectChart"></canvas>
+                </section>
+
+                <section class="panel">
+                    <h3>Performance over terms</h3>
+                    <div class="panel-subtitle">The same class across terms in {{ selected_academic_year_name }}.</div>
+                    {% if performance_trends %}
+                        <canvas id="trendChart"></canvas>
+                    {% else %}
+                        <div class="empty-state">No term comparison is available yet.</div>
+                    {% endif %}
+                </section>
+
+                <section class="panel">
+                    <h3>Stream performance</h3>
+                    <div class="panel-subtitle">Average performance—not student headcount—for each historically registered stream.</div>
+                    {% if stream_performance %}
+                        <canvas id="streamChart"></canvas>
+                    {% else %}
+                        <div class="empty-state">No assessed streams found.</div>
+                    {% endif %}
+                </section>
+
+                <section class="panel">
+                    <h3>Assessment type comparison</h3>
+                    <div class="panel-subtitle">Always compares every assessment type; the active filter is highlighted.</div>
+                    {% if assessment_type_performance %}
+                        <canvas id="assessmentChart"></canvas>
+                    {% else %}
+                        <div class="empty-state">No assessment results found.</div>
+                    {% endif %}
+                </section>
+
+                <section class="panel">
+                    <h3>Top students</h3>
+                    <div class="panel-subtitle">Ranked by each student’s average, so students with more subjects are not counted more often.</div>
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead><tr><th>#</th><th>Student</th><th>Stream</th><th>Average</th></tr></thead>
+                            <tbody>
+                                {% for student in top_students %}
+                                    <tr><td><span class="rank">{{ forloop.counter }}</span></td><td>{{ student.name }}</td><td>{{ student.stream }}</td><td><strong>{{ student.average|floatformat:1 }}%</strong></td></tr>
+                                {% empty %}
+                                    <tr><td colspan="4" class="text-center text-muted">No assessed students.</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <section class="panel">
+                    <h3>Students needing support</h3>
+                    <div class="panel-subtitle">Students averaging below the configured pass boundary of {{ pass_mark|floatformat:0 }}%.</div>
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead><tr><th>Student</th><th>Stream</th><th>Average</th></tr></thead>
+                            <tbody>
+                                {% for student in at_risk_students %}
+                                    <tr><td>{{ student.name }}</td><td>{{ student.stream }}</td><td class="risk-score">{{ student.average|floatformat:1 }}%</td></tr>
+                                {% empty %}
+                                    <tr><td colspan="3" class="text-center text-muted">No assessed students are below the pass boundary.</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <section class="panel">
+                    <h3>Gender performance</h3>
+                    <div class="panel-subtitle">Counts distinct assessed students, not subject-result rows.</div>
+                    <div class="insight-row">
+                        <div class="insight"><span class="text-muted">Male · {{ gender_comparison.Male.count }} assessed</span><strong>{{ gender_comparison.Male.average|floatformat:1 }}%</strong></div>
+                        <div class="insight"><span class="text-muted">Female · {{ gender_comparison.Female.count }} assessed</span><strong>{{ gender_comparison.Female.average|floatformat:1 }}%</strong></div>
+                    </div>
+                    <canvas id="genderChart"></canvas>
+                </section>
+            </div>
+        {% else %}
+            <div class="empty-state">
+                <i class="fa fa-chart-bar d-block"></i>
+                No results have been entered for this selection. The enrollment count above still comes from the historical class register.
+            </div>
+        {% endif %}
+    {% else %}
+        <div class="empty-state">
+            <i class="fa fa-filter d-block"></i>
+            Select an academic year, term, and class to view trusted performance analytics.
+        </div>
+    {% endif %}
+</div>
+
+{% if academic_class_exists and assessed_students %}
+    {{ subject_performance|json_script:"subject-data" }}
+    {{ performance_trends|json_script:"trend-data" }}
+    {{ stream_performance|json_script:"stream-data" }}
+    {{ assessment_type_performance|json_script:"assessment-data" }}
+    {{ gender_comparison|json_script:"gender-data" }}
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        (() => {
+            const readData = id => JSON.parse(document.getElementById(id).textContent);
+            const baseOptions = {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: { y: { beginAtZero: true, max: 100, ticks: { callback: value => value + '%' } } }
+            };
+            const makeChart = (id, config) => {
+                const element = document.getElementById(id);
+                if (element) new Chart(element, config);
+            };
+
+            const subjects = readData('subject-data');
+            makeChart('subjectChart', {
+                type: 'bar',
+                data: { labels: subjects.map(row => row.subject), datasets: [{ data: subjects.map(row => row.average), backgroundColor: '#2563eb' }] },
+                options: { ...baseOptions, indexAxis: 'y', scales: { x: baseOptions.scales.y, y: { beginAtZero: true } } }
+            });
+
+            const trends = readData('trend-data');
+            if (trends.length) makeChart('trendChart', {
+                type: 'line',
+                data: { labels: trends.map(row => row.term), datasets: [{ data: trends.map(row => row.average), borderColor: '#059669', backgroundColor: 'rgba(5,150,105,.12)', fill: true, tension: .25 }] },
+                options: baseOptions
+            });
+
+            const streams = readData('stream-data');
+            if (streams.length) makeChart('streamChart', {
+                type: 'bar',
+                data: { labels: streams.map(row => `${row.stream} (${row.count})`), datasets: [{ data: streams.map(row => row.average), backgroundColor: '#7c3aed' }] },
+                options: baseOptions
+            });
+
+            const assessments = readData('assessment-data');
+            if (assessments.length) makeChart('assessmentChart', {
+                type: 'bar',
+                data: { labels: assessments.map(row => row.name), datasets: [{ data: assessments.map(row => row.average), backgroundColor: assessments.map(row => row.selected ? '#ea580c' : '#94a3b8') }] },
+                options: baseOptions
+            });
+
+            const gender = readData('gender-data');
+            makeChart('genderChart', {
+                type: 'bar',
+                data: { labels: ['Male', 'Female'], datasets: [{ data: [gender.Male.average, gender.Female.average], backgroundColor: ['#0284c7', '#db2777'] }] },
+                options: baseOptions
+            });
+        })();
+    </script>
+{% endif %}
+{% endblock %}

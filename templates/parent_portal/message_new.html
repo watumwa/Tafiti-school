@@ -1,0 +1,22 @@
+{% extends 'parent_portal/base.html' %}
+{% block title %}New message{% endblock %}
+{% block content %}
+<header class="pp-page-header">
+  <div><span class="pp-eyebrow">Regarding {{ student.student_name }}</span><h1>Message a teacher</h1><p>For privacy, only teachers assigned to this child can be contacted.</p></div>
+  <div class="pp-page-actions"><a class="pp-button pp-button--secondary" href="{% url 'parent_messages' %}"><i class="ph ph-arrow-left"></i> Messages</a></div>
+</header>
+
+<section class="pp-card pp-form-card">
+  <header class="pp-card__header"><div><h2>New conversation</h2><p>Include a clear subject so the teacher can respond efficiently.</p></div></header>
+  <div class="pp-card__body">
+    {% if form.non_field_errors %}<div class="pp-session-error">{{ form.non_field_errors }}</div>{% endif %}
+    <form method="post" novalidate>
+      {% csrf_token %}
+      <div class="pp-field"><label for="id_teacher">Teacher</label>{{ form.teacher }}{{ form.teacher.errors }}</div>
+      <div class="pp-field"><label for="id_subject">Subject</label><input id="id_subject" name="subject" type="text" maxlength="200" value="{{ form.subject.value|default_if_none:'' }}" placeholder="What would you like to discuss?">{{ form.subject.errors }}</div>
+      <div class="pp-field"><label for="id_message">Message</label><textarea id="id_message" name="message" rows="5" maxlength="2000" placeholder="Write your message clearly…" required>{{ form.message.value|default_if_none:'' }}</textarea>{{ form.message.errors }}<small class="pp-field-hint">Please avoid including sensitive personal information that the school does not need.</small></div>
+      <div class="pp-form-actions"><button class="pp-button" type="submit"><i class="ph ph-paper-plane-tilt"></i> Send message</button><a class="pp-button pp-button--secondary" href="{% url 'parent_messages' %}">Cancel</a></div>
+    </form>
+  </div>
+</section>
+{% endblock %}

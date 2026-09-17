@@ -1,0 +1,17 @@
+{% extends 'parent_portal/base.html' %}
+{% block title %}Notifications{% endblock %}
+{% block content %}
+<header class="pp-page-header"><div><span class="pp-eyebrow">Updates</span><h1>Notifications</h1><p>Results, school notices, messages and library reminders in one place.</p></div></header>
+
+<section class="pp-card pp-notice-list">
+  {% for item in notifications %}
+  <a class="pp-notice-row {% if not item.read_at %}is-unread{% endif %}" href="{% url 'parent_notification_open' item.id %}">
+    <span class="pp-notice-row__icon"><i class="ph {% if item.kind == 'result' %}ph-chart-line-up{% elif item.kind == 'library' %}ph-books{% elif item.kind == 'message' %}ph-chat-circle-dots{% else %}ph-megaphone{% endif %}"></i></span>
+    <span class="pp-notice-row__copy"><strong>{{ item.title }}{% if not item.read_at %} <span class="pp-status pp-status--info">New</span>{% endif %}</strong><p>{% if item.student %}{{ item.student.student_name }} · {% endif %}{{ item.message }}</p></span>
+    <span class="pp-notice-row__time">{{ item.created_at|timesince }} ago</span>
+  </a>
+  {% empty %}
+  <div class="pp-empty-state"><span class="pp-empty-state__icon"><i class="ph ph-bell"></i></span><h3>No notifications yet</h3><p>New results, messages and reminders will be collected here.</p></div>
+  {% endfor %}
+</section>
+{% endblock %}

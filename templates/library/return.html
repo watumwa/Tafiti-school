@@ -1,0 +1,117 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block legacy_page_header %}{% endblock %}
+{% block content %}
+{% include 'library/_styles.html' %}
+<div class="lib-shell lib-circulation-shell lib-return-shell">
+  <header class="lib-head lib-operation-head">
+    <div>
+      <span class="lib-eyebrow">Circulation desk</span>
+      <h1>Return book</h1>
+      <p>Scan the physical copy, review the loan, and confirm the return.</p>
+    </div>
+    <a class="btn btn-default" href="{% url 'library_loans' %}">Loan history</a>
+  </header>
+
+  {% if returned_loan %}
+  <section class="lib-success-card" aria-live="polite">
+    <div class="lib-success-icon"><i class="ph ph-check"></i></div>
+    <div>
+      <span class="lib-eyebrow">Transaction complete</span>
+      <h2>Book returned successfully</h2>
+      <p><strong>{{ returned_loan.copy.book.title }}</strong> was returned by {{ returned_loan.borrower }}.</p>
+      <div class="lib-success-facts">
+        <span><small>Copy</small>{{ returned_loan.copy.accession_number }}</span>
+        <span><small>Returned</small>{{ returned_loan.returned_at|date:"d M Y" }}</span>
+        <span><small>Condition</small>{{ returned_loan.return_condition|title }}</span>
+      </div>
+      {% with return_fines=returned_loan.fines.all %}
+      {% if return_fines %}<p class="lib-fine-note"><i class="ph ph-warning"></i> Applicable library fines were recorded and are available in the fines ledger.</p>{% endif %}
+      {% endwith %}
+      <div class="lib-actions">
+        <button class="btn btn-default" type="button" onclick="window.print()"><i class="ph ph-printer"></i> Print receipt</button>
+        <a class="btn btn-primary" href="{% url 'library_return_station' %}"><i class="ph ph-arrow-counter-clockwise"></i> Return another book</a>
+      </div>
+    </div>
+  </section>
+  {% endif %}
+
+  <form method="post" class="lib-return-grid" data-circulation-return
+        data-loan-url="{% url 'library_active_loan_lookup' %}"
+        data-initial-loan-id="{{ initial_loan_id }}">
+    {% csrf_token %}
+    <input type="hidden" name="loan" id="id_loan" value="{{ initial_loan_id }}">
+    <main class="lib-operation-stack">
+      {% if form.errors %}
+      <div class="lib-form-alert" role="alert">
+        <strong>The return was not recorded.</strong>
+        {% for error in form.non_field_errors %}<span>{{ error }}</span>{% endfor %}
+        {% for field in form %}{% for error in field.errors %}<span>{{ error }}</span>{% endfor %}{% endfor %}
+      </div>
+      {% endif %}
+
+      <section class="lib-work-card">
+        <header class="lib-work-title"><span>1</span><div><h2>Scan or find copy</h2><p>USB barcode scanners work directly in this field.</p></div></header>
+        <div class="lib-search-row">
+          <div class="lib-search-control">
+            <i class="ph ph-barcode"></i>
+            <input id="return-search" type="search" autocomplete="off" autofocus
+                   placeholder="Scan barcode or enter copy ID…" aria-label="Find active loan">
+          </div>
+          <button class="btn btn-default lib-scan-button" type="button" data-scan-target="return-search">
+            <i class="ph ph-qr-code"></i> Use camera
+          </button>
+        </div>
+        <div class="lib-search-results" data-loan-results role="listbox"></div>
+      </section>
+
+      <section class="lib-work-card is-muted" data-return-details>
+        <header class="lib-work-title"><span>2</span><div><h2>Review return</h2><p>Confirm the borrower, due status, condition, and calculated fine.</p></div></header>
+        <article class="lib-return-book" data-return-book hidden>
+          <div class="lib-selected-avatar"><i class="ph ph-book-open"></i></div>
+          <div><strong data-return-title></strong><small data-return-copy></small></div>
+          <button type="button" class="lib-text-button" data-change-loan>Change</button>
+        </article>
+        <div class="lib-return-facts" data-return-facts hidden>
+          <div><small>Borrowed by</small><strong data-return-borrower></strong><span data-return-borrower-meta></span></div>
+          <div><small>Due date</small><strong data-return-due></strong><span data-return-issued></span></div>
+          <div><small>Status</small><strong data-return-status></strong><span data-return-status-note></span></div>
+          <div><small>Calculated fine</small><strong data-return-fine></strong><span data-return-rate></span></div>
+        </div>
+
+        <fieldset class="lib-condition" data-condition-fields disabled>
+          <legend>Book condition</legend>
+          <label><input type="radio" name="condition" value="good" {% if form.condition.value != 'damaged' %}checked{% endif %}> <span><i class="ph ph-check-circle"></i> Good<small>Return the copy to circulation</small></span></label>
+          <label><input type="radio" name="condition" value="damaged" {% if form.condition.value == 'damaged' %}checked{% endif %}> <span><i class="ph ph-warning"></i> Damaged<small>Record damage and hold the copy</small></span></label>
+        </fieldset>
+        <div class="lib-damage-fields" data-damage-fields hidden>
+          <div class="lib-field"><label for="id_damage_amount">Approved damage charge (UGX)</label><input id="id_damage_amount" name="damage_amount" type="number" min="0" step="0.01" value="{{ form.damage_amount.value|default:'' }}" placeholder="0"></div>
+          <div class="lib-field"><label for="id_notes">Damage notes</label><textarea id="id_notes" name="notes" maxlength="500" rows="3" placeholder="Describe the damage…">{{ form.notes.value|default:'' }}</textarea></div>
+        </div>
+        <div class="lib-form-actions">
+          <a class="btn btn-default" href="{% url 'library_dashboard' %}">Cancel</a>
+          <button class="btn btn-primary" type="submit" data-confirm-return disabled>
+            <i class="ph ph-arrow-counter-clockwise"></i> <span>Confirm return</span>
+          </button>
+        </div>
+      </section>
+    </main>
+
+    <aside class="lib-return-guide">
+      <i class="ph ph-lightning"></i>
+      <h2>Fast return</h2>
+      <ol><li>Scan the copy barcode</li><li>Check the due status</li><li>Confirm the condition</li></ol>
+      <p>Overdue fines are calculated automatically from the applicable student or staff loan policy.</p>
+    </aside>
+  </form>
+</div>
+
+<div class="lib-scanner" data-scanner hidden aria-modal="true" role="dialog" aria-labelledby="scanner-title">
+  <div class="lib-scanner-dialog">
+    <div class="lib-card-title"><div><h2 id="scanner-title">Scan barcode or QR code</h2><p>Hold the code inside the camera frame.</p></div><button type="button" class="lib-icon-button" data-scanner-close aria-label="Close scanner">×</button></div>
+    <div class="lib-scanner-viewport"><video playsinline muted></video><span></span></div>
+    <p data-scanner-status>Starting camera…</p>
+  </div>
+</div>
+<script src="{% static 'js/library_circulation.js' %}?v=20260810-1"></script>
+{% endblock %}

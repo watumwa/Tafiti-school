@@ -1,0 +1,24 @@
+{% extends 'parent_portal/base.html' %}
+{% block title %}School calendar{% endblock %}
+{% block content %}
+<header class="pp-page-header"><div><span class="pp-eyebrow">School life</span><h1>Calendar</h1><p>Events, meetings and important dates shared with parents.</p></div><div class="pp-calendar-controls"><a href="?month={{ previous_month|date:'Y-m' }}" aria-label="Previous month"><i class="ph ph-caret-left"></i></a><strong>{{ month|date:"F Y" }}</strong><a href="?month={{ next_month|date:'Y-m' }}" aria-label="Next month"><i class="ph ph-caret-right"></i></a></div></header>
+
+<section class="pp-card pp-calendar-card">
+  <div class="pp-calendar-weekdays"><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span></div>
+  <div class="pp-calendar-grid">
+    {% for week in calendar_weeks %}{% for day in week %}
+    <div class="pp-calendar-day {% if not day.in_month %}is-outside{% endif %} {% if day.is_today %}is-today{% endif %}">
+      <time>{{ day.date|date:"j" }}</time>
+      <div>{% for event in day.values %}<span class="pp-calendar-event" title="{{ event.title }}"><strong>{{ event.start_datetime|time:"H:i" }}</strong> {{ event.title }}</span>{% endfor %}</div>
+    </div>
+    {% endfor %}{% endfor %}
+  </div>
+</section>
+
+<section class="pp-card">
+  <header class="pp-card__header"><div><h2>{{ month|date:"F" }} events</h2><p>{{ events|length }} published event{{ events|length|pluralize }}</p></div></header>
+  <div class="pp-card__body pp-event-list pp-event-list--wide">
+    {% for event in events %}<div class="pp-event-row"><time><strong>{{ event.start_datetime|date:"d" }}</strong><small>{{ event.start_datetime|date:"M" }}</small></time><span><strong>{{ event.title }}</strong><small>{{ event.start_datetime|date:"l" }} at {{ event.start_datetime|time:"H:i" }}{% if event.end_datetime %} – {{ event.end_datetime|time:"H:i" }}{% endif %}{% if event.location %} · {{ event.location }}{% endif %}</small>{% if event.description %}<p>{{ event.description }}</p>{% endif %}</span></div>{% empty %}<div class="pp-empty-state"><span class="pp-empty-state__icon"><i class="ph ph-calendar-blank"></i></span><h3>No events this month</h3><p>Choose another month or check again after the school publishes new events.</p></div>{% endfor %}
+  </div>
+</section>
+{% endblock %}

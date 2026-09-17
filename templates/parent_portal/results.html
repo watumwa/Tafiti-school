@@ -1,0 +1,25 @@
+{% extends 'parent_portal/base.html' %}
+{% block title %}Academics · {{ student.student_name }}{% endblock %}
+{% block content %}
+<header class="pp-page-header"><div><span class="pp-eyebrow">{{ student.student_name }}</span><h1>Academic performance</h1><p>Verified results and subject-level analysis{% if current_term %} for Term {{ current_term.term }}, {{ current_term.academic_year }}{% endif %}.</p></div><div class="pp-page-actions">{% if results %}<a class="pp-button" href="{% url 'parent_report_download' student.id %}"><i class="ph ph-file-pdf"></i> Download report</a>{% endif %}</div></header>
+{% include 'parent_portal/_child_tabs.html' %}
+
+<section class="pp-academic-hero">
+  <div><small>Overall verified average</small><strong>{% if academic_average != None %}{{ academic_average|floatformat:1 }}%{% else %}—{% endif %}</strong><span>{% if current_term %}Term {{ current_term.term }} performance{% else %}Published performance{% endif %}</span></div>
+  <div class="pp-academic-hero__stats"><span><small>Subjects</small><strong>{{ subject_rows|length }}</strong></span><span><small>Assessments</small><strong>{{ results|length }}</strong></span><span><small>Status</small><strong><i class="ph ph-seal-check"></i> Verified</strong></span></div>
+</section>
+
+<section class="pp-card">
+  <header class="pp-card__header"><div><h2>Subject analysis</h2><p>Your child’s average, class benchmark and position</p></div><span class="pp-legend"><i></i> Student <i></i> Class average</span></header>
+  {% if subject_rows %}
+  <div class="pp-table-wrap"><table class="pp-table pp-performance-table"><thead><tr><th>Subject</th><th>Student average</th><th>Class average</th><th>Difference</th><th>Grade</th><th>Position</th></tr></thead><tbody>
+    {% for row in subject_rows %}<tr><td data-label="Subject" class="pp-table__primary">{{ row.subject }}<small>{{ row.assessment_count }} assessment{{ row.assessment_count|pluralize }}</small></td><td data-label="Student average"><strong>{{ row.average|floatformat:1 }}%</strong><div class="pp-mini-progress"><span style="width:{{ row.average|floatformat:0 }}%"></span></div></td><td data-label="Class average">{% if row.class_average != None %}{{ row.class_average|floatformat:1 }}%{% else %}—{% endif %}</td><td data-label="Difference"><span class="pp-status {% if row.difference >= 0 %}pp-status--success{% else %}pp-status--warning{% endif %}">{% if row.difference >= 0 %}+{% endif %}{{ row.difference|floatformat:1 }}%</span></td><td data-label="Grade"><span class="pp-status pp-status--info">{{ row.grade }}</span></td><td data-label="Position">{% if row.rank %}<strong>{{ row.rank }}</strong> of {{ row.class_size }}{% else %}—{% endif %}</td></tr>{% endfor %}
+  </tbody></table></div>
+  {% else %}<div class="pp-empty-state"><span class="pp-empty-state__icon"><i class="ph ph-chart-bar"></i></span><h3>No subject analysis yet</h3><p>Analysis appears after the school verifies assessment results.</p></div>{% endif %}
+</section>
+
+<section class="pp-card">
+  <header class="pp-card__header"><div><h2>Assessment history</h2><p>{{ results|length }} verified result{{ results|length|pluralize }}</p></div><span class="pp-status pp-status--success"><i class="ph ph-seal-check"></i> School verified</span></header>
+  {% if results %}<div class="pp-table-wrap"><table class="pp-table"><thead><tr><th>Date</th><th>Assessment</th><th>Subject</th><th>Score</th><th>Grade</th></tr></thead><tbody>{% for result in results %}<tr><td data-label="Date">{{ result.assessment.date|date:"d M Y" }}</td><td data-label="Assessment">{{ result.assessment.assessment_type }}</td><td data-label="Subject" class="pp-table__primary">{{ result.assessment.subject }}</td><td data-label="Score" class="pp-money">{{ result.score }}/{{ result.assessment.out_of }}</td><td data-label="Grade"><span class="pp-status pp-status--info">{{ result.grade|default:"—" }}</span></td></tr>{% endfor %}</tbody></table></div>{% else %}<div class="pp-empty-state"><span class="pp-empty-state__icon"><i class="ph ph-exam"></i></span><h3>No published results</h3><p>Results appear after school review and verification.</p></div>{% endif %}
+</section>
+{% endblock %}

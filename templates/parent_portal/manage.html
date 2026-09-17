@@ -1,0 +1,32 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container-fluid">
+  <h1>Parent portal accounts</h1>
+  <form method="get" class="form-inline" style="margin-bottom:15px">
+    <input class="form-control" name="q" value="{{ query }}" placeholder="Phone, guardian, student or reg no">
+    <button class="btn btn-primary">Search</button>
+  </form>
+  <div class="table-responsive">
+    <table class="table table-bordered table-striped">
+      <tr><th>Login</th><th>Guardian / student</th><th>Permissions</th><th>Status</th><th>Actions</th></tr>
+      {% for access in accesses %}
+      <tr>
+        <td>{{ access.user.username }}</td>
+        <td>{{ access.student.guardian }}<br><small>{{ access.student.student_name }} ({{ access.student.reg_no }})</small></td>
+        <td>Academic: {{ access.can_view_academics|yesno:"Yes,No" }}; Finance: {{ access.can_view_finance|yesno:"Yes,No" }}; Attendance: {{ access.can_view_attendance|yesno:"Yes,No" }}</td>
+        <td>{% if access.is_active and access.is_verified %}<span class="label label-success">Active</span>{% else %}<span class="label label-default">Inactive</span>{% endif %}</td>
+        <td>
+          <a class="btn btn-xs btn-primary" href="{% url 'parent_access_update' access.id %}">Permissions</a>
+          {% if access.is_active %}
+          <form method="post" action="{% url 'parent_access_deactivate' access.id %}" style="display:inline">{% csrf_token %}<input type="hidden" name="reason" value="Deactivated through account management"><button class="btn btn-xs btn-danger" onclick="return confirm('Deactivate access to this student?')">Deactivate</button></form>
+          <form method="post" action="{% url 'parent_password_reset' access.user_id %}" style="display:inline">{% csrf_token %}<button class="btn btn-xs btn-warning" onclick="return confirm('Reset this parent account to the temporary password?')">Reset password</button></form>
+          {% else %}
+          <form method="post" action="{% url 'parent_access_activate' access.student_id %}" style="display:inline">{% csrf_token %}<input type="hidden" name="confirm_shared_contact" value="yes"><button class="btn btn-xs btn-success">Reactivate</button></form>
+          {% endif %}
+        </td>
+      </tr>
+      {% empty %}<tr><td colspan="5">No parent access records found.</td></tr>{% endfor %}
+    </table>
+  </div>
+</div>
+{% endblock %}

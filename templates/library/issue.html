@@ -1,0 +1,163 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block legacy_page_header %}{% endblock %}
+{% block content %}
+{% include 'library/_styles.html' %}
+<div class="lib-shell lib-circulation-shell">
+  <header class="lib-head lib-operation-head">
+    <div>
+      <span class="lib-eyebrow">Circulation desk</span>
+      <h1>Issue book</h1>
+      <p>Select a borrower, choose an available copy, and confirm the loan.</p>
+    </div>
+    <a class="btn btn-default" href="{% url 'library_dashboard' %}">Cancel</a>
+  </header>
+
+  {% if issued_loan %}
+  <section class="lib-success-card" aria-live="polite">
+    <div class="lib-success-icon"><i class="ph ph-check"></i></div>
+    <div>
+      <span class="lib-eyebrow">Transaction complete</span>
+      <h2>Book issued successfully</h2>
+      <p><strong>{{ issued_loan.copy.book.title }}</strong> was issued to {{ issued_loan.borrower }}.</p>
+      <div class="lib-success-facts">
+        <span><small>Copy</small>{{ issued_loan.copy.accession_number }}</span>
+        <span><small>Issued</small>{{ issued_loan.issued_at|date:"d M Y" }}</span>
+        <span><small>Due</small>{{ issued_loan.due_at|date:"d M Y" }}</span>
+      </div>
+      <div class="lib-actions">
+        <button class="btn btn-default" type="button" onclick="window.print()"><i class="ph ph-printer"></i> Print slip</button>
+        <a class="btn btn-primary" href="{% url 'library_issue' %}"><i class="ph ph-plus"></i> Issue another book</a>
+      </div>
+    </div>
+  </section>
+  {% endif %}
+
+  <nav class="lib-steps" aria-label="Issue progress">
+    <div class="is-active" data-step="borrower"><b>01</b><span>Borrower</span></div>
+    <i></i>
+    <div data-step="book"><b>02</b><span>Book</span></div>
+    <i></i>
+    <div data-step="confirm"><b>03</b><span>Confirm</span></div>
+  </nav>
+
+  <form method="post" class="lib-circulation-grid" data-circulation-issue
+        data-borrower-url="{% url 'library_borrower_lookup' %}"
+        data-copy-url="{% url 'library_copy_lookup' %}"
+        data-initial-borrower-kind="{{ initial_borrower_kind }}"
+        data-initial-borrower-id="{{ initial_borrower_id }}"
+        data-initial-copy-id="{{ initial_copy_id }}">
+    {% csrf_token %}
+    <input type="hidden" name="student" id="id_student" value="{% if initial_borrower_kind == 'student' %}{{ initial_borrower_id }}{% endif %}">
+    <input type="hidden" name="staff" id="id_staff" value="{% if initial_borrower_kind == 'staff' %}{{ initial_borrower_id }}{% endif %}">
+    <input type="hidden" name="copy" id="id_copy" value="{{ initial_copy_id|default:'' }}">
+
+    <main class="lib-operation-stack">
+      {% if form.errors %}
+      <div class="lib-form-alert" role="alert">
+        <strong>The book was not issued.</strong>
+        {% for error in form.non_field_errors %}<span>{{ error }}</span>{% endfor %}
+        {% for field in form %}{% for error in field.errors %}<span>{{ error }}</span>{% endfor %}{% endfor %}
+      </div>
+      {% endif %}
+
+      <section class="lib-work-card" data-borrower-step>
+        <header class="lib-work-title"><span>1</span><div><h2>Find member</h2><p>Search students and staff in one place.</p></div></header>
+        <div class="lib-search-row">
+          <div class="lib-search-control">
+            <i class="ph ph-magnifying-glass"></i>
+            <input id="borrower-search" type="search" autocomplete="off" autofocus
+                   placeholder="Search student, staff ID or name…" aria-label="Search borrower">
+          </div>
+          <button class="btn btn-default lib-scan-button" type="button" data-scan-target="borrower-search">
+            <i class="ph ph-qr-code"></i> Scan ID
+          </button>
+        </div>
+        <div class="lib-segmented" aria-label="Borrower type">
+          <button type="button" class="is-active" data-borrower-filter="all">All</button>
+          <button type="button" data-borrower-filter="students">Students</button>
+          <button type="button" data-borrower-filter="staff">Staff</button>
+        </div>
+        <div class="lib-search-results" data-borrower-results role="listbox"></div>
+        <article class="lib-selected-card" data-selected-borrower hidden>
+          <div class="lib-selected-avatar"><i class="ph ph-user"></i></div>
+          <div><strong data-borrower-name></strong><small data-borrower-meta></small></div>
+          <button type="button" class="lib-text-button" data-change-borrower>Change</button>
+        </article>
+      </section>
+
+      <section class="lib-work-card is-muted" data-book-step>
+        <header class="lib-work-title"><span>2</span><div><h2>Select book</h2><p>Search a title, ISBN, accession number, or scan the copy barcode.</p></div></header>
+        <div class="lib-search-row">
+          <div class="lib-search-control">
+            <i class="ph ph-barcode"></i>
+            <input id="book-search" type="search" autocomplete="off" disabled
+                   placeholder="Search ISBN, title or scan barcode…" aria-label="Search book copy">
+          </div>
+          <button class="btn btn-default lib-scan-button" type="button" data-scan-target="book-search" disabled>
+            <i class="ph ph-qr-code"></i> Scan barcode
+          </button>
+        </div>
+        <div class="lib-search-results" data-copy-results role="listbox"></div>
+        <article class="lib-selected-card lib-book-selection" data-selected-copy hidden>
+          <div class="lib-selected-avatar"><i class="ph ph-book-open"></i></div>
+          <div class="lib-selected-main"><strong data-copy-title></strong><small data-copy-meta></small></div>
+          <dl class="lib-copy-facts">
+            <div><dt>Copy</dt><dd data-copy-accession></dd></div>
+            <div><dt>Shelf</dt><dd data-copy-shelf></dd></div>
+            <div><dt>Condition</dt><dd data-copy-condition></dd></div>
+          </dl>
+          <button type="button" class="lib-text-button" data-change-copy>Change</button>
+        </article>
+      </section>
+
+      <section class="lib-work-card is-muted" data-confirm-step>
+        <header class="lib-work-title"><span>3</span><div><h2>Confirm loan</h2><p>Review the system-calculated loan period and due date.</p></div></header>
+        <div class="lib-loan-summary">
+          <div><small>Loan period</small><strong data-loan-days>—</strong></div>
+          <div><small>Due date</small><strong data-due-date>—</strong></div>
+        </div>
+        <div class="lib-confirm-summary" data-issue-summary hidden>
+          <p><span>Borrower</span><strong data-summary-borrower></strong></p>
+          <p><span>Book</span><strong data-summary-book></strong></p>
+          <p><span>Physical copy</span><strong data-summary-copy></strong></p>
+        </div>
+        <div class="lib-form-actions">
+          <a class="btn btn-default" href="{% url 'library_dashboard' %}">Cancel</a>
+          <button class="btn btn-primary" type="submit" data-confirm-issue disabled>
+            <i class="ph ph-check"></i> Confirm issue
+          </button>
+        </div>
+      </section>
+    </main>
+
+    <aside class="lib-status-card" data-borrower-status>
+      <span class="lib-eyebrow">Borrower status</span>
+      <div class="lib-status-empty"><i class="ph ph-identification-card"></i><p>Select a member to see eligibility, current loans, and library fines.</p></div>
+      <div data-status-content hidden>
+        <h2 data-status-name></h2>
+        <p data-status-meta></p>
+        <div class="lib-eligibility" data-eligibility></div>
+        <div class="lib-status-metrics">
+          <div><strong data-active-loans>0 / 0</strong><span>Current loans</span></div>
+          <div><strong data-overdue-loans>0</strong><span>Overdue</span></div>
+          <div><strong data-outstanding-fine>UGX 0</strong><span>Outstanding fine</span></div>
+        </div>
+        <div class="lib-current-loans">
+          <h3>Current loans</h3>
+          <div data-current-loans></div>
+        </div>
+      </div>
+    </aside>
+  </form>
+</div>
+
+<div class="lib-scanner" data-scanner hidden aria-modal="true" role="dialog" aria-labelledby="scanner-title">
+  <div class="lib-scanner-dialog">
+    <div class="lib-card-title"><div><h2 id="scanner-title">Scan barcode or QR code</h2><p>Hold the code inside the camera frame.</p></div><button type="button" class="lib-icon-button" data-scanner-close aria-label="Close scanner">×</button></div>
+    <div class="lib-scanner-viewport"><video playsinline muted></video><span></span></div>
+    <p data-scanner-status>Starting camera…</p>
+  </div>
+</div>
+<script src="{% static 'js/library_circulation.js' %}?v=20260810-1"></script>
+{% endblock %}

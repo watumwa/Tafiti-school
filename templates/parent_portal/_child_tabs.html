@@ -1,0 +1,9 @@
+<nav class="pp-child-tabs" aria-label="{{ student.student_name }} sections">
+  <a class="{% if request.resolver_match.url_name == 'parent_child_overview' %}is-active{% endif %}" href="{% url 'parent_child_overview' student.id %}"><i class="ph ph-squares-four"></i><span>Overview</span></a>
+  {% if access.can_view_academics %}<a class="{% if request.resolver_match.url_name == 'parent_results' %}is-active{% endif %}" href="{% url 'parent_results' student.id %}"><i class="ph ph-chart-line-up"></i><span>Academics</span></a>{% endif %}
+  {% if access.can_view_attendance %}<a class="{% if request.resolver_match.url_name == 'parent_attendance' %}is-active{% endif %}" href="{% url 'parent_attendance' student.id %}"><i class="ph ph-calendar-check"></i><span>Attendance</span></a>{% endif %}
+  <a class="{% if request.resolver_match.url_name == 'parent_timetable' %}is-active{% endif %}" href="{% url 'parent_timetable' student.id %}"><i class="ph ph-clock"></i><span>Timetable</span></a>
+  {% if access.can_view_finance %}<a class="{% if request.resolver_match.url_name == 'parent_finance' %}is-active{% endif %}" href="{% url 'parent_finance' student.id %}"><i class="ph ph-wallet"></i><span>Fees</span></a>{% endif %}
+  {% if library_enabled %}<a class="{% if request.resolver_match.url_name == 'parent_library' %}is-active{% endif %}" href="{% url 'parent_library' student.id %}"><i class="ph ph-books"></i><span>Library</span></a>{% endif %}
+  <a class="{% if request.resolver_match.url_name == 'parent_documents' %}is-active{% endif %}" href="{% url 'parent_documents' student.id %}"><i class="ph ph-folder-open"></i><span>Documents</span></a>
+</nav>

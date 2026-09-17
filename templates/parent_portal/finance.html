@@ -1,0 +1,58 @@
+{% extends 'parent_portal/base.html' %}
+{% load humanize %}
+{% block title %}Fees · {{ student.student_name }}{% endblock %}
+{% block content %}
+<header class="pp-page-header">
+  <div><span class="pp-eyebrow">{{ student.student_name }}</span><h1>Fees & payments</h1><p>A clear record of billed fees, payments received and the remaining balance.</p></div>
+  <div class="pp-page-actions"><a class="pp-button pp-button--secondary" href="{% url 'parent_dashboard' %}?student={{ student.id }}"><i class="ph ph-arrow-left"></i> Overview</a></div>
+</header>
+{% include 'parent_portal/_child_tabs.html' %}
+
+<section class="pp-card">
+  <div class="pp-summary-strip">
+    <div class="pp-summary-item"><small>Total billed</small><strong>UGX {{ total_billed|floatformat:0|intcomma }}</strong></div>
+    <div class="pp-summary-item"><small>Total paid</small><strong>UGX {{ total_paid|floatformat:0|intcomma }}</strong></div>
+    <div class="pp-summary-item"><small>Outstanding</small><strong>UGX {{ balance|floatformat:0|intcomma }}</strong></div>
+    <div class="pp-summary-item"><small>Billing records</small><strong>{{ bills|length }}</strong></div>
+  </div>
+</section>
+{% if paid_percent != None %}<section class="pp-fee-progress"><div><span><strong>{{ paid_percent|floatformat:0 }}%</strong> of billed fees paid</span><span>UGX {{ balance|floatformat:0|intcomma }} remaining</span></div><div class="pp-progress"><span style="width:{{ paid_percent|floatformat:0 }}%"></span></div></section>{% endif %}
+
+{% for bill in bills %}
+<section class="pp-card pp-bill">
+  <header class="pp-card__header pp-bill__heading">
+    <div><h2>{{ bill.academic_class }}</h2><p>Issued {{ bill.bill_date|date:"d M Y" }}{% if bill.due_date %} · Due {{ bill.due_date|date:"d M Y" }}{% endif %}</p></div>
+    <span class="pp-status {% if bill.balance <= 0 %}pp-status--success{% else %}pp-status--warning{% endif %}">{% if bill.balance <= 0 %}<i class="ph ph-check-circle"></i> Paid{% else %}UGX {{ bill.balance|floatformat:0|intcomma }} due{% endif %}</span>
+  </header>
+  <div class="pp-card__body">
+    <div class="pp-summary-strip">
+      <div class="pp-summary-item"><small>Bill total</small><strong>UGX {{ bill.total_amount|floatformat:0|intcomma }}</strong></div>
+      <div class="pp-summary-item"><small>Amount paid</small><strong>UGX {{ bill.amount_paid|floatformat:0|intcomma }}</strong></div>
+      <div class="pp-summary-item"><small>Balance</small><strong>UGX {{ bill.balance|floatformat:0|intcomma }}</strong></div>
+      <div class="pp-summary-item"><small>Status</small><strong style="font-size:16px">{{ bill.status }}</strong></div>
+    </div>
+
+    {% if bill.items.all %}
+    <div class="pp-divider-title"><h3>Fee breakdown</h3></div>
+    <div class="pp-fee-items">
+      {% for item in bill.items.all %}<div class="pp-fee-item"><span>{{ item.description|default:item.bill_item }}</span><strong class="pp-money">UGX {{ item.amount|floatformat:0|intcomma }}</strong></div>{% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="pp-divider-title"><h3>Payment history</h3><span class="pp-caption">{{ bill.payments.count }} payment{{ bill.payments.count|pluralize }}</span></div>
+    <div class="pp-table-wrap">
+      <table class="pp-table">
+        <thead><tr><th>Date</th><th>Reference</th><th>Method</th><th>Amount</th><th>Receipt</th></tr></thead>
+        <tbody>
+          {% for payment in bill.payments.all %}
+          <tr><td data-label="Date">{{ payment.payment_date|date:"d M Y" }}</td><td data-label="Reference" class="pp-table__primary">{{ payment.reference_no }}</td><td data-label="Method">{{ payment.payment_method }}</td><td data-label="Amount" class="pp-money">UGX {{ payment.amount|floatformat:0|intcomma }}</td><td data-label="Receipt"><a class="pp-text-link" href="{% url 'parent_payment_receipt' student.id payment.id %}"><i class="ph ph-receipt"></i> View</a></td></tr>
+          {% empty %}<tr><td colspan="5">No payments have been recorded for this bill.</td></tr>{% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+{% empty %}
+<section class="pp-card"><div class="pp-empty-state"><span class="pp-empty-state__icon"><i class="ph ph-receipt"></i></span><h3>No bills available</h3><p>Fee information will appear here after the school creates a bill for this student.</p></div></section>
+{% endfor %}
+{% endblock %}

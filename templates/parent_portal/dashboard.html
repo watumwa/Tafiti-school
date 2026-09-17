@@ -1,0 +1,102 @@
+{% extends 'parent_portal/base.html' %}
+{% load humanize %}
+{% block title %}Family dashboard{% endblock %}
+{% block content %}
+<header class="pp-page-header pp-command-header">
+  <div>
+    <span class="pp-eyebrow">Family command centre</span>
+    <h1>Good day, {{ student.guardian }}.</h1>
+    <p>{% now "l, j F Y" %}{% if current_term %} · Term {{ current_term.term }}, {{ current_term.academic_year }}{% endif %}</p>
+  </div>
+  <div class="pp-page-actions pp-dashboard-notifications">
+    <a class="pp-button pp-button--secondary" href="{% url 'parent_calendar' %}"><i class="ph ph-calendar-dots"></i> School calendar</a>
+    <a class="pp-button" href="{% url 'parent_notifications' %}"><i class="ph ph-bell"></i> Alerts{% if unread_notification_count %}<span class="pp-nav-count">{{ unread_notification_count }}</span>{% endif %}</a>
+  </div>
+</header>
+
+<section class="pp-family-summary" aria-label="Family summary">
+  <div><span class="pp-family-summary__icon"><i class="ph ph-student"></i></span><span><small>Linked children</small><strong>{{ child_rows|length }}</strong></span></div>
+  <div><span class="pp-family-summary__icon pp-family-summary__icon--green"><i class="ph ph-calendar-check"></i></span><span><small>Family attendance</small><strong>{% if family_attendance != None %}{{ family_attendance }}%{% else %}—{% endif %}</strong></span></div>
+  <div><span class="pp-family-summary__icon pp-family-summary__icon--gold"><i class="ph ph-wallet"></i></span><span><small>Total fees outstanding</small><strong>UGX {{ total_balance|floatformat:0|intcomma }}</strong></span></div>
+</section>
+
+{% if action_items %}
+<section class="pp-card pp-action-centre">
+  <header class="pp-card__header"><div><span class="pp-section-kicker">Action required</span><h2>Items needing your attention</h2></div><span class="pp-status pp-status--danger">{{ action_items|length }} open</span></header>
+  <div class="pp-action-list">
+    {% for item in action_items %}
+    <a class="pp-action-row pp-action-row--{{ item.priority }}" href="{{ item.url }}">
+      <span class="pp-action-row__icon"><i class="ph {{ item.icon }}"></i></span>
+      <span class="pp-action-row__copy"><strong>{{ item.title }}</strong><small>{{ item.description }}</small></span>
+      <span class="pp-action-row__cta">{{ item.action }} <i class="ph ph-arrow-right"></i></span>
+    </a>
+    {% endfor %}
+  </div>
+</section>
+{% else %}
+<div class="pp-all-clear"><i class="ph ph-check-circle"></i><span><strong>You’re all caught up</strong><small>There are no urgent fee or library items at the moment.</small></span></div>
+{% endif %}
+
+<div class="pp-section-heading"><div><span class="pp-section-kicker">Your family</span><h2>Children at a glance</h2></div><a class="pp-text-link" href="{% url 'parent_children' %}">View all children <i class="ph ph-arrow-right"></i></a></div>
+<div class="pp-dashboard-children">
+  {% for row in child_rows %}
+  <article class="pp-family-child-card {% if row.student.id == student.id %}is-selected{% endif %}">
+    <div class="pp-family-child-card__header">
+      <span class="pp-child-card__avatar">{% if row.student.photo %}<img src="{{ row.student.photo.url }}" alt="{{ row.student.student_name }}">{% else %}{{ row.student.student_name|first|upper }}{% endif %}</span>
+      <span><strong>{{ row.student.student_name }}</strong><small>{{ row.student.reg_no }} · {{ row.student.current_class }}{% if row.student.stream %} {{ row.student.stream }}{% endif %}</small></span>
+      <a href="{% url 'parent_child_overview' row.student.id %}" aria-label="Open {{ row.student.student_name }} profile"><i class="ph ph-arrow-up-right"></i></a>
+    </div>
+    <div class="pp-family-child-card__metrics">
+      {% if row.access.can_view_attendance %}<div><small>Attendance</small><strong>{% if row.attendance_percent != None %}{{ row.attendance_percent }}%{% else %}—{% endif %}</strong></div>{% endif %}
+      {% if row.access.can_view_academics %}<div><small>Average</small><strong>{% if row.academic_average != None %}{{ row.academic_average|floatformat:1 }}%{% else %}—{% endif %}</strong></div>{% endif %}
+      {% if row.access.can_view_finance %}<div><small>Fees due</small><strong>UGX {{ row.balance|floatformat:0|intcomma }}</strong></div>{% endif %}
+    </div>
+    <div class="pp-family-child-card__footer">
+      <a href="{% url 'parent_child_overview' row.student.id %}">Open student overview</a>
+      <a href="{% url 'parent_message_new' row.student.id %}"><i class="ph ph-chat-circle-dots"></i> Message teacher</a>
+    </div>
+  </article>
+  {% empty %}
+  <section class="pp-card"><div class="pp-empty-state"><span class="pp-empty-state__icon"><i class="ph ph-users-three"></i></span><h3>No linked children</h3><p>Contact the school office to link a child to this account.</p></div></section>
+  {% endfor %}
+</div>
+
+<div class="pp-grid pp-command-grid">
+  <section class="pp-card pp-span-7">
+    <header class="pp-card__header"><div><span class="pp-section-kicker">Today</span><h2>Family schedule</h2><p>Lessons scheduled for {% now "l" %}</p></div></header>
+    <div class="pp-card__body pp-today-list">
+      {% for item in today_schedule %}
+      <div class="pp-today-row">
+        <time>{{ item.entry.time_slot.start_time|time:"H:i" }}</time>
+        <span class="pp-today-row__line"></span>
+        <span class="pp-today-row__copy"><strong>{{ item.entry.subject }}</strong><small>{{ item.student.student_name }}{% if item.entry.teacher %} · {{ item.entry.teacher }}{% endif %}{% if item.entry.classroom %} · {{ item.entry.classroom }}{% endif %}</small></span>
+      </div>
+      {% empty %}
+      <div class="pp-empty-state pp-empty-state--compact"><span class="pp-empty-state__icon"><i class="ph ph-calendar-blank"></i></span><h3>No lessons scheduled today</h3><p>The timetable has no published lessons for today.</p></div>
+      {% endfor %}
+    </div>
+  </section>
+
+  <section class="pp-card pp-span-5">
+    <header class="pp-card__header"><div><span class="pp-section-kicker">Coming up</span><h2>School events</h2></div><a class="pp-text-link" href="{% url 'parent_calendar' %}">Full calendar</a></header>
+    <div class="pp-card__body pp-event-list">
+      {% for event in upcoming_events %}
+      <div class="pp-event-row"><time><strong>{{ event.start_datetime|date:"d" }}</strong><small>{{ event.start_datetime|date:"M" }}</small></time><span><strong>{{ event.title }}</strong><small>{{ event.start_datetime|time:"H:i" }}{% if event.location %} · {{ event.location }}{% endif %}</small></span></div>
+      {% empty %}
+      <div class="pp-empty-state pp-empty-state--compact"><span class="pp-empty-state__icon"><i class="ph ph-calendar-dots"></i></span><h3>No upcoming events</h3><p>New parent events will appear here.</p></div>
+      {% endfor %}
+    </div>
+  </section>
+
+  <section class="pp-card pp-span-12">
+    <header class="pp-card__header"><div><span class="pp-section-kicker">Latest updates</span><h2>Recent activity</h2><p>Published results, payments and school announcements</p></div></header>
+    <div class="pp-activity-grid">
+      {% for item in recent_activity %}
+      <a class="pp-activity-item" href="{{ item.url }}"><span class="pp-feed-item__icon pp-tone--{{ item.tone }}"><i class="ph {{ item.icon }}"></i></span><span><strong>{{ item.title }}</strong><small>{{ item.description }} · {{ item.when|timesince }} ago</small></span><i class="ph ph-caret-right"></i></a>
+      {% empty %}
+      <div class="pp-empty-state"><span class="pp-empty-state__icon"><i class="ph ph-clock-counter-clockwise"></i></span><h3>No recent activity</h3><p>New school updates will be collected here.</p></div>
+      {% endfor %}
+    </div>
+  </section>
+</div>
+{% endblock %}

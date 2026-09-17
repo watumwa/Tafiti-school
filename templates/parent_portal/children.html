@@ -1,0 +1,27 @@
+{% extends 'parent_portal/base.html' %}
+{% load humanize %}
+{% block title %}My children{% endblock %}
+{% block content %}
+<header class="pp-page-header">
+  <div><span class="pp-eyebrow">Family</span><h1>My children</h1><p>Choose a child to open their school overview and available records{% if current_term %} for Term {{ current_term.term }}{% endif %}.</p></div>
+</header>
+
+<div class="pp-grid">
+  {% for row in child_rows %}
+  <article class="pp-card pp-child-card pp-span-6">
+    <div class="pp-child-card__top">
+      <span class="pp-child-card__avatar">{% if row.student.photo %}<img src="{{ row.student.photo.url }}" alt="{{ row.student.student_name }}">{% else %}{{ row.student.student_name|first|upper }}{% endif %}</span>
+      <div><h2>{{ row.student.student_name }}</h2><p>{{ row.student.reg_no }} · {{ row.student.current_class }}{% if row.student.stream %} · {{ row.student.stream }}{% endif %}</p></div>
+    </div>
+    <div class="pp-child-card__metrics">
+      <div class="pp-child-card__metric"><small>Attendance</small><strong>{% if row.attendance_percent != None %}{{ row.attendance_percent }}%{% else %}—{% endif %}</strong></div>
+      <div class="pp-child-card__metric"><small>Performance</small><strong>{% if row.academic_average != None %}{{ row.academic_average|floatformat:1 }}%{% else %}—{% endif %}</strong></div>
+    </div>
+    {% if row.balance != None %}<div class="pp-child-card__balance">Outstanding fees<strong>UGX {{ row.balance|floatformat:0|intcomma }}</strong></div>{% endif %}
+    <div class="pp-child-card__action"><a class="pp-button pp-button--full" href="{% url 'parent_child_overview' row.student.id %}">Open {{ row.student.student_name|truncatewords:1 }}’s 360° profile <i class="ph ph-arrow-right"></i></a></div>
+  </article>
+  {% empty %}
+  <section class="pp-card pp-span-12"><div class="pp-empty-state"><span class="pp-empty-state__icon"><i class="ph ph-users-three"></i></span><h3>No linked children</h3><p>Contact the school office to verify and link your child’s record.</p></div></section>
+  {% endfor %}
+</div>
+{% endblock %}

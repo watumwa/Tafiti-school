@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+
+{% block page_title %}Attendance Dashboard{% endblock page_title %}
+
+{% block content %}
+<style>
+.attendance-hero {
+  border: 1px solid #dbeafe;
+  border-radius: 20px;
+  background: linear-gradient(135deg, #ffffff 0%, #f8fbff 52%, #eef6ff 100%);
+  box-shadow: 0 16px 36px rgba(15, 23, 42, .08);
+  padding: 18px;
+  margin-bottom: 16px;
+}
+.attendance-hero h2 { margin: 6px 0 4px; font-weight: 850; color: #0f172a; }
+.attendance-eyebrow { display:inline-flex; gap:6px; align-items:center; border:1px solid #bfdbfe; border-radius:999px; background:#eff6ff; color:#1d4ed8; font-size:11px; font-weight:800; padding:5px 10px; letter-spacing:.07em; text-transform:uppercase; }
+.attendance-kpi {
+  min-height: 148px;
+  border: 1px solid #e2e8f0;
+  border-left: 4px solid #1d4ed8;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 12px 26px rgba(15, 23, 42, .07);
+  padding: 15px;
+  margin-bottom: 14px;
+}
+.attendance-kpi.success { border-left-color:#16a34a; }
+.attendance-kpi.warning { border-left-color:#f59e0b; }
+.attendance-kpi.danger { border-left-color:#dc2626; }
+.attendance-kpi .kpi-top { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+.attendance-kpi .kpi-icon { width:40px; height:40px; display:inline-flex; align-items:center; justify-content:center; border-radius:13px; background:#eff6ff; color:#1d4ed8; }
+.attendance-kpi.success .kpi-icon { background:#dcfce7; color:#15803d; }
+.attendance-kpi.warning .kpi-icon { background:#fef3c7; color:#b45309; }
+.attendance-kpi.danger .kpi-icon { background:#fee2e2; color:#b91c1c; }
+.attendance-kpi .label-text { margin-top:12px; color:#64748b; font-size:11px; font-weight:850; letter-spacing:.06em; text-transform:uppercase; }
+.attendance-kpi .value { margin-top:3px; font-size:30px; line-height:1.1; font-weight:850; color:#0f172a; }
+.attendance-kpi .note { color:#64748b; font-size:12px; margin-top:2px; }
+.attendance-progress { height:8px; border-radius:999px; background:#e2e8f0; overflow:hidden; margin-top:12px; }
+.attendance-progress span { display:block; height:100%; max-width:100%; border-radius:inherit; background:#1d4ed8; }
+.attendance-progress span.success { background:#16a34a; }
+.attendance-progress span.warning { background:#f59e0b; }
+.attendance-progress span.danger { background:#dc2626; }
+.attendance-flow { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
+.attendance-flow span { display:inline-flex; align-items:center; gap:6px; border-radius:999px; padding:6px 10px; background:#f8fafc; border:1px solid #e2e8f0; color:#475569; font-weight:700; font-size:12px; }
+.attendance-status-dot { width:9px; height:9px; border-radius:999px; background:#f59e0b; display:inline-block; }
+.attendance-status-dot.ok { background:#16a34a; }
+.attendance-status-dot.info { background:#1d4ed8; }
+.attendance-status-dot.warn { background:#f59e0b; }
+.attendance-status-dot.risk { background:#dc2626; }
+</style>
+
+<div class="attendance-hero">
+  <span class="attendance-eyebrow"><i class="fa fa-calendar-check-o"></i> Attendance Workspace</span>
+  <h2>Teacher Attendance Dashboard</h2>
+  <p class="text-muted" style="margin-bottom:0;">Lesson-based attendance for {{ today|date:"l, d M Y" }}. Drafts are traced, but only submitted/locked lessons count in official attendance analytics.</p>
+  <div class="attendance-flow">
+    <span><i class="fa fa-calendar"></i> Timetable lesson</span>
+    <span><i class="fa fa-pencil"></i> Draft sheet opened</span>
+    <span><i class="fa fa-lock"></i> Submit to lock</span>
+    <span><i class="fa fa-history"></i> Audit trail kept</span>
+  </div>
+</div>
+
+<div class="row">
+  <div class="col-md-3 col-sm-6 col-xs-12">
+    <div class="attendance-kpi">
+      <div class="kpi-top"><span class="kpi-icon"><i class="fa fa-clock-o"></i></span><span class="label label-info">Today</span></div>
+      <div class="label-text">Lessons Scheduled</div>
+      <div class="value">{{ today_lessons_count }}</div>
+      <div class="note">From teacher timetable</div>
+      <div class="attendance-progress"><span style="width:100%;"></span></div>
+    </div>
+  </div>
+  <div class="col-md-3 col-sm-6 col-xs-12">
+    <div class="attendance-kpi warning">
+      <div class="kpi-top"><span class="kpi-icon"><i class="fa fa-hourglass-half"></i></span><span class="label label-warning">Open</span></div>
+      <div class="label-text">Pending / Draft</div>
+      <div class="value">{{ pending_lessons_count }}</div>
+      <div class="note">Draft sheets: {{ draft_lessons_count|default:0 }}</div>
+      <div class="attendance-progress"><span class="warning" style="width:{{ pending_lessons_rate|floatformat:0 }}%;"></span></div>
+    </div>
+  </div>
+  <div class="col-md-3 col-sm-6 col-xs-12">
+    <div class="attendance-kpi success">
+      <div class="kpi-top"><span class="kpi-icon"><i class="fa fa-check-square-o"></i></span><span class="label label-success">Locked</span></div>
+      <div class="label-text">Submitted Lessons</div>
+      <div class="value">{{ completed_lessons_count }}</div>
+      <div class="note">Official attendance captured</div>
+      <div class="attendance-progress"><span class="success" style="width:{{ completed_lessons_rate|floatformat:0 }}%;"></span></div>
+    </div>
+  </div>
+  <div class="col-md-3 col-sm-6 col-xs-12">
+    <div class="attendance-kpi {% if attendance_rate >= 75 %}success{% else %}danger{% endif %}">
+      <div class="kpi-top"><span class="kpi-icon"><i class="fa fa-line-chart"></i></span><span class="label {% if attendance_rate >= 75 %}label-success{% else %}label-danger{% endif %}">Submitted only</span></div>
+      <div class="label-text">Attendance Rate</div>
+      <div class="value">{{ attendance_rate }}%</div>
+      <div class="note">Present + late from locked sessions</div>
+      <div class="attendance-progress"><span class="{% if attendance_rate >= 75 %}success{% else %}danger{% endif %}" style="width:{{ attendance_rate|floatformat:0 }}%;"></span></div>
+    </div>
+  </div>
+</div>
+
+<div class="row">
+  <div class="col-md-12">
+    <div class="x_panel">
+      <div class="x_title">
+        <h2><i class="fa fa-table"></i> Today's Timetable & Attendance Trace</h2>
+        <div class="clearfix"></div>
+      </div>
+      <div class="x_content">
+        <div class="table-responsive">
+          <table class="table table-bordered table-striped table-hover">
+            <thead>
+              <tr>
+                <th>Time</th>
+                <th>Class</th>
+                <th>Subject</th>
+                <th>Trace Status</th>
+                <th>Meaning</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in lesson_rows %}
+              <tr>
+                <td>{{ row.lesson.time_slot.start_time|time:"H:i" }} - {{ row.lesson.time_slot.end_time|time:"H:i" }}</td>
+                <td>{{ row.lesson.class_stream }}</td>
+                <td>{{ row.lesson.subject.name }}</td>
+                <td><span class="label {{ row.status.css }}">{{ row.status.icon }} {{ row.status.label }}</span></td>
+                <td>
+                  {% if row.status.label == 'Taken' %}
+                  <span class="attendance-status-dot ok"></span>Submitted and locked. Included in reports.
+                  {% elif row.status.label == 'Draft' %}
+                  <span class="attendance-status-dot info"></span>Opened but not locked. Trace exists, not official yet. {% if row.status.unmarked_count %}<strong>{{ row.status.unmarked_count }}</strong> learner(s) still unmarked.{% endif %}
+                  {% else %}
+                  <span class="attendance-status-dot warn"></span>No sheet submitted for this lesson.
+                  {% endif %}
+                </td>
+                <td><a href="{{ row.action_url }}" class="btn btn-xs {{ row.action_css }}">{{ row.action_label }}</a></td>
+              </tr>
+              {% empty %}
+              <tr><td colspan="6" class="text-muted text-center">No lessons scheduled for today.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <div style="margin-top:10px;">
+          <a href="{% url 'teacher_timetable' %}" class="btn btn-default btn-sm"><i class="fa fa-calendar"></i> Open My Timetable</a>
+          <a href="{% url 'attendance_history' %}" class="btn btn-default btn-sm"><i class="fa fa-history"></i> Attendance History</a>
+          <a href="{% url 'attendance_analysis' %}" class="btn btn-primary btn-sm"><i class="fa fa-bar-chart"></i> Attendance Analysis</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock content %}

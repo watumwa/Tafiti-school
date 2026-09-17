@@ -1,0 +1,25 @@
+{% extends 'parent_portal/base.html' %}
+{% block title %}Documents · {{ student.student_name }}{% endblock %}
+{% block content %}
+<header class="pp-page-header"><div><span class="pp-eyebrow">{{ student.student_name }}</span><h1>Documents & receipts</h1><p>A secure place for student documents, verified reports and official payment receipts.</p></div></header>
+{% include 'parent_portal/_child_tabs.html' %}
+
+<div class="pp-grid">
+  {% if access.can_view_academics %}
+  <section class="pp-card pp-span-4 pp-download-card"><span><i class="ph ph-file-pdf"></i></span><div><h2>Academic report</h2><p>Verified results in a printable PDF.</p></div>{% if has_results %}<a class="pp-button pp-button--secondary pp-button--full" href="{% url 'parent_report_download' student.id %}"><i class="ph ph-download-simple"></i> Download report</a>{% else %}<span class="pp-status">Not published</span>{% endif %}</section>
+  {% endif %}
+  <section class="pp-card {% if access.can_view_academics %}pp-span-8{% else %}pp-span-12{% endif %}">
+    <header class="pp-card__header"><div><h2>Student documents</h2><p>Files uploaded to {{ student.student_name }}’s record</p></div><span class="pp-status">{{ documents|length }} file{{ documents|length|pluralize }}</span></header>
+    <div class="pp-document-list pp-document-list--padded">
+      {% for document in documents %}<a href="{% url 'parent_document_download' student.id document.id %}"><span><i class="ph ph-file-text"></i></span><span><strong>{{ document.get_document_type_display }}</strong><small>{{ document.file.name }} · {{ document.uploaded_at|date:"d M Y" }}</small></span><span class="pp-document-action"><i class="ph ph-download-simple"></i> Download</span></a>{% empty %}<div class="pp-empty-state"><span class="pp-empty-state__icon"><i class="ph ph-folder-open"></i></span><h3>No student documents</h3><p>Files shared by the school will be listed here.</p></div>{% endfor %}
+    </div>
+  </section>
+</div>
+
+{% if access.can_view_finance %}
+<section class="pp-card">
+  <header class="pp-card__header"><div><h2>Payment receipts</h2><p>Official receipts for payments recorded by the school</p></div></header>
+  {% if payments %}<div class="pp-table-wrap"><table class="pp-table"><thead><tr><th>Date</th><th>Receipt reference</th><th>Method</th><th>Amount</th><th></th></tr></thead><tbody>{% for payment in payments %}<tr><td data-label="Date">{{ payment.payment_date|date:"d M Y" }}</td><td data-label="Reference" class="pp-table__primary">{{ payment.reference_no }}</td><td data-label="Method">{{ payment.payment_method }}</td><td data-label="Amount" class="pp-money">UGX {{ payment.amount|floatformat:0 }}</td><td data-label="Receipt"><a class="pp-text-link" href="{% url 'parent_payment_receipt' student.id payment.id %}"><i class="ph ph-receipt"></i> View receipt</a></td></tr>{% endfor %}</tbody></table></div>{% else %}<div class="pp-empty-state"><span class="pp-empty-state__icon"><i class="ph ph-receipt"></i></span><h3>No receipts yet</h3><p>Receipts appear here after the school records a payment.</p></div>{% endif %}
+</section>
+{% endif %}
+{% endblock %}

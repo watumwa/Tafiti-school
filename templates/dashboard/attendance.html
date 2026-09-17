@@ -1,0 +1,270 @@
+{% extends "dashboard/base_dashboard.html" %}
+{% load humanize %}
+
+{% block dashboard_section_content %}
+<div class="row">
+  <div class="col-md-3 col-sm-6">
+    <div class="x_panel control-kpi-card tone-green">
+      <div class="x_content">
+        <div class="control-kpi-top">
+          <span class="control-kpi-icon"><i class="fa fa-calendar-check-o"></i></span>
+          <span class="label {% if attendance_today_rate >= 85 %}label-success{% elif attendance_today_rate >= 75 %}label-warning{% else %}label-danger{% endif %}">{{ attendance_today_rate|floatformat:1 }}%</span>
+        </div>
+        <div class="control-kpi-label">Attendance Today</div>
+        <div class="control-kpi-value">{{ attendance_today_rate|floatformat:1 }}%</div>
+        <div class="control-kpi-note">Locked/submitted lessons only</div>
+        <div class="kpi-mini-chart">
+          <div class="kpi-mini-track"><span class="kpi-mini-fill success" style="width: {{ attendance_today_rate|floatformat:0 }}%;"></span></div>
+          <div class="kpi-mini-caption">Present + late share today</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3 col-sm-6">
+    <div class="x_panel control-kpi-card tone-cyan">
+      <div class="x_content">
+        <div class="control-kpi-top">
+          <span class="control-kpi-icon"><i class="fa fa-line-chart"></i></span>
+          <span class="label label-info">7 days</span>
+        </div>
+        <div class="control-kpi-label">Attendance This Week</div>
+        <div class="control-kpi-value">{{ attendance_week_rate|floatformat:1 }}%</div>
+        <div class="control-kpi-note">Weekly attendance health</div>
+        <div class="kpi-mini-chart">
+          <div class="kpi-mini-track"><span class="kpi-mini-fill" style="width: {{ attendance_week_rate|floatformat:0 }}%;"></span></div>
+          <div class="kpi-mini-caption">Trend from submitted sessions</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3 col-sm-6">
+    <div class="x_panel control-kpi-card tone-amber">
+      <div class="x_content">
+        <div class="control-kpi-top">
+          <span class="control-kpi-icon"><i class="fa fa-hourglass-half"></i></span>
+          <span class="label {% if attendance_classes_not_submitted_count %}label-warning{% else %}label-success{% endif %}">{{ attendance_submission_completion_rate|floatformat:1 }}%</span>
+        </div>
+        <div class="control-kpi-label">Submission Completion</div>
+        <div class="control-kpi-value">{{ attendance_submission_completion_rate|floatformat:1 }}%</div>
+        <div class="control-kpi-note">{{ attendance_classes_not_submitted_count|intcomma }} of {{ attendance_total_class_streams|intcomma }} class streams still open</div>
+        <div class="kpi-mini-chart">
+          <div class="kpi-mini-track"><span class="kpi-mini-fill warn" style="width: {{ attendance_submission_completion_rate|floatformat:0 }}%;"></span></div>
+          <div class="kpi-mini-caption">Locked sessions: {{ attendance_locked_sessions_today_count|intcomma }} · Drafts: {{ attendance_draft_sessions_today_count|intcomma }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3 col-sm-6">
+    <div class="x_panel control-kpi-card tone-red">
+      <div class="x_content">
+        <div class="control-kpi-top">
+          <span class="control-kpi-icon"><i class="fa fa-user-times"></i></span>
+          <span class="label {% if attendance_teachers_absent_today %}label-danger{% else %}label-success{% endif %}">{{ attendance_teacher_pending_rate|floatformat:1 }}%</span>
+        </div>
+        <div class="control-kpi-label">Teachers Not Submitted</div>
+        <div class="control-kpi-value">{{ attendance_teachers_absent_today|intcomma }}</div>
+        <div class="control-kpi-note">Expected teachers: {{ attendance_total_teachers|intcomma }}</div>
+        <div class="kpi-mini-chart">
+          <div class="kpi-mini-track"><span class="kpi-mini-fill danger" style="width: {{ attendance_teacher_pending_rate|floatformat:0 }}%;"></span></div>
+          <div class="kpi-mini-caption">Teacher submission gap</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row">
+  <div class="col-md-8">
+    <div class="x_panel control-chart-card">
+      <div class="x_title">
+        <h2><i class="fa fa-area-chart"></i> Weekly Attendance Trend</h2>
+        <div class="clearfix"></div>
+      </div>
+      <div class="x_content">
+        <div id="attendance-weekly-chart" class="control-chart"></div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="x_panel control-chart-card">
+      <div class="x_title">
+        <h2><i class="fa fa-pie-chart"></i> Today Submission State</h2>
+        <div class="clearfix"></div>
+      </div>
+      <div class="x_content">
+        <div id="attendance-submission-chart" class="control-chart"></div>
+        <p class="text-muted text-center" style="margin-top:-12px;">Draft means opened but not submitted/locked.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row">
+  <div class="col-md-7">
+    <div class="x_panel control-chart-card">
+      <div class="x_title">
+        <h2><i class="fa fa-bar-chart"></i> Attendance by Class Stream</h2>
+        <div class="clearfix"></div>
+      </div>
+      <div class="x_content">
+        {% if attendance_class_rows %}
+        <div id="attendance-class-chart" class="control-chart"></div>
+        {% else %}
+        <div class="control-muted-panel">No submitted class attendance data yet for this term.</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  <div class="col-md-5">
+    <div class="x_panel control-chart-card">
+      <div class="x_title">
+        <h2><i class="fa fa-tasks"></i> Status Distribution</h2>
+        <div class="clearfix"></div>
+      </div>
+      <div class="x_content">
+        <div id="attendance-status-chart" class="control-chart"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row">
+  <div class="col-md-6">
+    <div class="x_panel">
+      <div class="x_title">
+        <h2><i class="fa fa-check-square-o"></i> Class Submission Tracker</h2>
+        <div class="clearfix"></div>
+      </div>
+      <div class="x_content">
+        <div class="control-table-scroll">
+          <table class="table table-striped table-hover">
+            <thead>
+              <tr><th>Class</th><th>Teacher</th><th>Status</th></tr>
+            </thead>
+            <tbody>
+              {% for row in attendance_class_submission_rows %}
+              <tr>
+                <td>{{ row.class_name }} <small class="text-muted">{{ row.stream_name }}</small></td>
+                <td>{{ row.teacher_name }}</td>
+                <td>
+                  {% if row.submitted %}
+                  <span class="label label-success">Submitted</span>
+                  {% elif row.has_draft %}
+                  <span class="label label-info">Draft</span>
+                  {% else %}
+                  <span class="label label-danger">Pending</span>
+                  {% endif %}
+                </td>
+              </tr>
+              {% empty %}
+              <tr><td colspan="3" class="text-center text-muted">No class submission data.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-6">
+    <div class="x_panel">
+      <div class="x_title">
+        <h2><i class="fa fa-user-times"></i> Chronic Absentee Students</h2>
+        <div class="clearfix"></div>
+      </div>
+      <div class="x_content">
+        <div class="control-table-scroll">
+          <table class="table table-striped table-hover">
+            <thead>
+              <tr><th>Student</th><th>Class</th><th>Attendance</th><th>Sessions</th></tr>
+            </thead>
+            <tbody>
+              {% for row in attendance_chronic_absentee_rows %}
+              <tr>
+                <td>{{ row.student_name }}<br><small class="text-muted">{{ row.reg_no }}</small></td>
+                <td>{{ row.class_name }}</td>
+                <td><strong class="text-danger">{{ row.rate|floatformat:1 }}%</strong></td>
+                <td>{{ row.total_sessions|intcomma }}</td>
+              </tr>
+              {% empty %}
+              <tr><td colspan="4" class="text-center text-muted">No chronic absentee students found.</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <hr>
+        <div class="control-action-grid">
+          <a href="{% url 'attendance_history' %}" class="btn btn-default"><i class="fa fa-history"></i> Attendance History</a>
+          <a href="{% url 'attendance_analysis' %}" class="btn btn-primary"><i class="fa fa-bar-chart"></i> Full Analysis</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{{ attendance_weekly_trend_labels|json_script:"attendance-weekly-labels" }}
+{{ attendance_weekly_trend_rates|json_script:"attendance-weekly-values" }}
+{{ attendance_class_chart_labels|json_script:"attendance-class-labels" }}
+{{ attendance_class_chart_rates|json_script:"attendance-class-values" }}
+{{ attendance_status_labels|json_script:"attendance-status-labels" }}
+{{ attendance_status_values|json_script:"attendance-status-values" }}
+{{ attendance_submission_labels|json_script:"attendance-submission-labels" }}
+{{ attendance_submission_values|json_script:"attendance-submission-values" }}
+
+<script>
+(function () {
+  if (typeof ApexCharts === 'undefined') return;
+  function data(id) {
+    var el = document.getElementById(id);
+    if (!el) return [];
+    try { return JSON.parse(el.textContent || '[]'); } catch (e) { return []; }
+  }
+  function mount(selector, options) {
+    var el = document.querySelector(selector);
+    if (!el || el.dataset.chartRendered === 'true') return;
+    new ApexCharts(el, options).render();
+    el.dataset.chartRendered = 'true';
+  }
+  var green = '#16a34a', blue = '#1d4ed8', amber = '#f59e0b', red = '#dc2626', cyan = '#0891b2', slate = '#64748b';
+  mount('#attendance-weekly-chart', {
+    chart: { type: 'area', height: 295, toolbar: { show: false } },
+    series: [{ name: 'Attendance %', data: data('attendance-weekly-values') }],
+    xaxis: { categories: data('attendance-weekly-labels') },
+    yaxis: { min: 0, max: 100, labels: { formatter: function (v) { return Math.round(v) + '%'; } } },
+    colors: [green],
+    dataLabels: { enabled: false },
+    stroke: { curve: 'smooth', width: 3 },
+    markers: { size: 4, strokeWidth: 2, strokeColors: '#fff' },
+    fill: { type: 'gradient', gradient: { opacityFrom: .35, opacityTo: .05 } },
+    grid: { borderColor: '#e2e8f0', strokeDashArray: 4 }
+  });
+  mount('#attendance-submission-chart', {
+    chart: { type: 'donut', height: 285, toolbar: { show: false } },
+    series: data('attendance-submission-values'),
+    labels: data('attendance-submission-labels'),
+    colors: [green, blue, red],
+    legend: { position: 'bottom' },
+    dataLabels: { enabled: false },
+    plotOptions: { pie: { donut: { size: '68%' } } }
+  });
+  mount('#attendance-class-chart', {
+    chart: { type: 'bar', height: 300, toolbar: { show: false } },
+    series: [{ name: 'Attendance %', data: data('attendance-class-values') }],
+    xaxis: { categories: data('attendance-class-labels'), labels: { rotate: -35 } },
+    yaxis: { min: 0, max: 100, labels: { formatter: function (v) { return Math.round(v) + '%'; } } },
+    colors: [cyan],
+    dataLabels: { enabled: false },
+    plotOptions: { bar: { borderRadius: 7, columnWidth: '52%' } },
+    grid: { borderColor: '#e2e8f0', strokeDashArray: 4 }
+  });
+  mount('#attendance-status-chart', {
+    chart: { type: 'bar', height: 300, toolbar: { show: false }, stacked: true },
+    series: [{ name: 'Records', data: data('attendance-status-values') }],
+    xaxis: { categories: data('attendance-status-labels') },
+    colors: [blue],
+    dataLabels: { enabled: false },
+    plotOptions: { bar: { borderRadius: 7, columnWidth: '50%' } },
+    grid: { borderColor: '#e2e8f0', strokeDashArray: 4 }
+  });
+})();
+</script>
+{% endblock %}

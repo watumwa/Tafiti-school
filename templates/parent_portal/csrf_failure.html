@@ -1,0 +1,13 @@
+{% extends 'parent_portal/base.html' %}
+{% block title %}Session expired{% endblock %}
+{% block content %}
+<div class="pp-password-page">
+  <section class="pp-password-card">
+    <div class="pp-password-card__icon"><i class="ph ph-clock-counter-clockwise" aria-hidden="true"></i></div>
+    <span class="pp-eyebrow">Session expired</span>
+    <h1>Please refresh and try again</h1>
+    <p>For your security, the sign-in form expired before it was submitted. Your details were not processed.</p>
+    <a class="pp-button pp-button--full" href="{% url 'parent_login' %}"><i class="ph ph-arrow-clockwise" aria-hidden="true"></i> Return to parent login</a>
+  </section>
+</div>
+{% endblock %}

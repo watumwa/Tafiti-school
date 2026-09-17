@@ -1,0 +1,540 @@
+{% load static report_tags %}
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Combined Assessments - {{ class_obj.Class.name }} | {{ school.school_name }}</title>
+    <link rel="stylesheet" href="{% static 'css/bootstrap.min.css' %}" />
+    <style>
+        @page {
+            size: A4 portrait;
+            margin: 0.65cm;
+        }
+
+        :root {
+            --primary-color: #5b21b6;
+            --secondary-color: #f5f3ff;
+            --border-color: #7c3aed;
+            --text-color: #000000;
+            --font-family: Arial, sans-serif;
+            --font-size-base: 9pt;
+        }
+
+        body {
+            font-family: var(--font-family);
+            background: #ffffff;
+            color: var(--text-color);
+            font-size: var(--font-size-base);
+            margin: 0;
+            padding: 0;
+        }
+
+        .page {
+            page-break-after: always;
+        }
+
+        .content-wrapper {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            padding: 0.65cm;
+            margin: auto;
+            width: 19.7cm;
+            min-height: 27.7cm;
+            max-width: calc(100% - 20px);
+            box-sizing: border-box;
+            border: 2px solid var(--border-color);
+            border-radius: 8px;
+        }
+
+        .header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 0.4cm;
+            border: 1px solid #ddd6fe;
+            border-radius: 5px;
+            background: #faf9ff;
+            padding: 8px 10px;
+        }
+
+        .header img {
+            width: 82px;
+            height: 82px;
+            margin-right: 15px;
+            object-fit: contain;
+        }
+
+        .header .school-details {
+            flex: 1;
+            text-align: center;
+            font-size: 10pt;
+        }
+
+        .header .school-details p {
+            margin: 2px 0;
+            font-size: 9.5pt;
+        }
+
+        .school-name {
+            font-size: 25px !important;
+        }
+
+        .title {
+            text-align: center;
+            font-size: 14pt;
+            font-weight: bold;
+            color: var(--primary-color);
+            margin: 0.35cm 0;
+        }
+
+        .info {
+            display: flex;
+            margin-bottom: 0.4cm;
+            padding: 7px 8px;
+            font-size: 9pt;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .info-photo {
+            flex: 0 0 86px;
+            text-align: center;
+            margin-right: 15px;
+        }
+
+        .info-photo img {
+            width: 82px;
+            height: 82px;
+            object-fit: cover;
+            border-radius: 6px;
+            border: 2px solid var(--border-color);
+        }
+
+        .info-no-photo {
+            width: 82px;
+            height: 82px;
+            background: #ccc;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 8pt;
+            color: #666;
+            border-radius: 6px;
+        }
+
+        .info-details {
+            flex: 1;
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 9px 18px;
+        }
+
+        .info-details span {
+            display: block;
+            padding: 6px 8px;
+            border-bottom: 1px solid #ddd6fe;
+        }
+
+        .print-btn {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 6px 12px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 9pt;
+            margin-bottom: 0.75cm;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+            margin: 0.45cm auto;
+            box-sizing: border-box;
+        }
+
+        th,
+        td {
+            border: 1px solid var(--border-color);
+            padding: 6px;
+            text-align: center;
+            font-size: 9pt;
+            overflow-wrap: anywhere;
+        }
+
+        th {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        table th:first-child,
+        table td:first-child {
+            width: 16%;
+        }
+
+        table th:last-child,
+        table td:last-child {
+            width: 10%;
+        }
+
+        {% if is_wide_table %}
+        th,
+        td {
+            padding: 5px 2px;
+            font-size: 7.5pt;
+            line-height: 1.2;
+        }
+
+        table th:first-child,
+        table td:first-child {
+            width: 17%;
+        }
+
+        table th:last-child,
+        table td:last-child {
+            width: 10%;
+        }
+        {% endif %}
+
+        tr:nth-child(even) {
+            background-color: var(--secondary-color);
+        }
+
+        .conduct-section {
+            font-size: 9pt;
+            margin-top: auto;
+            margin-bottom: auto;
+            padding-top: 0.45cm;
+            break-inside: avoid;
+            page-break-inside: avoid;
+        }
+
+        .approval-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 12px;
+        }
+
+        .approval-card {
+            border: 1px solid #c4b5fd;
+            border-radius: 5px;
+            background: #faf9ff;
+            padding: 10px 12px;
+            min-height: 82px;
+            box-sizing: border-box;
+        }
+
+        .approval-heading {
+            color: var(--primary-color);
+            font-weight: bold;
+            font-size: 9pt;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+        }
+
+        .approval-body {
+            display: grid;
+            grid-template-columns: 1fr 110px;
+            align-items: end;
+            gap: 8px;
+        }
+
+        .signature-box {
+            min-height: 38px;
+            border-bottom: 1px solid #64748b;
+            text-align: center;
+            font-size: 8pt;
+            color: #64748b;
+        }
+
+        .content-wrapper.sparse-report .header {
+            padding-top: 12px;
+            padding-bottom: 12px;
+        }
+
+        .content-wrapper.sparse-report .header img {
+            width: 92px;
+            height: 92px;
+        }
+
+        .content-wrapper.sparse-report .title {
+            margin: 0.55cm 0;
+            font-size: 16pt;
+        }
+
+        .content-wrapper.sparse-report .info {
+            margin-bottom: 0.55cm;
+        }
+
+        .content-wrapper.sparse-report .info-photo {
+            flex-basis: 96px;
+        }
+
+        .content-wrapper.sparse-report .info-photo img,
+        .content-wrapper.sparse-report .info-no-photo {
+            width: 92px;
+            height: 92px;
+        }
+
+        .content-wrapper.sparse-report .info-details span {
+            padding-top: 9px;
+            padding-bottom: 9px;
+            font-size: 9.5pt;
+        }
+
+        .content-wrapper.sparse-report table th,
+        .content-wrapper.sparse-report table td {
+            padding: 8px 2px;
+            font-size: 8.5pt;
+            line-height: 1.25;
+        }
+
+        .content-wrapper.sparse-report table th:first-child,
+        .content-wrapper.sparse-report table td:first-child {
+            width: 15%;
+        }
+
+        .content-wrapper.sparse-report table th:last-child,
+        .content-wrapper.sparse-report table td:last-child {
+            width: 9%;
+        }
+
+        .content-wrapper.sparse-report .approval-grid {
+            margin-top: 18px;
+        }
+
+        .content-wrapper.sparse-report .approval-card {
+            min-height: 105px;
+            padding: 12px 14px;
+        }
+
+        .conduct-section table {
+            width: 100%;
+            border: none;
+            margin: 0.15cm 0 0;
+        }
+
+        .conduct-section td {
+            padding: 6px;
+            border: none;
+            border-bottom: 1px solid #000;
+            vertical-align: top;
+        }
+
+        .conduct-section .label {
+            font-weight: bold;
+            width: 22%;
+            white-space: nowrap;
+        }
+
+        [contenteditable="true"] {
+            outline: none;
+        }
+
+        .next-term {
+            text-align: right;
+            margin-bottom: 0.5cm;
+            font-size: 9pt;
+            font-weight: bold;
+            color: #4a4a4a;
+        }
+
+        .remark-input:focus {
+            background-color: #fffacd;
+        }
+
+        .save-comment-btn:hover {
+            background-color: #45a049;
+        }
+
+        @media print {
+            body {
+                margin: 0;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+
+            .print-btn,
+            .top-actions,
+            .no-print,
+            .save-comment-btn {
+                display: none !important;
+            }
+
+            .remark-input {
+                border: none !important;
+                background: transparent !important;
+            }
+
+            .content-wrapper {
+                border: 2px solid var(--border-color);
+                padding: 0.65cm;
+                margin: 0;
+                width: 100%;
+                max-width: none;
+            }
+
+            th {
+                background-color: var(--primary-color) !important;
+                color: white !important;
+            }
+
+            tr:nth-child(even) {
+                background-color: var(--secondary-color) !important;
+            }
+
+            table {
+                width: 100%;
+                margin: 0.45cm auto;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="top-actions" style="text-align:right; padding: 10px;">
+        <button onclick="window.print()" class="print-btn">Print All</button>
+    </div>
+
+    {% for rep in reports %}
+    <div class="page">
+        <div class="content-wrapper{% if rep.report_data|length <= 7 %} sparse-report{% endif %}">
+            <div class="header">
+                {% if school and school.school_logo and school.school_logo.url %}
+                <img src="{{ school.school_logo.url }}" alt="School Logo" />
+                {% else %}
+                <img src="{% static 'images/logo.png' %}" alt="School Logo" />
+                {% endif %}
+                <div class="school-details">
+                    <p class="school-name"><strong>{{ school.school_name }}</strong></p>
+                    <p>{{ school.address }}</p>
+                    <p>Email: {{ school.email }}</p>
+                    <p>Mobile: {{ school.mobile }}{% if school.office_phone_number1 %} / {{ school.office_phone_number1}}
+                        {% endif %}{% if school.office_phone_number2 %} / {{ school.office_phone_number2 }}{% endif %}
+                    </p>
+                    <p>Web: {{ school.website }}</p>
+                </div>
+            </div>
+
+            <div class="title">
+                {{ rep.report_heading|default:"REPORT" }}
+            </div>
+
+            <div class="info">
+                <div class="info-photo">
+                    {% if rep.student.photo %}
+                    <img src="{{ rep.student.photo.url }}" alt="{{ rep.student.student_name }}" />
+                    {% else %}
+                    <div class="info-no-photo">No Photo</div>
+                    {% endif %}
+                </div>
+                <div class="info-details">
+                    <span><strong>NAME:</strong> {{ rep.student.student_name|default:'N/A' }}</span>
+                    <span><strong>CLASS:</strong> {{ class_obj.Class.name|default:'N/A' }}</span>
+                    <span><strong>REG. NO:</strong> {{ rep.student.reg_no|default:'N/A' }}</span>
+                    <span><strong>TERM:</strong> {{ rep.term|default:"-" }}</span>
+                </div>
+            </div>
+
+            {% if not rep.report_data %}
+            <p style="color: red;">No report data available.</p>
+            {% endif %}
+
+            <table>
+                <tr>
+                    <th rowspan="2">SUBJECT</th>
+                    {% for at in rep.assessment_types %}
+                    <th colspan="2">{{ at.name|upper }}</th>
+                    {% endfor %}
+                    <th rowspan="2">REMARKS</th>
+                </tr>
+                <tr>
+                    {% for at in rep.assessment_types %}
+                    <th>MARKS</th>
+                    <th>AGG</th>
+                    {% endfor %}
+                </tr>
+
+                {% for item in rep.report_data %}
+                <tr>
+                    <td style="text-align:left;">{{ item.subject }}</td>
+                    {% for at in rep.assessment_types %}
+                    {% with data=item.assessments|get_item:at.name %}
+                    <td>{{ data.score|floatformat:0|default:"-" }}</td>
+                    {% if item.subject|upper == "READING" or item.subject|upper == "RELIGIOUS EDUCATION" or item.subject|upper == "RELIGIOUSEDUCATION" %}
+                    <td>-</td>
+                    {% else %}
+                    <td>{{ data.points|floatformat:0|default:"-" }}</td>
+                    {% endif %}
+                    {% endwith %}
+                    {% endfor %}
+                    <td>
+                        {% if item.average <= 49 %}Improve {% elif item.average <= 59 %}Promising {% elif item.average <= 69 %}Fair {% elif item.average <= 79 %}Good {% elif item.average <= 89 %}Well Done {% elif item.average <= 99 %}Bravo {% else %}-{% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+
+                <tr>
+                    <td><strong>TOTAL</strong></td>
+                    {% for at in rep.assessment_types %}
+                    <td>{{ rep.assessment_totals|get_item:at.name|get_item:"marks"|floatformat:0|default:"-" }}</td>
+                    <td>{{ rep.assessment_totals|get_item:at.name|get_item:"points"|floatformat:0|default:"-" }}</td>
+                    {% endfor %}
+                    <td></td>
+                </tr>
+
+                <tr>
+                    <td><strong>DIVISION</strong></td>
+                    {% for at in rep.assessment_types %}
+                    <td colspan="2">
+                        {{ rep.assessment_divisions|get_item:at.name|default:"-" }}
+                    </td>
+                    {% endfor %}
+                    <td></td>
+                </tr>
+            </table>
+
+            <div class="conduct-section">
+                <div class="approval-grid">
+                    <div class="approval-card">
+                        <div class="approval-heading">Class Teacher's Remark</div>
+                        <div class="approval-body">
+                            <div class="report-remark-text">{{ rep.class_teacher_remark|default:""|truncatewords:100 }}</div>
+                            <div class="signature-box">
+                                {% if rep.class_teacher_signature and rep.class_teacher_signature.url %}
+                                <img src="{{ rep.class_teacher_signature.url }}" alt="Class Teacher Signature" style="height:24px;object-fit:contain;" />
+                                {% else %}Signature{% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="approval-card">
+                        <div class="approval-heading">Head Teacher's Signature</div>
+                        <div class="approval-body" style="display:flex;align-items:center;justify-content:center;">
+                            <div class="signature-box" style="width:80%;border-bottom:0;min-height:48px;display:flex;align-items:center;justify-content:center;">
+                                {% if rep.head_teacher_signature and rep.head_teacher_signature.signature %}
+                                <img src="{{ rep.head_teacher_signature.signature.url }}" alt="Head Teacher Signature" style="max-height:48px;max-width:180px;object-fit:contain;" />
+                                {% else %}Signature{% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+
+        </div>
+    </div>
+    {% endfor %}
+<style>
+    .report-remark-text {
+        min-height: 24px;
+        line-height: 11px;
+        font-size: 8.5pt;
+        overflow-wrap: anywhere;
+    }
+</style>
+</body>
+</html>

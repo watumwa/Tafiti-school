@@ -1,0 +1,143 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#12345b">
+  <title>{% block title %}Parent Portal{% endblock %} · {{ school_settings.school_name|default:"School" }}</title>
+  {% if school_settings.school_logo %}<link rel="icon" href="{{ school_settings.school_logo.url }}">{% endif %}
+  <link rel="stylesheet" href="{% static 'admindek/css/plugins/phosphor-icons.css' %}">
+  <link rel="stylesheet" href="{% static 'css/parent_portal.css' %}?v=20260810-1">
+  {% block extra_css %}{% endblock %}
+</head>
+<body class="{% if portal_guest %}pp-guest{% else %}pp-authenticated{% endif %}">
+  <a class="pp-skip-link" href="#main-content">Skip to main content</a>
+
+  {% with current_route=request.resolver_match.url_name %}
+  {% if portal_guest %}
+    <main id="main-content" class="pp-auth-main">
+      {% if messages %}
+        <div class="pp-auth-messages" aria-live="polite">
+          {% for message in messages %}<div class="pp-alert pp-alert--{{ message.tags|default:'info' }}">{{ message }}</div>{% endfor %}
+        </div>
+      {% endif %}
+  {% else %}
+    <header class="pp-topbar">
+      <div class="pp-topbar__inner">
+        <a class="pp-brand" href="{% url 'parent_dashboard' %}" aria-label="{{ school_settings.school_name|default:'School' }} parent portal home">
+          <span class="pp-brand__mark">
+            {% if school_settings.school_logo %}
+              <img src="{{ school_settings.school_logo.url }}" alt="{{ school_settings.school_name|default:'School' }} logo">
+            {% else %}
+              <i class="ph ph-graduation-cap" aria-hidden="true"></i>
+            {% endif %}
+          </span>
+          <span class="pp-brand__text">
+            <strong>{{ school_settings.school_name|default:"School" }}</strong>
+            <small>Parent Portal</small>
+          </span>
+        </a>
+
+        <div class="pp-topbar__actions">
+          <a class="pp-icon-button {% if current_route == 'parent_notifications' %}is-active{% endif %}" href="{% url 'parent_notifications' %}" aria-label="Notifications{% if request.parent_unread_count %}, {{ request.parent_unread_count }} unread{% endif %}">
+            <i class="ph ph-bell" aria-hidden="true"></i>
+            {% if request.parent_unread_count %}<span class="pp-notification-dot">{{ request.parent_unread_count }}</span>{% endif %}
+          </a>
+          <div class="pp-account">
+            <span class="pp-account__avatar">{{ request.user.first_name|default:request.user.username|first|upper }}</span>
+            <span class="pp-account__copy"><strong>{{ request.user.first_name|default:"Parent account" }}</strong><small>Guardian</small></span>
+          </div>
+          <a class="pp-logout-link" href="{% url 'parent_logout' %}"><i class="ph ph-sign-out" aria-hidden="true"></i><span>Sign out</span></a>
+        </div>
+      </div>
+    </header>
+
+    <div class="pp-app-shell">
+      <aside class="pp-sidebar" aria-label="Parent portal navigation">
+        <nav class="pp-sidebar__nav">
+          <p class="pp-nav-label">Overview</p>
+          <a class="pp-nav-link {% if current_route == 'parent_dashboard' %}is-active{% endif %}" href="{% url 'parent_dashboard' %}{% if student %}?student={{ student.id }}{% endif %}"><i class="ph ph-house" aria-hidden="true"></i><span>Home</span></a>
+          <a class="pp-nav-link {% if current_route == 'parent_children' %}is-active{% endif %}" href="{% url 'parent_children' %}"><i class="ph ph-users-three" aria-hidden="true"></i><span>My children</span></a>
+
+          {% if student %}
+            <div class="pp-sidebar__student">
+              <span class="pp-mini-avatar">
+                {% if student.photo %}<img src="{{ student.photo.url }}" alt="">{% else %}{{ student.student_name|first|upper }}{% endif %}
+              </span>
+              <span><strong>{{ student.student_name }}</strong><small>{{ student.current_class }}{% if student.stream %} · {{ student.stream }}{% endif %}</small></span>
+            </div>
+            <p class="pp-nav-label">Student</p>
+            <a class="pp-nav-link {% if current_route == 'parent_child_overview' %}is-active{% endif %}" href="{% url 'parent_child_overview' student.id %}"><i class="ph ph-squares-four" aria-hidden="true"></i><span>Student overview</span></a>
+            {% if access.can_view_academics %}<a class="pp-nav-link {% if current_route == 'parent_results' %}is-active{% endif %}" href="{% url 'parent_results' student.id %}"><i class="ph ph-chart-line-up" aria-hidden="true"></i><span>Academics</span></a>{% endif %}
+            {% if access.can_view_attendance %}<a class="pp-nav-link {% if current_route == 'parent_attendance' %}is-active{% endif %}" href="{% url 'parent_attendance' student.id %}"><i class="ph ph-calendar-check" aria-hidden="true"></i><span>Attendance</span></a>{% endif %}
+            <a class="pp-nav-link {% if current_route == 'parent_timetable' %}is-active{% endif %}" href="{% url 'parent_timetable' student.id %}"><i class="ph ph-clock" aria-hidden="true"></i><span>Timetable</span></a>
+            {% if access.can_view_finance %}<a class="pp-nav-link {% if current_route == 'parent_finance' %}is-active{% endif %}" href="{% url 'parent_finance' student.id %}"><i class="ph ph-wallet" aria-hidden="true"></i><span>Fees & payments</span></a>{% endif %}
+            {% if library_enabled %}<a class="pp-nav-link {% if current_route == 'parent_library' %}is-active{% endif %}" href="{% url 'parent_library' student.id %}"><i class="ph ph-books" aria-hidden="true"></i><span>Library</span></a>{% endif %}
+            <a class="pp-nav-link {% if current_route == 'parent_documents' %}is-active{% endif %}" href="{% url 'parent_documents' student.id %}"><i class="ph ph-folder-open" aria-hidden="true"></i><span>Documents</span></a>
+          {% endif %}
+
+          <p class="pp-nav-label">School</p>
+          <a class="pp-nav-link {% if current_route == 'parent_calendar' %}is-active{% endif %}" href="{% url 'parent_calendar' %}"><i class="ph ph-calendar-dots" aria-hidden="true"></i><span>Calendar</span></a>
+          <a class="pp-nav-link {% if current_route == 'parent_messages' or current_route == 'parent_message_new' or current_route == 'parent_message_thread' %}is-active{% endif %}" href="{% url 'parent_messages' %}"><i class="ph ph-chats-circle" aria-hidden="true"></i><span>Messages</span></a>
+          <a class="pp-nav-link {% if current_route == 'parent_announcements' %}is-active{% endif %}" href="{% url 'parent_announcements' %}"><i class="ph ph-megaphone" aria-hidden="true"></i><span>Announcements</span></a>
+          <a class="pp-nav-link {% if current_route == 'parent_notifications' %}is-active{% endif %}" href="{% url 'parent_notifications' %}"><i class="ph ph-bell" aria-hidden="true"></i><span>Notifications</span>{% if request.parent_unread_count %}<span class="pp-nav-count">{{ request.parent_unread_count }}</span>{% endif %}</a>
+        </nav>
+
+        <div class="pp-sidebar__support">
+          <span class="pp-support-icon"><i class="ph ph-lifebuoy" aria-hidden="true"></i></span>
+          <div><strong>Need help?</strong><small>Contact the school office for portal support.</small></div>
+          {% if school_settings.office_phone_number1 %}<a href="tel:{{ school_settings.office_phone_number1 }}">{{ school_settings.office_phone_number1 }}</a>{% endif %}
+        </div>
+      </aside>
+
+      <main id="main-content" class="pp-main" tabindex="-1">
+        {% if messages %}
+          <div class="pp-message-stack" aria-live="polite">
+            {% for message in messages %}
+              <div class="pp-alert pp-alert--{{ message.tags|default:'info' }}"><i class="ph ph-info" aria-hidden="true"></i><span>{{ message }}</span></div>
+            {% endfor %}
+          </div>
+        {% endif %}
+  {% endif %}
+      {% block content %}{% endblock %}
+    </main>
+
+  {% if not portal_guest %}
+    </div>
+
+    <nav class="pp-mobile-nav" aria-label="Mobile navigation">
+      <a class="{% if current_route == 'parent_dashboard' %}is-active{% endif %}" href="{% url 'parent_dashboard' %}{% if student %}?student={{ student.id }}{% endif %}"><i class="ph ph-house" aria-hidden="true"></i><span>Home</span></a>
+      <a class="{% if current_route == 'parent_children' %}is-active{% endif %}" href="{% url 'parent_children' %}"><i class="ph ph-users-three" aria-hidden="true"></i><span>Children</span></a>
+      <a class="{% if current_route == 'parent_messages' or current_route == 'parent_message_new' or current_route == 'parent_message_thread' %}is-active{% endif %}" href="{% url 'parent_messages' %}"><i class="ph ph-chats-circle" aria-hidden="true"></i><span>Messages</span></a>
+      <a class="{% if current_route == 'parent_notifications' %}is-active{% endif %}" href="{% url 'parent_notifications' %}"><span class="pp-mobile-icon"><i class="ph ph-bell" aria-hidden="true"></i>{% if request.parent_unread_count %}<b>{{ request.parent_unread_count }}</b>{% endif %}</span><span>Alerts</span></a>
+      <button type="button" data-pp-menu-open aria-controls="parent-mobile-menu" aria-expanded="false"><i class="ph ph-dots-three-circle" aria-hidden="true"></i><span>More</span></button>
+    </nav>
+
+    <div class="pp-sheet-backdrop" data-pp-menu-close hidden></div>
+    <aside class="pp-mobile-sheet" id="parent-mobile-menu" aria-label="More parent portal options" aria-hidden="true">
+      <div class="pp-sheet__handle"></div>
+      <div class="pp-sheet__header"><div><strong>More</strong><small>School and account options</small></div><button type="button" data-pp-menu-close aria-label="Close menu"><i class="ph ph-x"></i></button></div>
+      {% if student %}
+        <p class="pp-nav-label">{{ student.student_name }}</p>
+        <div class="pp-sheet__grid">
+          <a href="{% url 'parent_child_overview' student.id %}"><i class="ph ph-squares-four"></i><span>Overview</span></a>
+          {% if access.can_view_finance %}<a href="{% url 'parent_finance' student.id %}"><i class="ph ph-wallet"></i><span>Fees</span></a>{% endif %}
+          {% if access.can_view_academics %}<a href="{% url 'parent_results' student.id %}"><i class="ph ph-chart-line-up"></i><span>Academics</span></a>{% endif %}
+          {% if access.can_view_attendance %}<a href="{% url 'parent_attendance' student.id %}"><i class="ph ph-calendar-check"></i><span>Attendance</span></a>{% endif %}
+          <a href="{% url 'parent_timetable' student.id %}"><i class="ph ph-clock"></i><span>Timetable</span></a>
+          {% if library_enabled %}<a href="{% url 'parent_library' student.id %}"><i class="ph ph-books"></i><span>Library</span></a>{% endif %}
+          <a href="{% url 'parent_documents' student.id %}"><i class="ph ph-folder-open"></i><span>Documents</span></a>
+        </div>
+      {% endif %}
+      <a class="pp-sheet__link" href="{% url 'parent_calendar' %}"><i class="ph ph-calendar-dots"></i><span>School calendar</span><i class="ph ph-caret-right"></i></a>
+      <a class="pp-sheet__link" href="{% url 'parent_announcements' %}"><i class="ph ph-megaphone"></i><span>School announcements</span><i class="ph ph-caret-right"></i></a>
+      <a class="pp-sheet__link pp-sheet__link--danger" href="{% url 'parent_logout' %}"><i class="ph ph-sign-out"></i><span>Sign out</span></a>
+    </aside>
+  {% endif %}
+  {% endwith %}
+
+  <script src="{% static 'js/parent_portal.js' %}?v=20260810-1"></script>
+  {% block extra_js %}{% endblock %}
+</body>
+</html>

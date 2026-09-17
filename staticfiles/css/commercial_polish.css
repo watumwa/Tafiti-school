@@ -1,0 +1,46 @@
+
+/* Commercial polish layer: non-destructive UX improvements for staff guidance. */
+.commercial-hero,
+.ux-hero.commercial-polish-note {
+  border-radius: 18px;
+  padding: 26px 28px;
+  margin-bottom: 22px;
+  color: #fff;
+  background: linear-gradient(135deg, #123d6a 0%, #176a5b 100%);
+  box-shadow: 0 14px 32px rgba(15, 35, 55, .16);
+  display: flex;
+  gap: 18px;
+  align-items: center;
+  justify-content: space-between;
+}
+.commercial-hero h1,
+.ux-hero.commercial-polish-note h1 { margin: 0 0 8px; font-weight: 800; color: #fff; }
+.commercial-hero p,
+.ux-hero.commercial-polish-note p { margin: 0; color: rgba(255,255,255,.85); }
+.commercial-eyebrow { display:inline-block; margin-bottom: 8px; letter-spacing: .08em; text-transform: uppercase; font-size: .72rem; color: rgba(255,255,255,.78); font-weight: 700; }
+.guide-actions { display:flex; gap: 8px; flex-wrap:wrap; }
+.commercial-card,
+.commercial-step,
+.commercial-panel,
+.commercial-check-table { background:#fff; border:1px solid rgba(15, 35, 55, .08); border-radius:16px; box-shadow:0 8px 24px rgba(15, 35, 55, .06); }
+.commercial-card { padding: 18px; }
+.commercial-card h4, .commercial-step h5 { font-weight: 800; margin-bottom: 8px; color: #172b4d; }
+.commercial-card p, .commercial-step p { color:#65758b; font-size:.92rem; }
+.commercial-step { padding: 16px; }
+.commercial-panel { overflow:hidden; }
+.commercial-rules { display:grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap:12px; }
+.commercial-rule { border:1px dashed rgba(220,53,69,.3); background:rgba(255,243,205,.55); border-radius:12px; padding:12px; display:flex; gap:10px; align-items:flex-start; color:#5c3b00; }
+.commercial-rule i { margin-top:2px; color:#b58100; }
+.commercial-alert { border-radius: 14px; }
+.commercial-check-table { overflow:hidden; }
+.commercial-check-item { display:grid; grid-template-columns: 120px 1fr 95px 80px; gap:16px; align-items:center; padding:16px 18px; border-bottom:1px solid rgba(15, 35, 55, .08); }
+.commercial-check-item:last-child { border-bottom:0; }
+.check-area { font-weight:800; color:#176a5b; }
+.check-body h4 { margin:0 0 4px; font-size:1rem; font-weight:800; color:#172b4d; }
+.check-body p { margin:0; color:#65758b; font-size:.9rem; }
+.commercial-quote { border-left:4px solid #176a5b; padding:14px 18px; background:#f7fafc; border-radius: 0 12px 12px 0; color:#344054; }
+@media (max-width: 768px) {
+  .commercial-hero, .ux-hero.commercial-polish-note { align-items:flex-start; flex-direction:column; padding:22px; }
+  .commercial-check-item { grid-template-columns: 1fr; gap:8px; }
+  .check-priority { order: 3; }
+}

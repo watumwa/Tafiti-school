@@ -1,0 +1,46 @@
+{% extends 'parent_portal/base.html' %}
+{% block title %}Library · {{ student.student_name }}{% endblock %}
+{% block content %}
+<header class="pp-page-header">
+  <div><span class="pp-eyebrow">{{ student.student_name }}</span><h1>Library</h1><p>Current books, due dates and recent borrowing history.</p></div>
+  <div class="pp-page-actions"><a class="pp-button pp-button--secondary" href="{% url 'parent_dashboard' %}?student={{ student.id }}"><i class="ph ph-arrow-left"></i> Overview</a></div>
+</header>
+{% include 'parent_portal/_child_tabs.html' %}
+
+{% if fines %}
+<section class="pp-card">
+  <header class="pp-card__header"><div><h2>Library fines</h2><p>Penalties assessed by the library</p></div></header>
+  <div class="pp-table-wrap"><table class="pp-table"><thead><tr><th>Book</th><th>Reason</th><th>Assessed</th><th>Amount</th><th>Status</th></tr></thead><tbody>{% for fine in fines %}<tr><td data-label="Book" class="pp-table__primary">{{ fine.loan.copy.book.title }}</td><td data-label="Reason">{{ fine.get_reason_display }}</td><td data-label="Assessed">{{ fine.assessed_at|date:"d M Y" }}</td><td data-label="Amount" class="pp-money">UGX {{ fine.amount|floatformat:0 }}</td><td data-label="Status"><span class="pp-status {% if fine.status == 'outstanding' %}pp-status--danger{% else %}pp-status--success{% endif %}">{{ fine.get_status_display }}</span></td></tr>{% endfor %}</tbody></table></div>
+</section>
+{% endif %}
+
+<section class="pp-card">
+  <header class="pp-card__header"><div><h2>Currently borrowed</h2><p>{{ current_loans|length }} active loan{{ current_loans|length|pluralize }}</p></div></header>
+  {% if current_loans %}
+  <div class="pp-card__body pp-feed-list">
+    {% for loan in current_loans %}
+    <div class="pp-feed-item">
+      <span class="pp-feed-item__icon"><i class="ph ph-book-open"></i></span>
+      <div class="pp-feed-item__copy"><strong>{{ loan.copy.book.title }}</strong><p>Issued {{ loan.issued_at|date:"d M Y" }} · Due {{ loan.due_at|date:"d M Y" }}</p></div>
+      <span class="pp-status {% if loan.is_overdue %}pp-status--danger{% else %}pp-status--success{% endif %}">{% if loan.is_overdue %}Overdue{% else %}On loan{% endif %}</span>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="pp-empty-state"><span class="pp-empty-state__icon"><i class="ph ph-books"></i></span><h3>No books currently borrowed</h3><p>Active library loans and due dates will appear here.</p></div>
+  {% endif %}
+</section>
+
+<section class="pp-card">
+  <header class="pp-card__header"><div><h2>Borrowing history</h2><p>Recently returned books</p></div></header>
+  {% if history %}
+  <div class="pp-table-wrap">
+    <table class="pp-table"><thead><tr><th>Book</th><th>Issued</th><th>Returned</th><th>Condition</th></tr></thead><tbody>
+      {% for loan in history %}<tr><td data-label="Book" class="pp-table__primary">{{ loan.copy.book.title }}</td><td data-label="Issued">{{ loan.issued_at|date:"d M Y" }}</td><td data-label="Returned">{{ loan.returned_at|date:"d M Y" }}</td><td data-label="Condition"><span class="pp-status">{{ loan.return_condition|default:"Not recorded"|title }}</span></td></tr>{% endfor %}
+    </tbody></table>
+  </div>
+  {% else %}
+  <div class="pp-empty-state"><span class="pp-empty-state__icon"><i class="ph ph-clock-counter-clockwise"></i></span><h3>No borrowing history</h3><p>Returned books will be listed here.</p></div>
+  {% endif %}
+</section>
+{% endblock %}

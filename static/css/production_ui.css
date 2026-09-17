@@ -1,0 +1,536 @@
+/*
+ * Production UI layer
+ * -------------------
+ * Conservative visual/UX refinements for the live School MIS.
+ * This file intentionally changes presentation only. It does not alter
+ * URLs, form names, permissions, database fields, or workflow semantics.
+ */
+
+:root {
+  --prod-surface: #ffffff;
+  --prod-surface-soft: #f8fafc;
+  --prod-surface-muted: #f1f5f9;
+  --prod-border: #e2e8f0;
+  --prod-border-strong: #cbd5e1;
+  --prod-text: #0f172a;
+  --prod-muted: #64748b;
+  --prod-primary: #2563eb;
+  --prod-primary-soft: #eff6ff;
+  --prod-success: #15803d;
+  --prod-warning: #b45309;
+  --prod-danger: #b91c1c;
+  --prod-radius: 14px;
+  --prod-shadow: 0 8px 24px rgba(15, 23, 42, .06);
+}
+
+/* Keep the visual system calm and predictable. Informational cards should not
+   imply clickability simply because the user moves the pointer over them. */
+.card:not([data-clickable="true"]):hover,
+.x_panel:not([data-clickable="true"]):hover,
+.dashboard-card:not([data-clickable="true"]):hover,
+.ux-card:not([data-clickable="true"]):hover {
+  transform: none !important;
+  box-shadow: var(--prod-shadow) !important;
+  border-color: var(--prod-border) !important;
+}
+
+/* Consistent page spacing across legacy and newer templates. */
+.pc-content > .container-fluid,
+.pc-content > .row,
+.pc-content > .ui-page,
+.pc-content > .finance-shell,
+.pc-content > .student-register-page,
+.pc-content > .results-hub-page,
+.pc-content > .lib-shell,
+.pc-content > .adm-shell {
+  margin-top: 0;
+}
+
+.pc-content {
+  min-height: calc(100vh - 70px);
+}
+
+/* Shared page heading utility for pages that already render their own H1. */
+.pc-content h1 {
+  font-size: clamp(1.55rem, 2vw, 2.1rem);
+  line-height: 1.18;
+}
+
+.pc-content h2 {
+  line-height: 1.25;
+}
+
+/* Academic context should be visible but not compete with the page title. */
+.academic-context-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 7px;
+  min-height: 42px;
+  margin: -2px 0 16px;
+  padding: 9px 13px;
+  border: 1px solid var(--prod-border);
+  border-radius: 12px;
+  background: var(--prod-surface);
+  color: var(--prod-muted);
+  box-shadow: 0 2px 8px rgba(15, 23, 42, .035);
+  font-size: .86rem;
+}
+
+.academic-context-bar strong { color: var(--prod-text); }
+.academic-context-label { font-weight: 700; color: #475569; }
+.academic-context-warning { color: var(--prod-warning); font-weight: 700; }
+
+/* Sidebar identity: support longer school names without clipping. */
+.pc-sidebar .m-header { height: auto !important; min-height: 78px; }
+.pc-sidebar .school-brand-name {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  color: #fff;
+  font-size: .88rem;
+  font-weight: 800;
+  letter-spacing: .025em;
+  line-height: 1.25;
+}
+.pc-sidebar .school-brand-mark {
+  height: 48px;
+  width: 48px;
+  border-radius: 12px;
+  background: rgba(255,255,255,.14);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #fff;
+}
+
+/* Make deep menus easier to scan while retaining the existing role logic. */
+.pc-sidebar .pc-caption { margin-top: 12px; }
+.pc-sidebar .pc-submenu {
+  margin: 2px 10px 8px;
+  padding: 4px 0 5px;
+  border-left: 1px solid rgba(148, 163, 184, .15);
+}
+.pc-sidebar .pc-submenu .pc-link { font-size: .85rem; }
+.pc-sidebar .pc-item.ui-active > .pc-link .pc-mtext,
+.pc-sidebar .pc-item.ui-active > .pc-link { font-weight: 750; }
+
+/* Header search should remain usable on common 1366px school-office screens. */
+@media (min-width: 768px) and (max-width: 1199px) {
+  .pc-header form[action*="search"] { min-width: 210px !important; }
+}
+
+/* Tables: stable rhythm, sticky headings where a page already scrolls. */
+.table,
+.ui-table,
+.finance-table,
+.register-table,
+.hub-table {
+  font-size: .9rem;
+}
+.table > thead > tr > th,
+.ui-table thead th,
+.finance-table thead th,
+.register-table thead th,
+.hub-table thead th {
+  color: #475569 !important;
+  font-size: .72rem !important;
+  font-weight: 800 !important;
+  letter-spacing: .055em;
+  text-transform: uppercase;
+  vertical-align: middle;
+}
+.table > tbody > tr > td,
+.ui-table tbody td,
+.finance-table tbody td,
+.register-table tbody td,
+.hub-table tbody td {
+  vertical-align: middle;
+}
+.table > tbody > tr:hover,
+.ui-table tbody tr:hover,
+.finance-table tbody tr:hover,
+.register-table tbody tr:hover,
+.hub-table tbody tr:hover {
+  background: rgba(239, 246, 255, .6) !important;
+}
+
+/* Preserve server-side pagination as the authoritative source of truth. */
+table[data-server-paginated="true"] + .dataTables_wrapper,
+table[data-server-paginated="true"] ~ .dataTables_wrapper { display: none; }
+.server-pagination-note {
+  color: var(--prod-muted);
+  font-size: .82rem;
+  margin: 6px 0 12px;
+}
+
+/* Standardise old Gentelella pagination with current Bootstrap semantics. */
+.pagination {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 0;
+}
+.pagination > li > a,
+.pagination > li > span,
+.pagination .page-link {
+  min-width: 34px;
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--prod-border) !important;
+  border-radius: 9px !important;
+  background: #fff;
+  color: #334155;
+  text-decoration: none;
+}
+.pagination > .active > a,
+.pagination > .active > span,
+.pagination .page-item.active .page-link {
+  background: var(--prod-primary) !important;
+  border-color: var(--prod-primary) !important;
+  color: #fff !important;
+}
+.pagination > .disabled > a,
+.pagination > .disabled > span { opacity: .5; pointer-events: none; }
+
+/* Buttons: destructive actions remain visually distinct while secondary actions
+   stay quiet. */
+.btn-default {
+  background: #fff !important;
+  border: 1px solid var(--prod-border-strong) !important;
+  color: #334155 !important;
+}
+.btn-default:hover,
+.btn-default:focus { background: var(--prod-surface-muted) !important; }
+.btn-danger.btn-default,
+.btn-default.text-danger { color: var(--prod-danger) !important; }
+
+/* Reduce ambiguity around icon-only table actions. */
+.row-actions,
+.hub-actions,
+.finance-actions,
+.register-actions,
+.ui-form-actions {
+  align-items: center;
+}
+.row-actions .btn,
+.table .btn-group .btn { min-width: 34px; }
+
+/* Empty states should look intentional rather than like broken tables. */
+.empty-state,
+.empty-register,
+.hub-empty-state {
+  text-align: center;
+  padding: 34px 20px !important;
+  color: var(--prod-muted);
+}
+.empty-state h4,
+.empty-register h4,
+.hub-empty-state h4 { color: var(--prod-text) !important; margin-top: 10px; }
+
+/* Consistent status pills across legacy templates. */
+.label,
+.badge,
+.status-pill,
+.hub-status,
+.ui-status,
+.finance-pill {
+  line-height: 1.15;
+}
+
+/* Workflow forms: highlight fields with validation issues. */
+.errorlist {
+  margin: 6px 0 0;
+  padding-left: 0;
+  list-style: none;
+  color: var(--prod-danger);
+  font-size: .82rem;
+  font-weight: 650;
+}
+.form-control.is-invalid,
+.form-select.is-invalid,
+.has-error .form-control,
+.has-error .form-select {
+  border-color: #dc2626 !important;
+  box-shadow: 0 0 0 3px rgba(220,38,38,.09) !important;
+}
+
+/* Submit state: only the action actually submitted is disabled/spinning. */
+[data-production-loading="true"] { position: relative; }
+[data-production-loading="true"] .spinner-border { margin-right: 2px; }
+
+/* Unsaved-work banner used by the small production JS helper. */
+.production-unsaved-indicator {
+  display: none;
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 1060;
+  gap: 8px;
+  align-items: center;
+  padding: 10px 14px;
+  border: 1px solid #f59e0b;
+  border-radius: 999px;
+  background: #fffbeb;
+  color: #92400e;
+  box-shadow: 0 12px 30px rgba(15,23,42,.14);
+  font-size: .82rem;
+  font-weight: 700;
+}
+.production-unsaved-indicator.is-visible { display: inline-flex; }
+
+/* Results entry: action area and distinction between draft and final submission. */
+.results-action-bar {
+  border: 1px solid var(--prod-border);
+  box-shadow: 0 -5px 22px rgba(15,23,42,.06);
+}
+.results-action-bar #saveDraftBtn { background: #fff !important; color: #1d4ed8 !important; border-color: #93c5fd !important; }
+.results-action-bar #openSubmitModalBtn { background: #2563eb !important; border-color: #2563eb !important; color: #fff !important; }
+.results-submit-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0,1fr));
+  gap: 8px;
+  margin: 14px 0 4px;
+}
+.results-submit-summary > div {
+  padding: 10px;
+  border: 1px solid var(--prod-border);
+  border-radius: 10px;
+  background: var(--prod-surface-soft);
+  text-align: center;
+}
+.results-submit-summary small { display:block; color:var(--prod-muted); }
+.results-submit-summary strong { display:block; color:var(--prod-text); font-size:1.1rem; }
+
+/* Attendance: mobile status controls remain self-explanatory. */
+.attendance-mobile-status {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+.attendance-mobile-status .status-btn {
+  width: 100%;
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Timetable: clarify read-only mobile behaviour. */
+.timetable-mobile-note {
+  display: none;
+  margin-bottom: 12px;
+}
+@media (max-width: 991.98px) {
+  .timetable-mobile-note { display: block; }
+}
+
+/* Student register: keep row actions readable at narrower desktop widths. */
+@media (max-width: 1199px) {
+  .register-table .guardian-contact-col,
+  .register-table .gender-col { display: none; }
+}
+
+/* Dark mode bridge for legacy pages that still hard-code white surfaces. */
+html[data-school-theme="dark"] {
+  --prod-surface: #101827;
+  --prod-surface-soft: #111c2d;
+  --prod-surface-muted: #182235;
+  --prod-border: #283548;
+  --prod-border-strong: #3a495f;
+  --prod-text: #f1f5f9;
+  --prod-muted: #9eacc0;
+  --prod-primary-soft: #132a4e;
+}
+html[data-school-theme="dark"] body { background: #08111f !important; color: #dbe5f1 !important; }
+html[data-school-theme="dark"] .pc-header,
+html[data-school-theme="dark"] .card,
+html[data-school-theme="dark"] .x_panel,
+html[data-school-theme="dark"] .modal-content,
+html[data-school-theme="dark"] .academic-context-bar,
+html[data-school-theme="dark"] .attendance-session-card,
+html[data-school-theme="dark"] .attendance-summary-card,
+html[data-school-theme="dark"] .register-kpi,
+html[data-school-theme="dark"] .hub-summary-card,
+html[data-school-theme="dark"] .finance-kpi,
+html[data-school-theme="dark"] .ui-card {
+  background: var(--prod-surface) !important;
+  border-color: var(--prod-border) !important;
+  color: #dbe5f1 !important;
+}
+html[data-school-theme="dark"] .card-header,
+html[data-school-theme="dark"] .x_title,
+html[data-school-theme="dark"] .modal-header,
+html[data-school-theme="dark"] .attendance-filter-bar,
+html[data-school-theme="dark"] .register-filter-panel,
+html[data-school-theme="dark"] .table thead th,
+html[data-school-theme="dark"] .ui-table thead th,
+html[data-school-theme="dark"] .finance-table thead th {
+  background: var(--prod-surface-soft) !important;
+  border-color: var(--prod-border) !important;
+  color: #cbd5e1 !important;
+}
+html[data-school-theme="dark"] h1,
+html[data-school-theme="dark"] h2,
+html[data-school-theme="dark"] h3,
+html[data-school-theme="dark"] h4,
+html[data-school-theme="dark"] h5,
+html[data-school-theme="dark"] h6,
+html[data-school-theme="dark"] .context-value,
+html[data-school-theme="dark"] .attendance-session-grid strong,
+html[data-school-theme="dark"] .attendance-summary-card span,
+html[data-school-theme="dark"] .register-kpi,
+html[data-school-theme="dark"] .hub-summary-card .value { color: #f1f5f9 !important; }
+html[data-school-theme="dark"] .text-muted,
+html[data-school-theme="dark"] small,
+html[data-school-theme="dark"] .context-label { color: var(--prod-muted) !important; }
+html[data-school-theme="dark"] .form-control,
+html[data-school-theme="dark"] .form-select,
+html[data-school-theme="dark"] select,
+html[data-school-theme="dark"] textarea,
+html[data-school-theme="dark"] input[type="text"],
+html[data-school-theme="dark"] input[type="email"],
+html[data-school-theme="dark"] input[type="number"],
+html[data-school-theme="dark"] input[type="password"],
+html[data-school-theme="dark"] input[type="date"],
+html[data-school-theme="dark"] input[type="time"],
+html[data-school-theme="dark"] input[type="search"],
+html[data-school-theme="dark"] input[type="tel"],
+html[data-school-theme="dark"] input[type="url"] {
+  background: #0b1422 !important;
+  border-color: var(--prod-border-strong) !important;
+  color: #eef4fb !important;
+}
+html[data-school-theme="dark"] .table,
+html[data-school-theme="dark"] .ui-table,
+html[data-school-theme="dark"] .finance-table,
+html[data-school-theme="dark"] .register-table,
+html[data-school-theme="dark"] .attendance-table { color: #dbe5f1 !important; }
+html[data-school-theme="dark"] .table > tbody > tr > td,
+html[data-school-theme="dark"] .ui-table tbody td,
+html[data-school-theme="dark"] .finance-table tbody td,
+html[data-school-theme="dark"] .register-table tbody td,
+html[data-school-theme="dark"] .attendance-table tbody td { border-color: var(--prod-border) !important; }
+html[data-school-theme="dark"] .table > tbody > tr:hover,
+html[data-school-theme="dark"] .ui-table tbody tr:hover,
+html[data-school-theme="dark"] .finance-table tbody tr:hover,
+html[data-school-theme="dark"] .register-table tbody tr:hover { background: #142239 !important; }
+html[data-school-theme="dark"] .btn-default,
+html[data-school-theme="dark"] .btn-secondary { background: #111c2d !important; border-color: var(--prod-border-strong) !important; color:#dbe5f1 !important; }
+html[data-school-theme="dark"] .dropdown-menu { background: #101827 !important; border-color: var(--prod-border) !important; }
+html[data-school-theme="dark"] .dropdown-item { color: #dbe5f1 !important; }
+html[data-school-theme="dark"] .dropdown-item:hover { background:#182235 !important; color:#fff !important; }
+html[data-school-theme="dark"] .production-unsaved-indicator { background:#3a2a07; color:#fde68a; border-color:#92400e; }
+
+/* Small screens: prioritise task completion rather than preserving desktop density. */
+@media (max-width: 767.98px) {
+  .pc-content { padding: 14px !important; }
+  .academic-context-bar { margin-bottom: 12px; }
+  .register-header,
+  .finance-topbar,
+  .ui-page-header,
+  .lib-head,
+  .adm-head { align-items: stretch !important; }
+  .register-actions,
+  .finance-actions,
+  .ui-page-actions { width: 100%; justify-content: stretch !important; }
+  .register-actions .btn,
+  .finance-actions .finance-btn,
+  .ui-page-actions .btn { flex: 1 1 auto; }
+  .results-submit-summary { grid-template-columns: 1fr; }
+  .production-unsaved-indicator { left: 14px; right: 14px; bottom: 14px; justify-content:center; }
+}
+
+/* Global search: one predictable, keyboard-friendly command centre. */
+.production-page-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+.production-eyebrow {
+  margin-bottom: 4px;
+  color: var(--prod-primary);
+  font-size: .73rem;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.production-search-card,
+.production-result-section,
+.production-zero-results {
+  border: 1px solid var(--prod-border) !important;
+  border-radius: var(--prod-radius) !important;
+  box-shadow: var(--prod-shadow) !important;
+  overflow: hidden;
+}
+.production-search-box .input-group-text {
+  border-right: 0;
+  background: var(--prod-surface);
+}
+.production-search-box input {
+  border-left: 0;
+  box-shadow: none !important;
+}
+.production-search-box input:focus { border-color: var(--prod-border-strong); }
+.production-search-meta { color: var(--prod-muted); font-size: .86rem; }
+.production-search-counts {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 10px;
+}
+.production-count-card {
+  min-width: 0;
+  padding: 13px 14px;
+  border: 1px solid var(--prod-border);
+  border-radius: 12px;
+  background: var(--prod-surface);
+}
+.production-count-card strong {
+  display: block;
+  color: var(--prod-text);
+  font-size: 1.25rem;
+  line-height: 1.1;
+}
+.production-count-card span {
+  display: block;
+  margin-top: 3px;
+  color: var(--prod-muted);
+  font-size: .76rem;
+}
+.production-result-section .card-header {
+  min-height: 68px;
+  border-bottom: 1px solid var(--prod-border);
+  background: var(--prod-surface);
+}
+.production-result-section .table tbody tr:last-child td { border-bottom: 0; }
+@media (max-width: 991.98px) {
+  .production-search-counts { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 575.98px) {
+  .production-search-counts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .production-search-box { display: flex; flex-wrap: wrap; }
+  .production-search-box .input-group-text { display: none; }
+  .production-search-box input { border-left: var(--bs-border-width) solid var(--bs-border-color); width: 100%; flex-basis: 100%; border-radius: 10px !important; }
+  .production-search-box .btn { width: 100%; margin-top: 8px; border-radius: 10px !important; }
+}
+
+/* Readiness messages prevent users entering long forms before prerequisites exist. */
+.production-readiness-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  border-left: 4px solid #f59e0b !important;
+  border-radius: 12px !important;
+}
+.production-readiness-alert > div:first-child { font-size: 1.2rem; line-height: 1.3; }
+.production-readiness-alert strong,
+.production-readiness-alert span { display: block; }
+.production-readiness-alert span { margin-top: 2px; font-size: .86rem; }
