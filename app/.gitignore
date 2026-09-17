@@ -1,0 +1,9 @@
+school-env/
+schoolenv/
+media/
+staticfiles/
+venv/
+.venv/
+env/
+__pycache__/
+*.pyc
