@@ -20,9 +20,14 @@ class VercelBlobStorage(Storage):
     def _save(self, name, content):
         pathname = str(name).lstrip("/")
         content_type = getattr(content, "content_type", None) or "application/octet-stream"
+        if hasattr(content, "seek"):
+            content.seek(0)
+        elif hasattr(content, "file") and hasattr(content.file, "seek"):
+            content.file.seek(0)
+        body = content.read() if hasattr(content, "read") else content.file.read()
         uploaded = BlobClient(token=self.token).put(
             pathname,
-            content.file.read(),
+            body,
             access="public",
             content_type=content_type,
             overwrite=True,

@@ -17,6 +17,10 @@ import app.forms.school_settings as school_settings_forms
 from app.selectors.model_selectors import *
 from django.contrib.auth.decorators import *
 from app.decorators.decorators import *
+import logging
+
+
+logger = logging.getLogger(__name__)
 
 
 def _normalize_section_name(value: str) -> str:
@@ -78,9 +82,16 @@ def update_school_settings(request):
         school_settings_form = school_settings_forms.SchoolSettingForm(request.POST, request.FILES, instance=school_settings)
         
         if school_settings_form.is_valid():
-            school_settings = school_settings_form.save()
-            _ensure_default_sections_for_enabled_levels(school_settings)
-            messages.success(request, SUCCESS_EDIT_MESSAGE)
+            try:
+                school_settings = school_settings_form.save()
+                _ensure_default_sections_for_enabled_levels(school_settings)
+                messages.success(request, SUCCESS_EDIT_MESSAGE)
+            except Exception:
+                logger.exception("Failed to update school settings")
+                messages.error(
+                    request,
+                    "Settings could not be saved. Check the logo storage connection and try again.",
+                )
         else:
             messages.error(request, FAILURE_MESSAGE)
     
