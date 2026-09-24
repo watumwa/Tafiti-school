@@ -55,7 +55,7 @@ p,
 
 .pc-sidebar {
   width: 258px;
-  background: linear-gradient(180deg, #103b32 0%, #0b2d26 58%, #08251f 100%);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--tafiti-brand-deep) 88%, #fff), var(--tafiti-brand-deep));
   border-right: 1px solid rgba(255, 255, 255, .08);
   box-shadow: 8px 0 30px rgba(9, 40, 32, .08);
 }
@@ -79,7 +79,7 @@ p,
   flex-shrink: 0;
   border: 1px solid rgba(255, 255, 255, .24);
   border-radius: 13px;
-  background: linear-gradient(145deg, #19a976, #07543f);
+  background: linear-gradient(145deg, var(--tafiti-brand), var(--tafiti-brand-deep));
   color: #fff;
   font-size: 18px;
   font-weight: 800;
@@ -111,7 +111,7 @@ p,
 
 .pc-sidebar .pc-caption {
   padding: 18px 13px 7px !important;
-  color: #8eb9aa;
+  color: color-mix(in srgb, var(--tafiti-brand) 55%, #fff);
   font-size: 10px;
   font-weight: 800;
   letter-spacing: .1em;
@@ -156,7 +156,7 @@ p,
 }
 
 .pc-sidebar .pc-navbar > .pc-item:not(.pc-caption).active > .pc-link {
-  background: linear-gradient(90deg, rgba(28, 188, 132, .28), rgba(28, 188, 132, .06));
+  background: linear-gradient(90deg, color-mix(in srgb, var(--tafiti-brand) 34%, transparent), color-mix(in srgb, var(--tafiti-brand) 8%, transparent));
 }
 
 .pc-header {
