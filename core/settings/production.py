@@ -6,6 +6,22 @@ pymysql.install_as_MySQLdb()
 
 DEBUG = False
 
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler'
+        }
+    },
+    'loggers': {
+        '': {
+            'handlers': ['console'],
+            'level': os.environ.get('DJANGO_LOG_LEVEL', 'INFO')
+        }
+    }
+}
+
 SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-change-this-in-vercel')
 
 # The parent login link is public-facing. In production it should remain
