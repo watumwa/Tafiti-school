@@ -34,8 +34,7 @@ ALLOWED_HOSTS = ['*']
 # Application definition
 
 INSTALLED_APPS = [
-    # 'unfold',
-    'jazzmin',
+    'unfold',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -65,7 +64,7 @@ MIDDLEWARE = [
     'app.middleware.request_user.RequestUserMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'app.middleware.update_jazzmin.UpdateJazzminMiddleware',
+    'app.middleware.update_unfold.UpdateUnfoldMiddleware',
     'core.middleware.AutoLogoutMiddleware',
 
 ]
@@ -315,91 +314,19 @@ USER_ROLE_PREFIXES = {
 
 
 
-# admin dashboard settings
-JAZZMIN_SETTINGS = {
-    "site_title": "Bayan Learning Center Admin",
-    "site_header": "Bayan Learning Center Administration",
-    "site_brand": "Bayan Learning Center",
-    "custom_css": "css/rainbow.css",  # Overridden per-request by UpdateJazzminMiddleware
-    "site_logo": "images/user.png",
-    "site_logo_classes": "brand-image img-circle elevation-3",
-    "site_icon": "images/favicon.ico",
-    "welcome_sign": "Welcome to Bayan Learning Center Admin",
-    "copyright": "UgaCloud 2025",
-   
-
-    # Quick global search
-    "search_model": ["auth.User", "auth.Group"],
-
-    # Navigation
-    "show_sidebar": True,
-    "navigation_expanded": True,
-    "topmenu_links": [
-        {"name": "Dashboard", "url": "admin:index", "permissions": ["auth.view_user"]},
-        {"app": "app"},
-        {"model": "auth.User"},
-        {"name": "WebApp", "url": "https://bayan-learningcenter.com", "icon": "fas fa-globe", "new_window": True},
-    ],
-    
-
-    # Icons to improve scannability
-    "icons": {
-        "auth": "fas fa-users-cog",
-        "auth.user": "fas fa-user",
-        "auth.group": "fas fa-users",
+# Admin dashboard settings. The middleware replaces the placeholder with the
+# configured school name once the database is available.
+UNFOLD = {
+    "SITE_TITLE": "School Admin",
+    "SITE_HEADER": "School Administration",
+    "SITE_URL": "/",
+    "SITE_SYMBOL": "school",
+    "SHOW_LANGUAGES": False,
+    "COLORS": {
+        "primary": "emerald",
     },
-
-    # Forms and relations UX
-    "related_modal_active": True,
-    "changeform_format": "vertical_tabs",
-    "changeform_format_overrides": {"auth.user": "collapsible"},
-
-    # Language / misc
-    "language_chooser": False,
-    "show_ui_builder": False,  # keep off in production
-
-    # Dashboard recent actions
-    "recent_actions": {
-        "icon": "fas fa-history",
-        "title": "Recent Activities",
-        "card_class": "card-primary",
-        "show_scroll_bar": True,
+    "SIDEBAR": {
+        "show_search": True,
+        "show_all_applications": True,
     },
-
-    # Non-intrusive overrides (served via {% static %})
-    # "custom_css": "css/custom_overrides.css",
-    # "custom_js": "build/js/custom.js",
-}
-
-
-JAZZMIN_UI_TWEAKS = {
-    "theme": "flatly",                     # Base theme (light)
-    "dark_mode_theme": None,
-    "theme_condition": "always",
-
-    # Layout
-    "navbar": "navbar-primary navbar-dark",   # Dark blue top bar
-    "sidebar": "sidebar-dark-primary",        # Dark sidebar (deep blue)
-    "navbar_fixed": True,
-    "sidebar_fixed": True,
-    "footer_fixed": False,
-    "actions_sticky_top": True,
-
-    # Buttons
-    "button_classes": {
-        "primary": "btn btn-primary",
-        "secondary": "btn btn-outline-secondary",
-        "info": "btn btn-info",
-        "warning": "btn btn-warning",
-        "danger": "btn btn-danger",
-        "success": "btn btn-success",
-    },
-
-    # UX polish
-    "body_small_text": False,
-    "brand_small_text": False,
-    "sidebar_nav_small_text": False,
-    "no_navbar_border": True,
-    "sidebar_nav_compact_style": True,
-    "sidebar_nav_child_indent": True,
 }

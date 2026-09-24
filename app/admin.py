@@ -1,5 +1,6 @@
 from django import forms
 from django.contrib import admin
+from unfold.admin import ModelAdmin as UnfoldModelAdmin
 from django.core.paginator import Paginator
 from django.db import connections
 from app.models.accounts import StaffAccount
@@ -32,6 +33,8 @@ from app.models.attendance import (
 from app.models.parent_portal import *
 from app.models.admissions import *
 from app.models.library import *
+
+admin.ModelAdmin = UnfoldModelAdmin
 
 # admin.site.register(Staff)
 admin.site.register(Role)
