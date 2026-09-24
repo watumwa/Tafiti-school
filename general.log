@@ -114984,3 +114984,22 @@ django.db.utils.DatabaseError: db unavailable
 2026-09-17 06:26:18,938 (INFO) - django.utils.autoreload Watching for file changes with StatReloader
 2026-09-17 06:26:36,699 (INFO) - django.utils.autoreload Watching for file changes with StatReloader
 2026-09-17 06:29:16,282 (INFO) - django.utils.autoreload Watching for file changes with StatReloader
+2026-09-18 13:38:50,835 (INFO) - django.utils.autoreload Watching for file changes with StatReloader
+2026-09-18 13:49:52,475 (INFO) - django.utils.autoreload Watching for file changes with StatReloader
+2026-09-18 13:49:58,178 (WARNING) - django.request Not Found: /media/logo/download.jpeg
+2026-09-18 13:49:58,571 (WARNING) - django.request Not Found: /favicon.ico
+2026-09-18 14:14:37,791 (WARNING) - django.request Not Found: /media/logo/download.jpeg
+2026-09-18 14:14:37,902 (WARNING) - django.request Not Found: /media/Staff/Profile_pics/uifaces-human-image_14.jpg
+2026-09-18 14:14:38,151 (WARNING) - django.request Not Found: /media/Staff/Profile_pics/uifaces-human-image_14.jpg
+2026-09-18 14:14:39,109 (WARNING) - django.request Not Found: /media/logo/download.jpeg
+2026-09-18 14:14:48,356 (WARNING) - django.request Not Found: /media/logo/download.jpeg
+2026-09-18 14:14:48,372 (WARNING) - django.request Not Found: /media/Staff/Profile_pics/uifaces-human-image_14.jpg
+2026-09-18 14:16:26,542 (WARNING) - django.request Not Found: /media/Staff/Profile_pics/uifaces-human-image_14.jpg
+2026-09-18 14:16:26,547 (WARNING) - django.request Not Found: /media/logo/download.jpeg
+2026-09-18 14:17:01,273 (WARNING) - django.request Not Found: /media/Staff/Profile_pics/uifaces-human-image_14.jpg
+2026-09-18 14:17:01,306 (WARNING) - django.request Not Found: /media/logo/download.jpeg
+2026-09-18 14:17:01,495 (WARNING) - django.request Not Found: /media/Staff/Profile_pics/uifaces-human-image_14.jpg
+2026-09-18 16:32:25,655 (INFO) - django.utils.autoreload Watching for file changes with StatReloader
+2026-09-18 17:04:33,686 (WARNING) - django.request Not Found: /media/logo/download.jpeg
+2026-09-24 08:04:22,783 (INFO) - django.utils.autoreload Watching for file changes with StatReloader
+2026-09-24 08:04:30,939 (INFO) - django.utils.autoreload Watching for file changes with StatReloader
