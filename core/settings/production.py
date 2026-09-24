@@ -123,7 +123,7 @@ EMAIL_HOST_PASSWORD = "Mypp3[xD_Vdi"
 DEFAULT_FROM_EMAIL = "bayan-learningcenter@bayern-learningcenter.com"
 
 STATIC_URL = '/static/'
-STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+STATIC_ROOT = os.path.join(BASE_DIR, 'public', 'static')
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')

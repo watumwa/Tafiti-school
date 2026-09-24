@@ -2,6 +2,7 @@ schoolenv/
 venv/
 .venv/
 staticfiles/
+public/static/
 __pycache__/
 *.py[cod]
 *.log
