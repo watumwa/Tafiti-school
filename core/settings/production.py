@@ -127,3 +127,12 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'public', 'static')
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = '/tmp/tafiti-media'
+VERCEL_BLOB_READ_WRITE_TOKEN = os.environ.get('BLOB_READ_WRITE_TOKEN', '')
+STORAGES = {
+    'default': {
+        'BACKEND': 'app.storage.VercelBlobStorage',
+    },
+    'staticfiles': {
+        'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage',
+    },
+}
