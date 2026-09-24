@@ -6,6 +6,14 @@ pymysql.install_as_MySQLdb()
 
 DEBUG = False
 
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'LOCATION': 'vercel-cache',
+    }
+}
+SESSION_ENGINE = 'django.contrib.sessions.backends.db'
+
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
