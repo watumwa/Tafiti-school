@@ -50,7 +50,7 @@
   <link rel="stylesheet" href="{% static 'css/modern_theme.css' %}?v=20260924-1" />
   {% block extra_css %}{% endblock %}
 </head>
-<body data-pc-preset="preset-1" data-pc-sidebar-caption="true" data-pc-direction="ltr" data-pc-theme="light">
+<body data-pc-preset="preset-1" data-pc-sidebar-caption="true" data-pc-direction="ltr" data-pc-theme="light" style="--tafiti-brand: {{ school_settings.primary_color|default:'#087F5B' }}; --tafiti-brand-deep: {{ school_settings.secondary_color|default:'#07543F' }}; --tafiti-gold: {{ school_settings.accent_color|default:'#D79B35' }};">
 <script>
   document.body.setAttribute('data-pc-theme', document.documentElement.getAttribute('data-school-theme') || 'light');
 </script>

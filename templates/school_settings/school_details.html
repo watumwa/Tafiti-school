@@ -19,6 +19,20 @@
                     <i class="fa fa-exclamation-triangle"></i>
                     <strong>Production setting:</strong> changes to enabled school levels or the default education level can change which workflows users see. Review the values before saving.
                 </div>
+                <section class="brand-kit-panel" aria-labelledby="brand-kit-title">
+                    <div class="brand-kit-heading">
+                        <div>
+                            <span class="brand-kit-eyebrow">Smart brand kit</span>
+                            <h3 id="brand-kit-title">Make the system feel like your school</h3>
+                            <p>Upload a logo to suggest colors automatically, then fine-tune them below.</p>
+                        </div>
+                        <div class="brand-kit-preview" style="--preview-primary: {{ school_settings_form.primary_color.value|default:'#087F5B' }}; --preview-deep: {{ school_settings_form.secondary_color.value|default:'#07543F' }}; --preview-accent: {{ school_settings_form.accent_color.value|default:'#D79B35' }};">
+                            <span class="brand-kit-preview-mark">{{ school_settings.school_name|default:'S'|slice:':1'|upper }}</span>
+                            <span><strong>{{ school_settings.school_name|default:'Your school' }}</strong><small>Live theme preview</small></span>
+                        </div>
+                    </div>
+                    <p class="brand-kit-note"><i class="fa fa-sliders"></i> The three color controls are included in the form below. Changing them updates the preview before you save.</p>
+                </section>
                 {{ school_settings_form | crispy}}
                 <button type="submit" class="btn btn-primary"><i class="fa fa-save"></i> Save settings</button>
             </form>
@@ -26,4 +40,18 @@
         </div>
         </div>
     </div>
+
+    <script>
+    (function () {
+        var preview = document.querySelector('.brand-kit-preview');
+        var inputs = document.querySelectorAll('.brand-color-input');
+        if (!preview || !inputs.length) return;
+        var names = ['--preview-primary', '--preview-deep', '--preview-accent'];
+        inputs.forEach(function (input, index) {
+            input.addEventListener('input', function () {
+                preview.style.setProperty(names[index], input.value);
+            });
+        });
+    })();
+    </script>
 </div>

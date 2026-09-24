@@ -382,6 +382,92 @@ input:focus {
   color: var(--tafiti-brand-deep);
 }
 
+.brand-kit-panel {
+  margin: 0 0 20px;
+  padding: 18px;
+  border: 1px solid var(--tafiti-line);
+  border-radius: 14px;
+  background: linear-gradient(135deg, var(--tafiti-panel-soft), var(--tafiti-panel));
+}
+
+.brand-kit-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.brand-kit-eyebrow {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--tafiti-brand);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+}
+
+.brand-kit-heading h3 {
+  margin: 0 0 5px;
+  font-size: 17px;
+}
+
+.brand-kit-heading p,
+.brand-kit-note {
+  margin: 0;
+  font-size: 12px;
+}
+
+.brand-kit-preview {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 220px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--preview-deep);
+  color: #fff;
+  box-shadow: 0 8px 18px color-mix(in srgb, var(--preview-deep) 28%, transparent);
+}
+
+.brand-kit-preview-mark {
+  display: grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border-radius: 10px;
+  background: var(--preview-primary);
+  font-weight: 800;
+}
+
+.brand-kit-preview strong,
+.brand-kit-preview small {
+  display: block;
+}
+
+.brand-kit-preview strong {
+  font-size: 12px;
+}
+
+.brand-kit-preview small {
+  margin-top: 2px;
+  color: rgba(255, 255, 255, .68);
+  font-size: 10px;
+}
+
+.brand-kit-note {
+  margin-top: 10px;
+  color: var(--tafiti-muted);
+}
+
+.brand-color-input {
+  width: 64px !important;
+  min-width: 64px;
+  height: 38px;
+  padding: 3px !important;
+  cursor: pointer;
+}
+
 .skip-link:focus {
   z-index: 1200;
 }
@@ -413,6 +499,15 @@ input:focus {
   .card .card-header,
   .card .card-body {
     padding: 17px;
+  }
+
+  .brand-kit-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .brand-kit-preview {
+    min-width: 0;
   }
 }
 

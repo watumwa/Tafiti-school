@@ -47,6 +47,9 @@ class SchoolSetting(SingletonModel):
         help_text="Official school email address"
     )
     school_logo = models.ImageField(upload_to="logo", height_field=None, width_field=None, max_length=None)
+    primary_color = models.CharField(max_length=7, default="#087F5B")
+    secondary_color = models.CharField(max_length=7, default="#07543F")
+    accent_color = models.CharField(max_length=7, default="#D79B35")
     app_name = models.CharField(max_length=20, default="E-School")
     offers_primary = models.BooleanField(default=True, help_text="Enable primary school workflows (P1-P7).")
     offers_secondary_lower = models.BooleanField(
