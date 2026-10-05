@@ -1,4 +1,4 @@
-import { BookOpen, Sprout } from 'lucide-react';
+import { BookOpen, Sparkles } from 'lucide-react';
 
 type LogoProps = {
   inverted?: boolean;
@@ -6,33 +6,34 @@ type LogoProps = {
   accent?: 'green' | 'blue';
 };
 
-export function Logo({ inverted = false, compact = false, accent = 'green' }: LogoProps) {
+export function Logo({ inverted = false, compact = false, accent = 'blue' }: LogoProps) {
   const blue = accent === 'blue';
+
   return (
     <div className="flex items-center gap-3" aria-label="Tafiti School Management System">
       <span
-        className={`relative grid h-11 w-11 shrink-0 place-items-center rounded-xl border ${
+        className={`relative grid h-10 w-10 shrink-0 place-items-center rounded-xl border ${
           inverted
-            ? 'border-white/25 bg-white/10 text-white'
+            ? 'border-white/20 bg-white/10 text-white shadow-[inset_0_1px_0_rgba(255,255,255,.14)]'
             : blue
-              ? 'border-blue-500/15 bg-gradient-to-br from-[#48A4FF] to-[#1265EE] text-white shadow-[0_5px_12px_rgba(18,101,238,0.22)]'
+              ? 'border-blue-500/10 bg-gradient-to-br from-[#4B9CFF] via-[#2675F4] to-[#1758D1] text-white shadow-[0_7px_18px_rgba(37,99,235,.24)]'
               : 'border-emerald-900/10 bg-[#07543F] text-white shadow-sm'
         }`}
       >
-        <BookOpen aria-hidden="true" size={22} strokeWidth={1.8} />
-        <Sprout
+        <BookOpen aria-hidden="true" size={21} strokeWidth={1.9} />
+        <Sparkles
           aria-hidden="true"
-          size={12}
-          strokeWidth={2.2}
-          className={`absolute right-1.5 top-1.5 ${inverted ? 'text-[#E8B65F]' : blue ? 'text-white' : 'text-[#F1BE62]'}`}
+          size={10}
+          strokeWidth={2.4}
+          className={`absolute right-1 top-1 ${inverted ? 'text-[#FFCB55]' : blue ? 'text-[#FFCB55]' : 'text-[#F1BE62]'}`}
         />
       </span>
-      <span className={inverted ? 'text-white' : 'text-[#1A1D20]'}>
-        <span className="block text-[17px] font-bold leading-none tracking-[0.16em]">TAFITI</span>
+      <span className={inverted ? 'text-white' : 'text-[#10224A]'}>
+        <span className="block text-[16px] font-extrabold leading-none tracking-[0.16em]">TAFITI</span>
         {!compact && (
           <span
-            className={`mt-1.5 block text-[9px] font-semibold tracking-[0.14em] ${
-              inverted ? 'text-emerald-50/75' : 'text-[#667085]'
+            className={`mt-1.5 block text-[8px] font-semibold tracking-[0.17em] ${
+              inverted ? 'text-blue-100/70' : 'text-[#71809A]'
             }`}
           >
             SCHOOL MANAGEMENT SYSTEM
