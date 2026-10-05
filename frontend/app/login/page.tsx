@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 
-import { LoginPage } from '@/components/auth/LoginPage';
+import { ReferenceLoginPage } from '@/components/reference/ReferenceLoginPage';
 
 export const metadata: Metadata = {
   title: 'Sign in',
@@ -13,5 +13,5 @@ export default async function LoginRoute({
   searchParams: Promise<{ notice?: string }>;
 }) {
   const params = await searchParams;
-  return <LoginPage notice={params.notice} />;
+  return <ReferenceLoginPage notice={params.notice} />;
 }
