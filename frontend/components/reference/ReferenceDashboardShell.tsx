@@ -122,7 +122,7 @@ export function ReferenceDashboardShell() {
   if (!bootstrap) return null;
 
   const userInitials = initials(bootstrap.user.name) || 'U';
-  const verificationEntity = entityId && selectedItem?.resource === 'results' && typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('view') === 'verification';
+  const verificationEntity = Boolean(entityId && selectedItem?.resource === 'results');
 
   return (
     <main className="min-h-dvh bg-[#F3F7FC] text-slate-900 lg:flex">
