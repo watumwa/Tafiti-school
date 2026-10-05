@@ -2,14 +2,26 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any
+from uuid import uuid4
 
 from django import forms
 from django.db import IntegrityError, transaction
 from django.db.models.deletion import ProtectedError
 from django.http import QueryDict
+from django.utils import timezone
 
 from app.forms.admissions import AdmissionApplicationForm
 from app.forms.classes import AcademicClassForm
+from app.forms.finance import (
+    BudgetForm,
+    BudgetItemForm,
+    ExpenseForm,
+    ExpenditureForm,
+    ExpenditureItemForm,
+    IncomeSourceForm,
+    VendorForm,
+)
+from app.forms.fees_payment import BillItemForm, PaymentForm
 from app.forms.school_settings import SchoolSettingForm
 from app.forms.staff import StaffForm
 from app.forms.student import StudentForm
@@ -18,10 +30,24 @@ from app.models import (
     AcademicClass,
     AcademicClassStream,
     AdmissionApplication,
+    AttendanceSession,
+    BillItem,
+    Budget,
+    BudgetItem,
+    ClassBill,
+    ClassSubjectAllocation,
+    Expense,
+    Expenditure,
+    ExpenditureItem,
+    IncomeSource,
+    Payment,
     SchoolSetting,
     Staff,
     Student,
+    StudentBill,
     Subject,
+    TimeSlot,
+    Vendor,
 )
 from app.models.school_settings import AcademicYear
 from app.models.students import find_duplicate_student
@@ -52,6 +78,97 @@ class ResourceFormConfig:
 ADMIN = frozenset({"Admin"})
 ACADEMIC_MANAGERS = frozenset({"Admin", "Director of Studies"})
 ADMISSION_MANAGERS = frozenset({"Admin", "Admissions Officer"})
+FINANCE_MANAGERS = frozenset({"Admin", "Bursar"})
+
+
+class WorkspacePaymentForm(PaymentForm):
+    bill = forms.ModelChoiceField(
+        queryset=StudentBill.objects.none(),
+        label="Student bill",
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["bill"].queryset = StudentBill.objects.filter(
+            student__is_active=True,
+        ).select_related("student", "academic_class__Class")
+
+    def clean(self):
+        cleaned_data = super().clean()
+        bill = cleaned_data.get("bill")
+        category = cleaned_data.get("fee_category")
+        if bill and not category:
+            categories = [
+                value for value in bill.items.values_list("fee_category", flat=True).distinct()
+                if value
+            ]
+            if len(categories) == 1:
+                cleaned_data["fee_category"] = categories[0]
+            elif categories:
+                cleaned_data["fee_category"] = "Other"
+        return cleaned_data
+
+
+class WorkspaceBudgetItemForm(BudgetItemForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["budget"].widget = forms.Select()
+
+
+class WorkspaceClassBillForm(forms.ModelForm):
+    academic_class = forms.ModelChoiceField(
+        queryset=AcademicClass.objects.none(),
+        label="Academic class",
+    )
+
+    class Meta:
+        model = ClassBill
+        fields = ("academic_class", "bill_item", "amount")
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["academic_class"].queryset = AcademicClass.objects.select_related(
+            "Class", "academic_year", "term",
+        ).order_by("-academic_year__academic_year", "Class__name")
+
+
+class WorkspaceExpenditureItemForm(ExpenditureItemForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["expenditure"].widget = forms.Select()
+
+
+class WorkspaceAttendanceSessionForm(forms.Form):
+    class_stream = forms.ModelChoiceField(
+        queryset=AcademicClassStream.objects.none(),
+        label="Class / stream",
+    )
+    subject = forms.ModelChoiceField(
+        queryset=Subject.objects.none(),
+        label="Subject",
+    )
+    date = forms.DateField(
+        initial=timezone.localdate,
+        widget=forms.DateInput(attrs={"type": "date"}),
+    )
+    time_slot = forms.ModelChoiceField(
+        queryset=TimeSlot.objects.order_by("start_time"),
+        required=False,
+        label="Lesson period",
+    )
+
+    def clean(self):
+        cleaned_data = super().clean()
+        class_stream = cleaned_data.get("class_stream")
+        subject = cleaned_data.get("subject")
+        if class_stream and subject and not ClassSubjectAllocation.objects.filter(
+            academic_class_stream=class_stream,
+            subject=subject,
+            is_active=True,
+        ).exists():
+            self.add_error("subject", "This subject is not actively allocated to the selected class stream.")
+        return cleaned_data
+
 
 RESOURCE_FORMS: dict[str, ResourceFormConfig] = {
     "students": ResourceFormConfig(
@@ -111,6 +228,105 @@ RESOURCE_FORMS: dict[str, ResourceFormConfig] = {
         allow_create=False,
         allow_delete=False,
     ),
+    "fees-payments": ResourceFormConfig(
+        model=Payment,
+        form_class=WorkspacePaymentForm,
+        create_roles=FINANCE_MANAGERS,
+        edit_roles=frozenset(),
+        delete_roles=frozenset(),
+        create_label="Record payment",
+        allow_delete=False,
+    ),
+    "fees-bill-items": ResourceFormConfig(
+        model=BillItem,
+        form_class=BillItemForm,
+        create_roles=FINANCE_MANAGERS,
+        edit_roles=FINANCE_MANAGERS,
+        delete_roles=frozenset(),
+        create_label="Add fee item",
+        allow_delete=False,
+    ),
+    "fees-class-bills": ResourceFormConfig(
+        model=ClassBill,
+        form_class=WorkspaceClassBillForm,
+        create_roles=FINANCE_MANAGERS,
+        edit_roles=FINANCE_MANAGERS,
+        delete_roles=frozenset(),
+        create_label="Add class bill",
+        allow_delete=False,
+    ),
+    "finance": ResourceFormConfig(
+        model=Expenditure,
+        form_class=ExpenditureForm,
+        create_roles=FINANCE_MANAGERS,
+        edit_roles=FINANCE_MANAGERS,
+        delete_roles=frozenset(),
+        create_label="Record expenditure",
+        allow_delete=False,
+    ),
+    "finance-budgets": ResourceFormConfig(
+        model=Budget,
+        form_class=BudgetForm,
+        create_roles=FINANCE_MANAGERS,
+        edit_roles=FINANCE_MANAGERS,
+        delete_roles=frozenset(),
+        create_label="Create budget",
+        allow_delete=False,
+    ),
+    "finance-budget-items": ResourceFormConfig(
+        model=BudgetItem,
+        form_class=WorkspaceBudgetItemForm,
+        create_roles=FINANCE_MANAGERS,
+        edit_roles=FINANCE_MANAGERS,
+        delete_roles=frozenset(),
+        create_label="Allocate budget",
+        allow_delete=False,
+    ),
+    "finance-expenses": ResourceFormConfig(
+        model=Expense,
+        form_class=ExpenseForm,
+        create_roles=FINANCE_MANAGERS,
+        edit_roles=FINANCE_MANAGERS,
+        delete_roles=frozenset(),
+        create_label="Add expense category",
+        allow_delete=False,
+    ),
+    "finance-vendors": ResourceFormConfig(
+        model=Vendor,
+        form_class=VendorForm,
+        create_roles=FINANCE_MANAGERS,
+        edit_roles=FINANCE_MANAGERS,
+        delete_roles=frozenset(),
+        create_label="Add vendor",
+        allow_delete=False,
+    ),
+    "finance-income": ResourceFormConfig(
+        model=IncomeSource,
+        form_class=IncomeSourceForm,
+        create_roles=FINANCE_MANAGERS,
+        edit_roles=FINANCE_MANAGERS,
+        delete_roles=frozenset(),
+        create_label="Add income source",
+        allow_delete=False,
+    ),
+    "finance-expenditure-items": ResourceFormConfig(
+        model=ExpenditureItem,
+        form_class=WorkspaceExpenditureItemForm,
+        create_roles=FINANCE_MANAGERS,
+        edit_roles=FINANCE_MANAGERS,
+        delete_roles=frozenset(),
+        create_label="Add expenditure item",
+        allow_delete=False,
+    ),
+    "attendance": ResourceFormConfig(
+        model=AttendanceSession,
+        form_class=WorkspaceAttendanceSessionForm,
+        create_roles=frozenset({"Admin", "Head Teacher", "Director of Studies", "Teacher", "Class Teacher"}),
+        edit_roles=frozenset(),
+        delete_roles=frozenset(),
+        create_label="Take attendance",
+        allow_delete=False,
+    ),
 }
 
 
@@ -161,6 +377,24 @@ def _scoped_queryset(request, resource: str, config: ResourceFormConfig):
         return get_level_subjects_queryset(request=request)
     if resource == "settings":
         return SchoolSetting.objects.all()
+    if resource == "fees-payments":
+        return Payment.objects.select_related("bill__student")
+    if resource == "fees-bill-items":
+        return BillItem.objects.all()
+    if resource == "finance":
+        return Expenditure.objects.all()
+    if resource == "finance-budgets":
+        return Budget.objects.all()
+    if resource == "finance-budget-items":
+        return BudgetItem.objects.all()
+    if resource == "finance-expenses":
+        return Expense.objects.all()
+    if resource == "finance-vendors":
+        return Vendor.objects.all()
+    if resource == "finance-income":
+        return IncomeSource.objects.all()
+    if resource == "finance-expenditure-items":
+        return ExpenditureItem.objects.all()
     return config.model.objects.all()
 
 
@@ -173,7 +407,9 @@ def get_resource_instance(request, resource: str, pk: int):
 
 def _build_form(request, resource: str, *, instance=None, data=None, files=None):
     config = RESOURCE_FORMS[resource]
-    kwargs: dict[str, Any] = {"instance": instance}
+    kwargs: dict[str, Any] = {}
+    if issubclass(config.form_class, forms.ModelForm):
+        kwargs["instance"] = instance
     if data is not None:
         kwargs["data"] = data
     if files is not None:
@@ -182,6 +418,27 @@ def _build_form(request, resource: str, *, instance=None, data=None, files=None)
     if config.bind_level:
         active_level = get_active_school_level(request)
         bind_form_level_querysets(form, active_level=active_level)
+    if resource == "attendance":
+        role = _role_label(request)
+        class_streams = AcademicClassStream.objects.select_related(
+            "academic_class__Class", "stream",
+        )
+        subjects = Subject.objects.filter(subjects__is_active=True)
+        if role in {"Teacher", "Class Teacher"}:
+            from .workspace import _staff_for_user
+
+            staff = _staff_for_user(request.user)
+            class_streams = class_streams.filter(
+                subjects__subject_teacher=staff,
+                subjects__is_active=True,
+            ).distinct() if staff else class_streams.none()
+            subjects = subjects.filter(subjects__subject_teacher=staff, subjects__is_active=True).distinct() if staff else subjects.none()
+        form.fields["class_stream"].queryset = class_streams.order_by(
+            "-academic_class__academic_year__academic_year",
+            "academic_class__Class__name",
+            "stream__stream",
+        )
+        form.fields["subject"].queryset = subjects.order_by("name")
     return form
 
 
@@ -314,15 +571,63 @@ def _form_errors(form: forms.Form) -> dict[str, list[str]]:
     return {key: [str(item) for item in errors] for key, errors in form.errors.items()}
 
 
+def _new_payment_reference(bill_id) -> str:
+    return f"PMT-{bill_id or 'NEW'}-{uuid4().hex[:16].upper()}"
+
+
 def save_resource_form(request, resource: str, payload, *, instance=None, files=None):
     config = RESOURCE_FORMS[resource]
     if isinstance(payload, QueryDict):
         form_data = payload
     else:
         form_data = _payload_to_querydict(dict(payload))
+    if resource == "fees-payments" and not form_data.get("reference_no", "").strip():
+        bill_id = form_data.get("bill") or "NEW"
+        form_data = form_data.copy()
+        form_data["reference_no"] = _new_payment_reference(bill_id)
     form = _build_form(request, resource, instance=instance, data=form_data, files=files)
     if not form.is_valid():
         return None, _form_errors(form)
+
+    if resource == "attendance" and instance is None:
+        class_stream = form.cleaned_data["class_stream"]
+        subject = form.cleaned_data["subject"]
+        allocation = ClassSubjectAllocation.objects.select_related(
+            "subject_teacher",
+            "academic_class_stream__academic_class",
+            "academic_class_stream__academic_class__academic_year",
+            "academic_class_stream__academic_class__term",
+        ).filter(
+            academic_class_stream=class_stream,
+            subject=subject,
+            is_active=True,
+        ).first()
+        if not allocation:
+            return None, {"subject": ["This subject is not actively allocated to the selected class stream."]}
+        role = _role_label(request)
+        if role in {"Teacher", "Class Teacher"}:
+            from .workspace import _staff_for_user
+
+            staff = _staff_for_user(request.user)
+            if not staff or allocation.subject_teacher_id != staff.pk:
+                return None, {"__all__": ["You can only take attendance for subjects assigned to you."]}
+        try:
+            from app.services.attendance import get_or_create_session, initialize_session_records
+
+            academic_class = class_stream.academic_class
+            session = get_or_create_session(
+                class_stream=class_stream,
+                subject=subject,
+                teacher=allocation.subject_teacher,
+                date=form.cleaned_data["date"],
+                time_slot=form.cleaned_data["time_slot"],
+                academic_year=academic_class.academic_year,
+                term=academic_class.term,
+            )
+            initialize_session_records(session)
+            return session, {}
+        except IntegrityError:
+            return None, {"__all__": ["An attendance session already exists for this class, subject, date and lesson period."]}
 
     if resource == "students" and instance is None:
         current_academic_year = get_current_academic_year()
@@ -363,6 +668,22 @@ def save_resource_form(request, resource: str, payload, *, instance=None, files=
                 return student, {}
         except IntegrityError:
             return None, {"__all__": ["A conflicting student record already exists."]}
+
+    if resource == "fees-payments":
+        try:
+            with transaction.atomic():
+                payment = form.save(commit=False)
+                payment.bill = form.cleaned_data["bill"]
+                payment.recorded_by = request.user.get_username()
+                if not payment.reference_no or not payment.reference_no.strip():
+                    payment.reference_no = _new_payment_reference(payment.bill_id)
+                payment.save()
+                return payment, {}
+        except IntegrityError as exc:
+            message = str(exc).lower()
+            if "reference_no" in message and ("unique" in message or "duplicate" in message):
+                return None, {"reference_no": ["This payment reference is already in use."]}
+            raise
 
     try:
         saved = form.save()

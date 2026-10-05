@@ -1,7 +1,16 @@
 from django.urls import path
 from rest_framework_simplejwt.views import TokenRefreshView
 
-from .workspace import WorkspaceBootstrapAPIView, WorkspaceDashboardAPIView, WorkspaceResourceAPIView, WorkspaceResourceFormAPIView
+from .workspace import (
+    WorkspaceBootstrapAPIView,
+    WorkspaceDashboardAPIView,
+    WorkspaceEntityActionAPIView,
+    WorkspaceEntityAPIView,
+    WorkspaceResourceAPIView,
+    WorkspaceResourceFormAPIView,
+    WorkspaceSearchAPIView,
+)
+from .parent_workspace import ParentWorkspaceAPIView
 
 from .views import (
     CurrentUserAPIView,
@@ -18,11 +27,15 @@ from .views import (
 )
 
 urlpatterns = [
+    path("workspace/parent/<str:action>/", ParentWorkspaceAPIView.as_view(), name="api_workspace_parent"),
     path("workspace/bootstrap/", WorkspaceBootstrapAPIView.as_view(), name="api_workspace_bootstrap"),
     path("workspace/dashboard/", WorkspaceDashboardAPIView.as_view(), name="api_workspace_dashboard"),
+    path("workspace/search/", WorkspaceSearchAPIView.as_view(), name="api_workspace_search"),
     path("workspace/resources/<str:resource>/", WorkspaceResourceAPIView.as_view(), name="api_workspace_resource"),
     path("workspace/resources/<str:resource>/form/", WorkspaceResourceFormAPIView.as_view(), name="api_workspace_resource_create_form"),
     path("workspace/resources/<str:resource>/<int:pk>/form/", WorkspaceResourceFormAPIView.as_view(), name="api_workspace_resource_edit_form"),
+    path("workspace/resources/<str:resource>/<int:pk>/action/", WorkspaceEntityActionAPIView.as_view(), name="api_workspace_entity_action"),
+    path("workspace/resources/<str:resource>/<int:pk>/", WorkspaceEntityAPIView.as_view(), name="api_workspace_entity"),
     path("auth/login/", LoginAPIView.as_view(), name="api_auth_login"),
     path("auth/me/", CurrentUserAPIView.as_view(), name="api_auth_me"),
     path("auth/refresh/", TokenRefreshView.as_view(), name="api_auth_refresh"),

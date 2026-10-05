@@ -8,10 +8,11 @@ from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase
 from django.urls import reverse
+from rest_framework.test import APIClient
 
 from app.models.accounts import StaffAccount
-from app.models.attendance import AttendanceRecord, AttendanceSession, AttendanceStatus
-from app.models.classes import AcademicClass, Class, ClassSubjectAllocation, Stream, Term
+from app.models.attendance import AttendanceAuditLog, AttendanceRecord, AttendanceSession, AttendanceStatus
+from app.models.classes import AcademicClass, AcademicClassStream, Class, ClassSubjectAllocation, Stream, Term
 from app.models.school_settings import AcademicYear, Section
 from app.models.staffs import Role, Staff
 from app.models.students import ClassRegister, Student
@@ -67,7 +68,11 @@ class AttendanceModuleFlowTests(TestCase):
             term=self.term,
             fees_amount=100000,
         )
-        self.class_stream = self.academic_class.class_streams.first()
+        self.class_stream, _ = AcademicClassStream.objects.get_or_create(
+            academic_class=self.academic_class,
+            stream=self.stream,
+            defaults={"class_teacher": self.teacher},
+        )
 
         self.subject = Subject.objects.create(
             code="MATH",
@@ -353,3 +358,110 @@ class AttendanceModuleFlowTests(TestCase):
         self.assertEqual(admin_response.status_code, 302)
         session.refresh_from_db()
         self.assertFalse(session.is_locked)
+
+    def test_workspace_attendance_session_supports_draft_and_submit(self):
+        student_id = ClassRegister.objects.get(academic_class_stream=self.class_stream).student_id
+        client = APIClient()
+        client.force_authenticate(user=self.user)
+
+        create_response = client.post(
+            reverse("api_workspace_resource_create_form", kwargs={"resource": "attendance"}),
+            {
+                "class_stream": self.class_stream.pk,
+                "subject": self.subject.pk,
+                "date": "2026-03-02",
+                "time_slot": self.slot.pk,
+            },
+            format="json",
+        )
+        self.assertEqual(create_response.status_code, 201, create_response.data)
+        session = AttendanceSession.objects.get(pk=create_response.data["id"])
+        self.assertEqual(session.teacher_id, self.teacher.pk)
+        self.assertEqual(AttendanceRecord.objects.filter(session=session).count(), 1)
+
+        detail_response = client.get(
+            reverse("api_workspace_entity", kwargs={"resource": "attendance", "pk": session.pk}),
+        )
+        self.assertEqual(detail_response.status_code, 200, detail_response.data)
+        self.assertEqual(detail_response.data["workflow"]["kind"], "attendance_capture")
+        self.assertEqual(detail_response.data["workflow"]["students"][0]["student_id"], student_id)
+
+        save_response = client.post(
+            reverse("api_workspace_entity_action", kwargs={"resource": "attendance", "pk": session.pk}),
+            {
+                "action": "save",
+                "marks": {str(student_id): {"status": "late", "remarks": "Bus delay"}},
+            },
+            format="json",
+        )
+        self.assertEqual(save_response.status_code, 200, save_response.data)
+        record = AttendanceRecord.objects.get(session=session, student_id=student_id)
+        self.assertEqual(record.status, AttendanceStatus.LATE)
+        self.assertEqual(record.remarks, "Bus delay")
+
+        submit_response = client.post(
+            reverse("api_workspace_entity_action", kwargs={"resource": "attendance", "pk": session.pk}),
+            {
+                "action": "submit",
+                "marks": {str(student_id): {"status": "late", "remarks": "Bus delay"}},
+            },
+            format="json",
+        )
+        self.assertEqual(submit_response.status_code, 200, submit_response.data)
+        session.refresh_from_db()
+        self.assertTrue(session.is_locked)
+        self.assertTrue(
+            AttendanceAuditLog.objects.filter(
+                session=session,
+                action=AttendanceAuditLog.ACTION_SUBMITTED,
+            ).exists()
+        )
+
+    def test_workspace_attendance_rejects_invalid_or_unregistered_marks(self):
+        session = get_or_create_session(
+            class_stream=self.class_stream,
+            subject=self.subject,
+            teacher=self.teacher,
+            date=date(2026, 3, 2),
+            time_slot=self.slot,
+            academic_year=self.year,
+            term=self.term,
+            lesson=self.lesson,
+        )
+        client = APIClient()
+        client.force_authenticate(user=self.user)
+        url = reverse("api_workspace_entity_action", kwargs={"resource": "attendance", "pk": session.pk})
+
+        invalid_status = client.post(
+            url,
+            {"action": "save", "marks": {str(ClassRegister.objects.get(academic_class_stream=self.class_stream).student_id): {"status": "unknown"}}},
+            format="json",
+        )
+        self.assertEqual(invalid_status.status_code, 400)
+
+        unregistered_student = self.student_for_unregistered_mark()
+        unregistered = client.post(
+            url,
+            {"action": "save", "marks": {str(unregistered_student.pk): {"status": "present"}}},
+            format="json",
+        )
+        self.assertEqual(unregistered.status_code, 400)
+
+    def student_for_unregistered_mark(self):
+        return Student.objects.create(
+            reg_no="",
+            student_name="Unregistered Student",
+            gender="F",
+            birthdate=date(2012, 1, 1),
+            nationality="Ugandan",
+            religion="Christian",
+            address="Kampala",
+            guardian="Parent",
+            relationship="Mother",
+            contact="0700000099",
+            academic_year=self.year,
+            current_class=self.base_class,
+            stream=self.stream,
+            term=self.term,
+            is_active=True,
+        )
