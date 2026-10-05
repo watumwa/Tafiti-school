@@ -1,7 +1,9 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { AlertCircle, ChevronLeft, ChevronRight, Database, LoaderCircle, Plus, RefreshCw } from 'lucide-react';
+import Link from 'next/link';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { AlertCircle, ChevronLeft, ChevronRight, Database, LoaderCircle, Plus, RefreshCw, ShieldCheck, SlidersHorizontal } from 'lucide-react';
 
 import type { WorkspaceFormSchema, WorkspaceResource } from '@/lib/workspace';
 import { useToast } from '@/components/ui/ToastProvider';
@@ -23,14 +25,25 @@ function rowTitle(row: Record<string, unknown> | null) {
   return row.id ? `record #${row.id}` : 'this record';
 }
 
+const metricToneClass = {
+  green: 'border-emerald-200/80 bg-emerald-50/65 text-emerald-950',
+  blue: 'border-blue-200/80 bg-blue-50/65 text-blue-950',
+  gold: 'border-amber-200/80 bg-amber-50/70 text-amber-950',
+  violet: 'border-violet-200/80 bg-violet-50/65 text-violet-950',
+} as const;
+
 export function ResourceView({ resource }: { resource: string }) {
   const toast = useToast();
+  const pathname = usePathname();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const urlQuery = searchParams.get('q') ?? '';
+  const parsedPage = Number(searchParams.get('page') ?? '1');
+  const page = Number.isInteger(parsedPage) && parsedPage > 0 ? parsedPage : 1;
   const [data, setData] = useState<WorkspaceResource | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [queryInput, setQueryInput] = useState('');
-  const [query, setQuery] = useState('');
-  const [page, setPage] = useState(1);
+  const [queryInput, setQueryInput] = useState(urlQuery);
   const [reloadKey, setReloadKey] = useState(0);
   const [detailsRow, setDetailsRow] = useState<Record<string, unknown> | null>(null);
   const [formOpen, setFormOpen] = useState(false);
@@ -42,21 +55,37 @@ export function ResourceView({ resource }: { resource: string }) {
   const [deleteLoading, setDeleteLoading] = useState(false);
 
   useEffect(() => {
+    setQueryInput(urlQuery);
+  }, [resource, urlQuery]);
+
+  useEffect(() => {
     const handle = window.setTimeout(() => {
-      setPage(1);
-      setQuery(queryInput.trim());
+      const nextQuery = queryInput.trim();
+      if (nextQuery === urlQuery) return;
+      const params = new URLSearchParams(searchParams.toString());
+      if (nextQuery) params.set('q', nextQuery);
+      else params.delete('q');
+      params.delete('page');
+      const queryString = params.toString();
+      router.replace(`${pathname}${queryString ? `?${queryString}` : ''}`, { scroll: false });
     }, 280);
     return () => window.clearTimeout(handle);
-  }, [queryInput]);
+  }, [pathname, queryInput, router, searchParams, urlQuery]);
+
+  const requestQuery = useMemo(() => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set('page', String(page));
+    params.set('page_size', '25');
+    params.delete('return');
+    params.delete('tab');
+    return params.toString();
+  }, [page, searchParams]);
 
   useEffect(() => {
     const controller = new AbortController();
     setLoading(true);
     setError('');
-    const params = new URLSearchParams({ page: String(page), page_size: '25' });
-    if (query) params.set('q', query);
-
-    fetch(`/api/workspace/resources/${resource}?${params.toString()}`, {
+    fetch(`/api/workspace/resources/${resource}?${requestQuery}`, {
       cache: 'no-store',
       signal: controller.signal,
     })
@@ -77,7 +106,7 @@ export function ResourceView({ resource }: { resource: string }) {
       });
 
     return () => controller.abort();
-  }, [page, query, reloadKey, resource, toast]);
+  }, [reloadKey, requestQuery, resource, toast]);
 
   const pageLabel = useMemo(() => {
     if (!data) return '';
@@ -102,6 +131,36 @@ export function ResourceView({ resource }: { resource: string }) {
     anchor.click();
     URL.revokeObjectURL(url);
     toast.success('Export ready', 'The current table page was exported as CSV.');
+  }
+
+  function setCurrentPage(nextPage: number) {
+    const params = new URLSearchParams(searchParams.toString());
+    if (nextPage > 1) params.set('page', String(nextPage));
+    else params.delete('page');
+    const queryString = params.toString();
+    router.replace(`${pathname}${queryString ? `?${queryString}` : ''}`, { scroll: false });
+  }
+
+  function openRow(row: Record<string, unknown>) {
+    const id = row.id;
+    const contextual = ['students', 'staff', 'admissions', 'classes', 'subjects', 'fees', 'attendance'].includes(resource) || (resource === 'results' && data?.view === 'verification');
+    if (!contextual || typeof id !== 'number') {
+      setDetailsRow(row);
+      return;
+    }
+    const currentSearch = searchParams.toString();
+    const detailParams = new URLSearchParams();
+    if (data?.view === 'verification') detailParams.set('view', 'verification');
+    detailParams.set('return', `${pathname}${currentSearch ? `?${currentSearch}` : ''}`);
+    router.push(`${pathname}/${id}?${detailParams.toString()}`);
+  }
+
+  function setFilter(value: string) {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set('status', value);
+    params.delete('page');
+    params.delete('q');
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
   }
 
   async function openForm(row?: Record<string, unknown>) {
@@ -164,6 +223,12 @@ export function ResourceView({ resource }: { resource: string }) {
       toast.success(editing ? 'Changes saved' : 'Record created', result.detail);
       setFormOpen(false);
       setEditingRow(null);
+      if (typeof result.id === 'number' && ['students', 'staff', 'admissions', 'classes', 'subjects', 'attendance'].includes(resource)) {
+        const currentSearch = searchParams.toString();
+        const detailParams = new URLSearchParams({ return: `${pathname}${currentSearch ? `?${currentSearch}` : ''}` });
+        router.push(`${pathname}/${result.id}?${detailParams.toString()}`);
+        return;
+      }
       setReloadKey((value) => value + 1);
     } catch (reason: unknown) {
       const message = reason instanceof Error ? reason.message : 'The record could not be saved.';
@@ -236,6 +301,11 @@ export function ResourceView({ resource }: { resource: string }) {
           <button type="button" onClick={() => setReloadKey((value) => value + 1)} className="clay-button-secondary">
             <RefreshCw size={15} className={loading ? 'animate-spin' : ''} /> Refresh
           </button>
+          {resource === 'fees' && (
+            <Link href={`${pathname.replace(/\/fees$/, '/fees-payments')}`} className="clay-button-primary">
+              <Plus size={16} /> Record payment
+            </Link>
+          )}
           {data.actions.create && (
             <button type="button" onClick={() => void openForm()} className="clay-button-primary">
               <Plus size={16} /> {data.actions.create_label}
@@ -244,7 +314,35 @@ export function ResourceView({ resource }: { resource: string }) {
         </div>
       </div>
 
-      {!data.rows.length && !query ? (
+      {data.metrics?.length ? (
+        <div className="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          {data.metrics.map((metric) => (
+            <article key={metric.label} className={`rounded-2xl border p-4 ${metricToneClass[metric.tone]}`}>
+              <p className="text-[11px] font-semibold text-slate-500">{metric.label}</p>
+              <p className="mt-2 text-xl font-semibold tracking-[-0.02em]">{metric.value}</p>
+              <p className="mt-1.5 text-[11px] text-slate-500">{metric.hint}</p>
+            </article>
+          ))}
+        </div>
+      ) : null}
+
+      {data.filters?.length ? (
+        <div className="mb-4 flex flex-col gap-3 rounded-2xl border border-blue-200/70 bg-blue-50/65 p-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-2 text-xs font-semibold text-[#244BB9]">
+            {data.view === 'verification' ? <ShieldCheck size={16} /> : <SlidersHorizontal size={16} />}
+            {data.view === 'verification' ? 'Verification queue' : resource === 'fees' ? 'Bill status' : 'Reconciliation status'}
+          </div>
+          <div className="flex gap-1.5 overflow-x-auto">
+            {data.filters.map((filter) => (
+              <button key={filter.value} type="button" onClick={() => setFilter(filter.value)} className={`inline-flex h-9 shrink-0 items-center gap-2 rounded-xl border px-3 text-xs font-semibold transition ${data.active_filter === filter.value ? 'border-[#3157D5] bg-[#3157D5] text-white' : 'border-blue-100 bg-white text-slate-600 hover:border-blue-200 hover:text-[#3157D5]'}`}>
+                {filter.label}<span className={`rounded-full px-1.5 py-0.5 text-[9px] ${data.active_filter === filter.value ? 'bg-white/15 text-white' : 'bg-slate-100 text-slate-500'}`}>{filter.count}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      {!data.rows.length && !urlQuery ? (
         <div className="clay-panel grid min-h-[390px] place-items-center px-5 text-center">
           <div className="max-w-sm">
             <span className="mx-auto grid h-12 w-12 place-items-center rounded-2xl bg-[#EAF0F7] text-[#2C5D8A] shadow-[inset_1px_1px_0_#fff,0_7px_18px_rgba(15,39,71,.08)]"><Database size={22} /></span>
@@ -262,16 +360,16 @@ export function ResourceView({ resource }: { resource: string }) {
             actions={data.actions}
             onQueryChange={setQueryInput}
             onExport={exportCsv}
-            onView={setDetailsRow}
+            onView={openRow}
             onEdit={(row) => void openForm(row)}
             onDelete={setDeleteRow}
           />
           <div className="clay-pagination mt-3 flex flex-col gap-3 px-4 py-3 text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between">
-            <span>{query && !data.pagination.total ? 'No matching records' : pageLabel}</span>
+            <span>{urlQuery && !data.pagination.total ? 'No matching records' : pageLabel}</span>
             <div className="flex items-center gap-2">
-              <button type="button" disabled={data.pagination.page <= 1 || loading} onClick={() => setPage((value) => Math.max(1, value - 1))} className="clay-page-button"><ChevronLeft size={14} /> Previous</button>
+              <button type="button" disabled={data.pagination.page <= 1 || loading} onClick={() => setCurrentPage(Math.max(1, data.pagination.page - 1))} className="clay-page-button"><ChevronLeft size={14} /> Previous</button>
               <span className="min-w-[74px] text-center font-semibold text-slate-700">Page {data.pagination.page} / {data.pagination.pages}</span>
-              <button type="button" disabled={data.pagination.page >= data.pagination.pages || loading} onClick={() => setPage((value) => value + 1)} className="clay-page-button">Next <ChevronRight size={14} /></button>
+              <button type="button" disabled={data.pagination.page >= data.pagination.pages || loading} onClick={() => setCurrentPage(data.pagination.page + 1)} className="clay-page-button">Next <ChevronRight size={14} /></button>
             </div>
           </div>
         </>

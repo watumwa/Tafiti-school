@@ -1,3 +1,5 @@
+import { ChevronDown, School } from 'lucide-react';
+
 import type { LoginContext } from '@/lib/auth';
 
 type RoleOption = {
@@ -8,24 +10,29 @@ type RoleOption = {
 };
 
 export const roleOptions: readonly RoleOption[] = [
-  { value: 'admin', label: 'Admin', fieldLabel: 'Username or email', placeholder: 'Enter your username or email' },
+  {
+    value: 'admin',
+    label: 'School administrator',
+    fieldLabel: 'School email or username',
+    placeholder: 'Enter your school email or username',
+  },
   {
     value: 'teacher',
-    label: 'Teacher',
-    fieldLabel: 'Username, email or phone',
-    placeholder: 'Enter your username, email or phone',
+    label: 'Teacher workspace',
+    fieldLabel: 'School email or username',
+    placeholder: 'Enter your school email or username',
   },
   {
     value: 'bursar',
-    label: 'Bursar',
-    fieldLabel: 'Username, email or phone',
-    placeholder: 'Enter your username, email or phone',
+    label: 'Finance workspace',
+    fieldLabel: 'School email or username',
+    placeholder: 'Enter your school email or username',
   },
   {
     value: 'parent',
-    label: 'Parent',
-    fieldLabel: 'Parent email or phone number',
-    placeholder: 'Enter your email or phone number',
+    label: 'Parent portal',
+    fieldLabel: 'School email or username',
+    placeholder: 'Enter your school email or username',
   },
 ] as const;
 
@@ -37,33 +44,33 @@ type RoleSelectorProps = {
 
 export function RoleSelector({ value, onChange, disabled = false }: RoleSelectorProps) {
   return (
-    <fieldset disabled={disabled}>
-      <legend className="sr-only">Choose your portal context</legend>
-      <div className="grid grid-cols-4 gap-1 rounded-xl bg-[#F1F3F2] p-1" role="radiogroup" aria-label="Portal context">
-        {roleOptions.map((option) => {
-          const selected = option.value === value;
-          return (
-            <button
-              key={option.value}
-              type="button"
-              role="radio"
-              aria-checked={selected}
-              disabled={disabled}
-              onClick={() => onChange(option.value)}
-              className={`min-h-10 rounded-[9px] px-1.5 text-xs font-semibold transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#087F5B] focus-visible:ring-offset-2 sm:text-sm ${
-                selected
-                  ? 'bg-[#087F5B] text-white shadow-[0_2px_7px_rgba(8,127,91,0.25)]'
-                  : 'text-[#56605F] hover:bg-white hover:text-[#1A1D20]'
-              }`}
-            >
-              {option.label}
-            </button>
-          );
-        })}
+    <div>
+      <label htmlFor="login-context" className="mb-2 block text-xs font-semibold text-[#394B66]">
+        School / Workspace
+      </label>
+      <div className="group relative">
+        <School
+          size={17}
+          aria-hidden="true"
+          className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[#41536D] transition-colors group-focus-within:text-[#1769EF]"
+        />
+        <select
+          id="login-context"
+          value={value}
+          onChange={(event) => onChange(event.target.value as LoginContext)}
+          disabled={disabled}
+          className="h-[43px] w-full appearance-none rounded-xl border border-[#D9E0EA] bg-white pl-11 pr-10 text-xs font-medium text-[#354966] outline-none transition hover:border-[#C7D2E1] focus:border-[#377FF5] focus:ring-4 focus:ring-blue-100/65 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {roleOptions.map((option) => (
+            <option key={option.value} value={option.value}>{option.label}</option>
+          ))}
+        </select>
+        <ChevronDown
+          size={16}
+          aria-hidden="true"
+          className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-[#52647D]"
+        />
       </div>
-      <p className="mt-2 text-[11px] leading-4 text-[#7A8583]">
-        This helps tailor sign-in. Your access is always set by your school account.
-      </p>
-    </fieldset>
+    </div>
   );
 }

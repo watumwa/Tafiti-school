@@ -96,14 +96,20 @@ export function DataTable({
               <tr key={String(row.id ?? index)} className="group transition-colors hover:bg-[#F7FAFD]/90">
                 {columns.map((column) => {
                   const text = displayValue(row[column.key]);
+                  const isPrimary = ['name', 'student', 'title', 'class', 'application', 'batch'].includes(column.key);
+                  const content = looksLikeStatus(column.key) ? (
+                    <span className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold ${statusClass(text)}`}>{text}</span>
+                  ) : (
+                    <span className={isPrimary ? 'font-semibold text-slate-900' : ''}>{text}</span>
+                  );
                   return (
                     <td key={column.key} className={`${column.key === 'photo' ? 'w-[76px]' : 'max-w-[360px]'} px-5 py-3.5 text-sm text-slate-700`}>
                       {column.key === 'photo' ? (
-                        <ProfileAvatar src={row[column.key]} name={rowName(row)} size="md" />
-                      ) : looksLikeStatus(column.key) ? (
-                        <span className={`inline-flex rounded-full border px-2.5 py-1 text-[11px] font-semibold ${statusClass(text)}`}>{text}</span>
+                        actions.view ? <button type="button" onClick={() => onView(row)} aria-label={`Open ${rowName(row)}`}><ProfileAvatar src={row[column.key]} name={rowName(row)} size="md" /></button> : <ProfileAvatar src={row[column.key]} name={rowName(row)} size="md" />
+                      ) : isPrimary && actions.view ? (
+                        <button type="button" onClick={() => onView(row)} className="text-left transition hover:text-[#3157D5] hover:underline">{content}</button>
                       ) : (
-                        <span className={column.key === 'name' || column.key === 'student' || column.key === 'title' || column.key === 'class' ? 'font-semibold text-slate-900' : ''}>{text}</span>
+                        content
                       )}
                     </td>
                   );

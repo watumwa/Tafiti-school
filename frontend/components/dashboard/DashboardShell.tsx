@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
@@ -21,7 +21,9 @@ import { Logo } from '@/components/brand/Logo';
 import { useToast } from '@/components/ui/ToastProvider';
 import { CommandPalette } from '@/components/workspace/CommandPalette';
 import { DashboardOverview } from '@/components/workspace/DashboardOverview';
+import { EntityWorkspace } from '@/components/workspace/EntityWorkspace';
 import { NotificationDrawer } from '@/components/workspace/NotificationDrawer';
+import { ParentPortalView } from '@/components/workspace/ParentPortalView';
 import { ResourceView } from '@/components/workspace/ResourceView';
 import { WorkspaceIcon } from '@/components/workspace/WorkspaceIcon';
 import type { AuthFailure, AuthSuccess } from '@/lib/auth';
@@ -53,6 +55,7 @@ export function DashboardShell() {
   const [commandOpen, setCommandOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [retryKey, setRetryKey] = useState(0);
+  const [entityTitle, setEntityTitle] = useState('');
 
   useEffect(() => {
     function keyboard(event: KeyboardEvent) {
@@ -125,6 +128,15 @@ export function DashboardShell() {
     const segments = pathname.split('/').filter(Boolean);
     return segments.length >= 3 ? segments[2] : 'overview';
   }, [pathname]);
+
+  const entityId = useMemo(() => {
+    const segments = pathname.split('/').filter(Boolean);
+    if (segments.length < 4 || !/^\d+$/.test(segments[3])) return null;
+    return Number(segments[3]);
+  }, [pathname]);
+
+  useEffect(() => setEntityTitle(''), [pathname]);
+  const handleEntityTitle = useCallback((title: string) => setEntityTitle(title), []);
 
   const selectedItem = useMemo<WorkspaceNavItem | null>(() => {
     if (!bootstrap) return null;
@@ -225,6 +237,7 @@ export function DashboardShell() {
           </button>
           {profileOpen && (
             <div className="mt-2 overflow-hidden rounded-xl border border-white/10 bg-[#132F53] p-1.5 shadow-xl">
+              {bootstrap.user.role.label === 'Parent' && <Link href={`${bootstrap.user.dashboard_path}/parent-profile`} className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-slate-200 hover:bg-white/10"><UserRound size={14} /> My profile</Link>}
               <Link href="/account/change-password" className="flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium text-slate-200 hover:bg-white/10"><KeyRound size={14} /> Change password</Link>
               <button type="button" onClick={signOut} className="mt-0.5 flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-medium text-red-200 hover:bg-red-400/10"><LogOut size={14} /> Sign out</button>
             </div>
@@ -240,13 +253,21 @@ export function DashboardShell() {
             <div className="flex items-center gap-2 text-xs text-slate-400">
               <span className="hidden truncate sm:inline">{bootstrap.school.name}</span>
               <ChevronRight size={12} className="hidden sm:block" />
-              <span className="truncate font-semibold text-slate-700">{selectedItem?.label ?? 'Overview'}</span>
+              {entityId && selectedItem ? (
+                <>
+                  <Link href={`${bootstrap.user.dashboard_path}/${selectedItem.slug}`} className="hidden font-medium text-slate-500 transition hover:text-[#3157D5] sm:inline">{selectedItem.label}</Link>
+                  <ChevronRight size={12} className="hidden sm:block" />
+                  <span className="truncate font-semibold text-slate-700">{entityTitle || 'Opening record…'}</span>
+                </>
+              ) : (
+                <span className="truncate font-semibold text-slate-700">{selectedItem?.label ?? 'Overview'}</span>
+              )}
             </div>
           </div>
 
           <button type="button" onClick={() => setCommandOpen(true)} className="hidden h-9 min-w-[220px] items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 text-left text-xs text-slate-400 transition hover:border-slate-300 hover:bg-white md:flex xl:min-w-[280px]">
             <Search size={15} />
-            <span className="flex-1">Find a module…</span>
+            <span className="flex-1">Search school records…</span>
             <kbd className="rounded-md border border-slate-200 bg-white px-1.5 py-0.5 text-[10px] font-semibold text-slate-400">⌘K</kbd>
           </button>
 
@@ -268,6 +289,10 @@ export function DashboardShell() {
         <div className="mx-auto w-full max-w-[1560px] p-4 sm:p-6 lg:p-7 xl:p-8">
           {moduleSlug === 'overview' ? (
             <DashboardOverview bootstrap={bootstrap} />
+          ) : bootstrap.user.role.label === 'Parent' && selectedItem?.resource?.startsWith('parent-') ? (
+            <ParentPortalView screen={selectedItem.resource} dashboardPath={bootstrap.user.dashboard_path} />
+          ) : entityId && selectedItem?.resource ? (
+            <EntityWorkspace resource={selectedItem.resource} id={entityId} dashboardPath={bootstrap.user.dashboard_path} onTitleChange={handleEntityTitle} />
           ) : selectedItem?.resource ? (
             <ResourceView resource={selectedItem.resource} />
           ) : (
@@ -282,7 +307,15 @@ export function DashboardShell() {
         </div>
       </div>
 
-      <NotificationDrawer open={notificationsOpen} onClose={() => setNotificationsOpen(false)} notifications={bootstrap.notifications} />
+      <NotificationDrawer
+        open={notificationsOpen}
+        onClose={() => setNotificationsOpen(false)}
+        notifications={bootstrap.notifications}
+        onViewAll={bootstrap.user.role.label === 'Parent' ? () => {
+          setNotificationsOpen(false);
+          router.push(`${bootstrap.user.dashboard_path}/parent-notifications`);
+        } : undefined}
+      />
       <CommandPalette open={commandOpen} onClose={() => setCommandOpen(false)} groups={bootstrap.navigation} dashboardPath={bootstrap.user.dashboard_path} />
     </main>
   );
