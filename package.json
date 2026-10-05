@@ -1,0 +1,12 @@
+{
+  "name": "school-management-system",
+  "private": true,
+  "scripts": {
+    "dev:backend": "cd backend && if [ -d venv ]; then ./venv/bin/python manage.py runserver 127.0.0.1:8000; elif [ -d ../venv ]; then ../venv/bin/python manage.py runserver 127.0.0.1:8000; else python manage.py runserver 127.0.0.1:8000; fi",
+    "dev:frontend": "cd frontend && npm run dev",
+    "start": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\""
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}
