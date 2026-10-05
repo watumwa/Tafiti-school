@@ -19,6 +19,7 @@ export type AuthUser = {
 
 export type AuthSuccess = {
   user: AuthUser;
+  detail?: string;
 };
 
 export type AuthFailure = {
