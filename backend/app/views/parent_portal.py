@@ -649,7 +649,13 @@ def parent_access_activate(request, student_id):
                 allow_guardian_mismatch=request.POST.get("confirm_shared_contact") == "yes",
             )
             if access.must_change_password:
-                notice = f"Username: {access.user.username}; temporary password: 123 (expires in {settings.PARENT_TEMP_PASSWORD_HOURS} hours)."
+                temporary_password = getattr(access, "temporary_password", None)
+                if not temporary_password:
+                    raise ParentAccessError("A temporary credential could not be generated. Please retry activation.")
+                notice = (
+                    f"Username: {access.user.username}; temporary password: {temporary_password} "
+                    f"(expires in {settings.PARENT_TEMP_PASSWORD_HOURS} hours). Share it securely; it will not be shown again."
+                )
             else:
                 notice = f"Linked to the existing parent account {access.user.username}; its private password was not changed."
             messages.success(request, f"Parent access activated. {notice}")
@@ -707,9 +713,13 @@ def parent_password_reset(request, user_id):
     if request.method == "POST":
         try:
             user = reset_parent_password(user_id=user_id, actor=request.user)
+            temporary_password = getattr(user, "temporary_password", None)
+            if not temporary_password:
+                raise ParentAccessError("A temporary credential could not be generated. Please retry the reset.")
             messages.success(
-                request, f"Password reset for {user.username}. Temporary password: 123; it expires in "
-                f"{settings.PARENT_TEMP_PASSWORD_HOURS} hours.",
+                request,
+                f"Password reset for {user.username}. Temporary password: {temporary_password}; it expires in "
+                f"{settings.PARENT_TEMP_PASSWORD_HOURS} hours. Share it securely; it will not be shown again.",
             )
         except ParentAccessError as exc:
             messages.error(request, str(exc))
