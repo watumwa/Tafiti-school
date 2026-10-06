@@ -11,6 +11,7 @@ from .workspace import (
     WorkspaceSearchAPIView,
 )
 from .academic_workspace import AcademicToolAPIView
+from .admissions_workspace import AdmissionsWorkspaceAPIView
 from .auth_workspace import RoleSwitchAPIView
 from .communication_workspace import CommunicationConsoleAPIView
 from .library_workspace import LibraryConsoleAPIView
@@ -42,6 +43,8 @@ urlpatterns = [
     path("workspace/users-roles/<int:user_id>/", UserRolesWorkspaceAPIView.as_view(), name="api_workspace_users_roles_record"),
     path("workspace/academics/<str:tool>/", AcademicToolAPIView.as_view(), name="api_workspace_academic_tool"),
     path("workspace/academics/<str:tool>/<int:pk>/", AcademicToolAPIView.as_view(), name="api_workspace_academic_tool_record"),
+    path("workspace/admissions/<str:screen>/", AdmissionsWorkspaceAPIView.as_view(), name="api_workspace_admissions"),
+    path("workspace/admissions/<str:screen>/<int:pk>/", AdmissionsWorkspaceAPIView.as_view(), name="api_workspace_admissions_record"),
     path("workspace/student-finance/<str:screen>/", StudentFinanceAPIView.as_view(), name="api_workspace_student_finance"),
     path("workspace/student-finance/<str:screen>/<int:pk>/", StudentFinanceAPIView.as_view(), name="api_workspace_student_finance_record"),
     path("workspace/communication-console/<str:screen>/", CommunicationConsoleAPIView.as_view(), name="api_workspace_communication_console"),
