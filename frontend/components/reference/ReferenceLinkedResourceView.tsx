@@ -9,6 +9,7 @@ import { ReferenceClassesWorkspace } from './ReferenceClassesWorkspace';
 import { ReferenceAdmissionsWorkspace } from './ReferenceAdmissionsWorkspace';
 import { ReferenceAttendanceHub } from './ReferenceAttendanceHub';
 import { ReferenceCommunicationConsoleView } from './ReferenceCommunicationConsoleView';
+import { ReferenceFinanceOperations } from './ReferenceFinanceOperations';
 import { ReferenceLibraryConsoleView } from './ReferenceLibraryConsoleView';
 import { ReferenceResourceView } from './ReferenceResourceView';
 import { ReferenceResultsOperations } from './ReferenceResultsOperations';
@@ -25,7 +26,7 @@ const feesTabs: Tab[] = [
 ];
 
 const financeTabs: Tab[] = [
-  { slug: 'finance', label: 'Overview', icon: 'finance' },
+  { slug: 'finance', label: 'Operations', icon: 'finance' },
   { slug: 'finance-budgets', label: 'Budgets', icon: 'finance' },
   { slug: 'finance-budget-items', label: 'Allocations', icon: 'finance' },
   { slug: 'finance-expenditure-items', label: 'Expenditure Items', icon: 'finance' },
@@ -96,7 +97,7 @@ export function ReferenceLinkedResourceView({ resource, dashboardPath }: { resou
           })}
         </div>
       </div>
-      {resource === 'fees' ? <ReferenceStudentAccountsView dashboardPath={dashboardPath} /> : <ReferenceResourceView resource={resource} />}
+      {resource === 'fees' ? <ReferenceStudentAccountsView dashboardPath={dashboardPath} /> : resource === 'finance' ? <ReferenceFinanceOperations /> : <ReferenceResourceView resource={resource} />}
     </section>
   );
 }
