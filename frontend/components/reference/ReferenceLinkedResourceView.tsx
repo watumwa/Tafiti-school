@@ -2,100 +2,42 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { BookOpen, CircleDollarSign, Landmark, WalletCards } from 'lucide-react';
+import { BookOpen, Landmark, WalletCards } from 'lucide-react';
 
+import { ReferenceLibraryView } from './ReferenceLibraryView';
 import { ReferenceResourceView } from './ReferenceResourceView';
 
 type Tab = { slug: string; label: string; icon?: 'wallet' | 'finance' | 'book' };
 
+const feesTabs: Tab[] = [
+  { slug: 'fees', label: 'Student Accounts', icon: 'wallet' },
+  { slug: 'fees-payments', label: 'Payments', icon: 'wallet' },
+  { slug: 'fees-class-bills', label: 'Class Bills', icon: 'book' },
+  { slug: 'fees-bill-items', label: 'Fee Categories', icon: 'book' },
+];
+
+const financeTabs: Tab[] = [
+  { slug: 'finance', label: 'Overview', icon: 'finance' },
+  { slug: 'finance-budgets', label: 'Budgets', icon: 'finance' },
+  { slug: 'finance-budget-items', label: 'Allocations', icon: 'finance' },
+  { slug: 'finance-expenditure-items', label: 'Expenditure Items', icon: 'finance' },
+  { slug: 'finance-expenses', label: 'Expense Categories', icon: 'finance' },
+  { slug: 'finance-vendors', label: 'Vendors', icon: 'finance' },
+  { slug: 'finance-income', label: 'Income Sources', icon: 'finance' },
+];
+
 const groups: Record<string, Tab[]> = {
-  fees: [
-    { slug: 'fees', label: 'Student Accounts', icon: 'wallet' },
-    { slug: 'fees-payments', label: 'Payments', icon: 'wallet' },
-    { slug: 'fees-class-bills', label: 'Class Bills', icon: 'book' },
-    { slug: 'fees-bill-items', label: 'Fee Categories', icon: 'book' },
-  ],
-  'fees-payments': [
-    { slug: 'fees', label: 'Student Accounts', icon: 'wallet' },
-    { slug: 'fees-payments', label: 'Payments', icon: 'wallet' },
-    { slug: 'fees-class-bills', label: 'Class Bills', icon: 'book' },
-    { slug: 'fees-bill-items', label: 'Fee Categories', icon: 'book' },
-  ],
-  'fees-class-bills': [
-    { slug: 'fees', label: 'Student Accounts', icon: 'wallet' },
-    { slug: 'fees-payments', label: 'Payments', icon: 'wallet' },
-    { slug: 'fees-class-bills', label: 'Class Bills', icon: 'book' },
-    { slug: 'fees-bill-items', label: 'Fee Categories', icon: 'book' },
-  ],
-  'fees-bill-items': [
-    { slug: 'fees', label: 'Student Accounts', icon: 'wallet' },
-    { slug: 'fees-payments', label: 'Payments', icon: 'wallet' },
-    { slug: 'fees-class-bills', label: 'Class Bills', icon: 'book' },
-    { slug: 'fees-bill-items', label: 'Fee Categories', icon: 'book' },
-  ],
-  finance: [
-    { slug: 'finance', label: 'Overview', icon: 'finance' },
-    { slug: 'finance-budgets', label: 'Budgets', icon: 'finance' },
-    { slug: 'finance-budget-items', label: 'Allocations', icon: 'finance' },
-    { slug: 'finance-expenditure-items', label: 'Expenditure Items', icon: 'finance' },
-    { slug: 'finance-expenses', label: 'Expense Categories', icon: 'finance' },
-    { slug: 'finance-vendors', label: 'Vendors', icon: 'finance' },
-    { slug: 'finance-income', label: 'Income Sources', icon: 'finance' },
-  ],
-  'finance-budgets': [
-    { slug: 'finance', label: 'Overview', icon: 'finance' },
-    { slug: 'finance-budgets', label: 'Budgets', icon: 'finance' },
-    { slug: 'finance-budget-items', label: 'Allocations', icon: 'finance' },
-    { slug: 'finance-expenditure-items', label: 'Expenditure Items', icon: 'finance' },
-    { slug: 'finance-expenses', label: 'Expense Categories', icon: 'finance' },
-    { slug: 'finance-vendors', label: 'Vendors', icon: 'finance' },
-    { slug: 'finance-income', label: 'Income Sources', icon: 'finance' },
-  ],
-  'finance-budget-items': [
-    { slug: 'finance', label: 'Overview', icon: 'finance' },
-    { slug: 'finance-budgets', label: 'Budgets', icon: 'finance' },
-    { slug: 'finance-budget-items', label: 'Allocations', icon: 'finance' },
-    { slug: 'finance-expenditure-items', label: 'Expenditure Items', icon: 'finance' },
-    { slug: 'finance-expenses', label: 'Expense Categories', icon: 'finance' },
-    { slug: 'finance-vendors', label: 'Vendors', icon: 'finance' },
-    { slug: 'finance-income', label: 'Income Sources', icon: 'finance' },
-  ],
-  'finance-expenditure-items': [
-    { slug: 'finance', label: 'Overview', icon: 'finance' },
-    { slug: 'finance-budgets', label: 'Budgets', icon: 'finance' },
-    { slug: 'finance-budget-items', label: 'Allocations', icon: 'finance' },
-    { slug: 'finance-expenditure-items', label: 'Expenditure Items', icon: 'finance' },
-    { slug: 'finance-expenses', label: 'Expense Categories', icon: 'finance' },
-    { slug: 'finance-vendors', label: 'Vendors', icon: 'finance' },
-    { slug: 'finance-income', label: 'Income Sources', icon: 'finance' },
-  ],
-  'finance-expenses': [
-    { slug: 'finance', label: 'Overview', icon: 'finance' },
-    { slug: 'finance-budgets', label: 'Budgets', icon: 'finance' },
-    { slug: 'finance-budget-items', label: 'Allocations', icon: 'finance' },
-    { slug: 'finance-expenditure-items', label: 'Expenditure Items', icon: 'finance' },
-    { slug: 'finance-expenses', label: 'Expense Categories', icon: 'finance' },
-    { slug: 'finance-vendors', label: 'Vendors', icon: 'finance' },
-    { slug: 'finance-income', label: 'Income Sources', icon: 'finance' },
-  ],
-  'finance-vendors': [
-    { slug: 'finance', label: 'Overview', icon: 'finance' },
-    { slug: 'finance-budgets', label: 'Budgets', icon: 'finance' },
-    { slug: 'finance-budget-items', label: 'Allocations', icon: 'finance' },
-    { slug: 'finance-expenditure-items', label: 'Expenditure Items', icon: 'finance' },
-    { slug: 'finance-expenses', label: 'Expense Categories', icon: 'finance' },
-    { slug: 'finance-vendors', label: 'Vendors', icon: 'finance' },
-    { slug: 'finance-income', label: 'Income Sources', icon: 'finance' },
-  ],
-  'finance-income': [
-    { slug: 'finance', label: 'Overview', icon: 'finance' },
-    { slug: 'finance-budgets', label: 'Budgets', icon: 'finance' },
-    { slug: 'finance-budget-items', label: 'Allocations', icon: 'finance' },
-    { slug: 'finance-expenditure-items', label: 'Expenditure Items', icon: 'finance' },
-    { slug: 'finance-expenses', label: 'Expense Categories', icon: 'finance' },
-    { slug: 'finance-vendors', label: 'Vendors', icon: 'finance' },
-    { slug: 'finance-income', label: 'Income Sources', icon: 'finance' },
-  ],
+  fees: feesTabs,
+  'fees-payments': feesTabs,
+  'fees-class-bills': feesTabs,
+  'fees-bill-items': feesTabs,
+  finance: financeTabs,
+  'finance-budgets': financeTabs,
+  'finance-budget-items': financeTabs,
+  'finance-expenditure-items': financeTabs,
+  'finance-expenses': financeTabs,
+  'finance-vendors': financeTabs,
+  'finance-income': financeTabs,
 };
 
 function TabIcon({ icon }: { icon?: Tab['icon'] }) {
@@ -106,6 +48,9 @@ function TabIcon({ icon }: { icon?: Tab['icon'] }) {
 
 export function ReferenceLinkedResourceView({ resource, dashboardPath }: { resource: string; dashboardPath: string }) {
   const pathname = usePathname();
+
+  if (resource === 'library') return <ReferenceLibraryView />;
+
   const tabs = groups[resource];
   if (!tabs) return <ReferenceResourceView resource={resource} />;
 
