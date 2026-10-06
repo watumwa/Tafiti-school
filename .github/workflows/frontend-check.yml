@@ -43,7 +43,7 @@ jobs:
         with:
           python-version: '3.12'
       - name: Compile workspace backend modules
-        run: python -m py_compile backend/backend/academic_workspace.py backend/backend/admissions_workspace.py backend/backend/attendance_workspace.py backend/backend/communication_workspace.py backend/backend/library_workspace.py backend/backend/marks_workspace.py backend/backend/results_operations.py backend/backend/student_finance.py backend/backend/timetable_operations.py backend/backend/urls.py backend/backend/workspace.py backend/backend/workspace_context.py
+        run: python -m py_compile backend/backend/academic_workspace.py backend/backend/admissions_workspace.py backend/backend/attendance_workspace.py backend/backend/communication_workspace.py backend/backend/library_workspace.py backend/backend/marks_workspace.py backend/backend/results_operations.py backend/backend/student_finance.py backend/backend/timetable_operations.py backend/backend/urls.py backend/backend/workspace.py backend/backend/workspace_context.py backend/app/services/parent_portal.py backend/app/views/parent_portal.py
 
   backend-runtime:
     runs-on: ubuntu-latest
@@ -75,4 +75,4 @@ jobs:
         env:
           DJANGO_SETTINGS_MODULE: core.settings.development
           DJANGO_SECRET_KEY: ci-development-secret
-        run: python manage.py test backend.test_parent_credentials_security backend.test_workspace_academic_periods backend.test_student_finance_workflow backend.test_workspace_finance backend.test_workspace_admissions backend.test_workspace_attendance_hub backend.test_workspace_results_operations backend.test_workspace_timetable
+        run: python manage.py test backend.test_parent_credentials_security backend.test_workspace_academic_periods backend.test_workspace_report_cards backend.test_student_finance_workflow backend.test_workspace_finance backend.test_workspace_admissions backend.test_workspace_attendance_hub backend.test_workspace_results_operations backend.test_workspace_timetable
