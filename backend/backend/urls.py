@@ -10,6 +10,7 @@ from .workspace import (
     WorkspaceResourceFormAPIView,
     WorkspaceSearchAPIView,
 )
+from .academic_workspace import AcademicToolAPIView
 from .marks_workspace import MarksEntryAPIView, MarksHubAPIView
 from .parent_workspace import ParentWorkspaceAPIView
 
@@ -32,6 +33,8 @@ urlpatterns = [
     path("workspace/bootstrap/", WorkspaceBootstrapAPIView.as_view(), name="api_workspace_bootstrap"),
     path("workspace/dashboard/", WorkspaceDashboardAPIView.as_view(), name="api_workspace_dashboard"),
     path("workspace/search/", WorkspaceSearchAPIView.as_view(), name="api_workspace_search"),
+    path("workspace/academics/<str:tool>/", AcademicToolAPIView.as_view(), name="api_workspace_academic_tool"),
+    path("workspace/academics/<str:tool>/<int:pk>/", AcademicToolAPIView.as_view(), name="api_workspace_academic_tool_record"),
     path("workspace/results/marks/", MarksHubAPIView.as_view(), name="api_workspace_marks_hub"),
     path("workspace/results/marks/<int:assessment_id>/", MarksEntryAPIView.as_view(), name="api_workspace_marks_entry"),
     path("workspace/resources/<str:resource>/", WorkspaceResourceAPIView.as_view(), name="api_workspace_resource"),
