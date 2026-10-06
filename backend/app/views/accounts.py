@@ -1,3 +1,6 @@
+from datetime import timedelta
+
+from django.conf import settings
 from django.contrib.auth import get_user_model
 
 User = get_user_model()
@@ -23,6 +26,7 @@ from django.template.loader import render_to_string
 from django.http import JsonResponse
 from django.core.mail import send_mail
 from django.contrib.auth.tokens import default_token_generator
+from django.utils import timezone
 from django.utils.http import urlsafe_base64_encode
 from django.template.loader import render_to_string
 from django.contrib.auth.views import PasswordResetView
@@ -30,7 +34,7 @@ from django.contrib.auth.forms import PasswordResetForm
 from django.contrib.auth.mixins import LoginRequiredMixin
 from app.constants import ROLE_PRIORITY
 from app.services.teacher_assignments import get_teacher_assignments
-
+from app.utils.credentials import generate_temporary_password
 
 
 
@@ -46,7 +50,6 @@ def pick_default_role(roles_qs):
                 best_score = score
     except Exception:
         best = None
-    # Fallback to first role if nothing matched
     if best is None and hasattr(roles_qs, "first"):
         return roles_qs.first()
     return best
@@ -64,6 +67,9 @@ def create_account_view(request):
         form = StaffAccountForm(request.POST)
         if form.is_valid():
             staff = form.cleaned_data['staff']
+            role = staff.roles.first() if staff.roles.exists() else None
+            if not role:
+                return JsonResponse({'error': "No role available for this staff member. Please assign a role first."}, status=400)
 
             first_initial = staff.first_name[0].upper()
             last_name = staff.last_name.lower()
@@ -75,26 +81,36 @@ def create_account_view(request):
                 unique_username = f"{base_username}{counter}"
                 counter += 1
 
-            # Staff accounts use the school's shared first-login password.
-            temporary_password = "123"
+            temporary_password = generate_temporary_password()
             user = User.objects.create_user(
                 username=unique_username,
                 password=temporary_password,
                 first_name=staff.first_name,
-                last_name=staff.last_name
+                last_name=staff.last_name,
+                email=staff.email or "",
             )
-            staff.user = user  
+            staff.user = user
             staff.save()
-            messages.success(request, f"Account for {user.username} created successfully. Default password: {temporary_password}. Ask the user to change it after first login.")
-
-            # Assign role if available
-            role = staff.roles.first() if staff.roles.exists() else None
-            if role:
-                StaffAccount.objects.create(user=user, staff=staff, role=role)
-            else:
-                return JsonResponse({'error': "No role available for this staff member. Please assign a role."}, status=400)
-
-            return JsonResponse({'success': True, 'username': unique_username, 'temporary_password': temporary_password})
+            expiry_hours = getattr(settings, "STAFF_TEMP_PASSWORD_HOURS", settings.PARENT_TEMP_PASSWORD_HOURS)
+            expiry = timezone.now() + timedelta(hours=expiry_hours)
+            StaffAccount.objects.create(
+                user=user,
+                staff=staff,
+                role=role,
+                must_change_password=True,
+                temporary_password_expires_at=expiry,
+            )
+            messages.success(
+                request,
+                f"Account for {user.username} created successfully. Temporary password: {temporary_password}. "
+                f"It expires in {expiry_hours} hours and must be changed at first login.",
+            )
+            return JsonResponse({
+                'success': True,
+                'username': unique_username,
+                'temporary_password': temporary_password,
+                'expires_at': expiry.isoformat(),
+            })
 
     else:
         form = StaffAccountForm()
@@ -107,9 +123,7 @@ def create_account_view(request):
 
 
 def user_login(request):
-    """
-    Authenticate user. On success
-    """
+    """Authenticate a staff user and enforce first-login credential rules."""
     error_message = None
     school_settings = SchoolSetting.objects.first()
     notice_message = (request.GET.get("notice") or request.GET.get("restore_notice") or "").strip()
@@ -120,8 +134,6 @@ def user_login(request):
         form = CustomLoginForm(request, data=request.POST)
         if form.is_valid():
             user = form.get_user()
-            # Parent identities use the isolated parent portal.  They must not
-            # enter staff pages merely because they are valid Django users.
             if not user.is_superuser and not hasattr(user, "staff_account"):
                 error_message = "This login is not authorised for the staff system."
                 return render(request, 'accounts/login.html', {
@@ -130,20 +142,31 @@ def user_login(request):
                     'error_message': error_message,
                     'notice_message': notice_message,
                 })
-            login(request, user)
 
-            # Determine default active role from assigned roles without changing DB
+            account = getattr(user, "staff_account", None)
+            if account and account.must_change_password and account.temporary_password_expires_at and account.temporary_password_expires_at <= timezone.now():
+                error_message = "This temporary password has expired. Ask an administrator to issue a new first-login credential."
+                return render(request, 'accounts/login.html', {
+                    'form': form,
+                    'school_settings': school_settings,
+                    'error_message': error_message,
+                    'notice_message': notice_message,
+                })
+
+            login(request, user)
             roles = get_assigned_roles(user)
             picked = pick_default_role(roles)
             if picked:
                 request.session['active_role_name'] = picked.name
             else:
-                # Fallback to existing StaffAccount role name or Support Staff
                 try:
                     request.session['active_role_name'] = user.staff_account.role.name
                 except Exception:
                     request.session['active_role_name'] = 'Support Staff'
 
+            if account and account.must_change_password:
+                messages.info(request, "Choose a private password before continuing to Tafiti.")
+                return redirect('password_change')
             return redirect('index_page')
         else:
             error_message = "Invalid username or password. Please try again."
@@ -162,17 +185,13 @@ def user_login(request):
 
 @login_required
 def dashboard(request):
-    
-    
     return redirect('index_page')
 
 
 
 @login_required
 def switch_role(request):
-    """
-    Switch the active role in SESSION only.
-    """
+    """Switch the active role in SESSION only."""
     staff_account = (
         StaffAccount.objects.select_related("staff", "role")
         .filter(user=request.user)
@@ -204,7 +223,6 @@ def switch_role(request):
 
     if request.method == 'POST':
         form = RoleSwitchForm(request.POST)
-        # Limit choices to assigned roles for safety
         form.fields['role'].queryset = assigned_roles
         if form.is_valid():
             selected_role = form.cleaned_data['role']
@@ -230,17 +248,17 @@ def switch_role(request):
 
 
 def logout_view(request):
-    logout(request)  
+    logout(request)
     return redirect('login')
 
 class UserListView(LoginRequiredMixin, ListView):
     model = User
     template_name = 'accounts/user_list.html'
     context_object_name = 'users'
-    paginate_by = 12  # Better pagination for card layout
+    paginate_by = 12
 
     def get_queryset(self):
-        queryset = User.objects.all().order_by('-date_joined')  # Most recent first
+        queryset = User.objects.all().order_by('-date_joined')
         search_query = self.request.GET.get('search', '').strip()
 
         if search_query:
@@ -251,18 +269,12 @@ class UserListView(LoginRequiredMixin, ListView):
                 models.Q(email__icontains=search_query)
             )
 
-        # Select related staff account and staff for better performance
         queryset = queryset.select_related('staff_account__staff')
-
         return queryset
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-
-        # Add search query to context
         context['search_query'] = self.request.GET.get('search', '')
-
-        # Add statistics
         all_users = User.objects.all()
         context['total_users'] = all_users.count()
         context['active_users'] = all_users.filter(is_active=True).count()
@@ -270,12 +282,8 @@ class UserListView(LoginRequiredMixin, ListView):
         context['staff_users'] = all_users.filter(is_staff=True).count()
         context['superuser_count'] = all_users.filter(is_superuser=True).count()
 
-        # Recent logins (last 30 days)
-        from datetime import timedelta
-        from django.utils import timezone
         thirty_days_ago = timezone.now() - timedelta(days=30)
         context['recent_logins'] = all_users.filter(last_login__gte=thirty_days_ago).count()
-
         return context
 
 
@@ -293,14 +301,8 @@ class UserDetailView(LoginRequiredMixin, DetailView):
         viewed_user = self.object
         staff_account = viewed_user.staff_account if hasattr(viewed_user, 'staff_account') else None
         staff = staff_account.staff if staff_account else None
+        teaching_assignments = get_teacher_assignments(staff) if staff else None
 
-        # Get teaching assignments for staff with optimized queries
-        if staff:
-            teaching_assignments = get_teacher_assignments(staff)
-        else:
-            teaching_assignments = None
-
-        # Additional context data
         context.update({
             'staff': staff,
             'role': staff_account.role if staff_account else None,
@@ -343,9 +345,13 @@ def password_change_view(request):
         form = PasswordChangeForm(request.user, request.POST)
         if form.is_valid():
             user = form.save()
-            update_session_auth_hash(request, user)  
+            StaffAccount.objects.filter(user=user).update(
+                must_change_password=False,
+                temporary_password_expires_at=None,
+            )
+            update_session_auth_hash(request, user)
             messages.success(request, 'Your password has been updated successfully!')
-            return redirect(index_view)  
+            return redirect(index_view)
     else:
         form = PasswordChangeForm(request.user)
 
@@ -365,9 +371,9 @@ class CustomPasswordResetView(PasswordResetView):
             messages.error(self.request, "No account found with that email.")
             return render(self.request, self.template_name, {'form': form})
 
-        user = users.first()  
+        user = users.first()
         token = default_token_generator.make_token(user)
-        uid = urlsafe_base64_encode(str(user.pk).encode()) 
+        uid = urlsafe_base64_encode(str(user.pk).encode())
         reset_url = f"{common.DEV_TUNNEL_URL}/password-reset/{uid}/{token}/"
 
         subject = "Password Reset Request"
