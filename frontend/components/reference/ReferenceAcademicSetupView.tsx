@@ -40,12 +40,21 @@ const tools = [
   { key: 'grading', label: 'Grading System', icon: Scale },
 ] as const;
 
-export function ReferenceAcademicSetupView() {
+type AcademicTool = typeof tools[number]['key'];
+
+export function ReferenceAcademicSetupView({
+  initialTool,
+  visibleTools,
+}: {
+  initialTool?: AcademicTool;
+  visibleTools?: readonly AcademicTool[];
+}) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const toast = useToast();
-  const requested = searchParams.get('tool') || 'streams';
-  const tool = tools.some((item) => item.key === requested) ? requested : 'streams';
+  const availableTools = visibleTools ? tools.filter((item) => visibleTools.includes(item.key)) : tools;
+  const requested = searchParams.get('tool') || initialTool || availableTools[0]?.key || 'streams';
+  const tool = availableTools.some((item) => item.key === requested) ? requested : availableTools[0]?.key || 'streams';
   const [data, setData] = useState<ToolData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -154,7 +163,7 @@ export function ReferenceAcademicSetupView() {
       </div>
 
       <div className="mb-4 overflow-x-auto rounded-xl border border-slate-200 bg-white p-1.5 shadow-[0_5px_16px_rgba(28,55,97,.035)]">
-        <div className="flex min-w-max gap-1">{tools.map((item) => { const Icon = item.icon; const active = item.key === tool; return <button key={item.key} type="button" onClick={() => switchTool(item.key)} className={`inline-flex h-9 items-center gap-1.5 rounded-lg px-3 text-[10px] font-extrabold transition ${active ? 'bg-blue-600 text-white shadow-[0_5px_12px_rgba(37,99,235,.18)]' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'}`}><Icon size={13} />{item.label}</button>; })}</div>
+        <div className="flex min-w-max gap-1">{availableTools.map((item) => { const Icon = item.icon; const active = item.key === tool; return <button key={item.key} type="button" onClick={() => switchTool(item.key)} className={`inline-flex h-9 items-center gap-1.5 rounded-lg px-3 text-[10px] font-extrabold transition ${active ? 'bg-blue-600 text-white shadow-[0_5px_12px_rgba(37,99,235,.18)]' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'}`}><Icon size={13} />{item.label}</button>; })}</div>
       </div>
 
       <section className="tafiti-card overflow-hidden">

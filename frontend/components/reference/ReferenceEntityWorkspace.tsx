@@ -91,6 +91,7 @@ function ReferenceEntityWorkspaceBase({ resource, id, dashboardPath, onTitleChan
   const [formSchema, setFormSchema] = useState<WorkspaceFormSchema | null>(null);
   const [formLoading, setFormLoading] = useState(false);
   const [formErrors, setFormErrors] = useState<Record<string, string[]>>({});
+  const [formPurpose, setFormPurpose] = useState<'edit' | 'register' | 'promote'>('edit');
 
   const requestQuery = searchParams.toString();
   useEffect(() => {
@@ -117,6 +118,7 @@ function ReferenceEntityWorkspaceBase({ resource, id, dashboardPath, onTitleChan
   }
 
   async function openEditForm() {
+    setFormPurpose('edit');
     setFormOpen(true); setFormSchema(null); setFormErrors({}); setFormLoading(true);
     try {
       const response = await fetch(`/api/workspace/resources/${resource}/${id}/form`, { cache: 'no-store' });
@@ -125,6 +127,21 @@ function ReferenceEntityWorkspaceBase({ resource, id, dashboardPath, onTitleChan
       setFormSchema(result as WorkspaceFormSchema);
     } catch (reason: unknown) { toast.error('Could not open form', reason instanceof Error ? reason.message : 'The edit form could not be opened.'); setFormOpen(false); }
     finally { setFormLoading(false); }
+  }
+
+  async function openClassWorkflow(purpose: 'register' | 'promote') {
+    setFormPurpose(purpose);
+    setFormOpen(true); setFormSchema(null); setFormErrors({}); setFormLoading(true);
+    const action = purpose === 'register' ? 'register-form' : 'promotion-form';
+    try {
+      const response = await fetch(`/api/workspace/classes/${id}/${action}`, { cache: 'no-store' });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.detail || 'The class workflow could not be opened.');
+      setFormSchema(result as WorkspaceFormSchema);
+    } catch (reason: unknown) {
+      toast.error('Could not open workflow', reason instanceof Error ? reason.message : 'The class workflow could not be opened.');
+      setFormOpen(false);
+    } finally { setFormLoading(false); }
   }
 
   async function submitForm(values: Record<string, unknown>) {
@@ -143,10 +160,23 @@ function ReferenceEntityWorkspaceBase({ resource, id, dashboardPath, onTitleChan
         });
         body = formData;
       } else { headers = { 'Content-Type': 'application/json' }; body = JSON.stringify(values); }
-      const response = await fetch(`/api/workspace/resources/${resource}/${id}/form`, { method: 'PATCH', headers, body });
+      const isClassWorkflow = resource === 'classes' && formPurpose !== 'edit';
+      const endpoint = formPurpose === 'register' ? 'register' : 'promote';
+      const response = await fetch(
+        isClassWorkflow ? `/api/workspace/classes/${id}/${endpoint}` : `/api/workspace/resources/${resource}/${id}/form`,
+        { method: isClassWorkflow ? 'POST' : 'PATCH', headers, body },
+      );
       const result = await response.json();
-      if (!response.ok) { setFormErrors((result.errors as Record<string, string[]>) ?? {}); throw new Error(result.detail || 'The record could not be saved.'); }
-      toast.success('Changes saved', result.detail || 'The record was updated.'); setFormOpen(false); setReloadKey((value) => value + 1);
+      if (!response.ok) {
+        setFormErrors((result.errors as Record<string, string[]>) ?? {});
+        const missingStreams = Array.isArray(result.missing_streams) ? ` Missing streams: ${result.missing_streams.join(', ')}.` : '';
+        throw new Error(`${result.detail || 'The record could not be saved.'}${missingStreams}`);
+      }
+      toast.success(
+        formPurpose === 'register' ? 'Student registered' : formPurpose === 'promote' ? 'Promotion complete' : 'Changes saved',
+        result.detail || 'The record was updated.',
+      );
+      setFormOpen(false); setReloadKey((value) => value + 1);
     } catch (reason: unknown) { toast.error('Could not save changes', reason instanceof Error ? reason.message : 'The record could not be saved.'); }
     finally { setFormLoading(false); }
   }
@@ -165,7 +195,11 @@ function ReferenceEntityWorkspaceBase({ resource, id, dashboardPath, onTitleChan
             <ProfileAvatar src={data.photo} name={data.title} size="xl" className="border-4 border-white shadow-[0_5px_16px_rgba(28,55,97,.12)]" />
             <div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><h1 className="truncate text-2xl font-extrabold tracking-[-0.035em] text-[#10224A]">{data.title}</h1><span className={`inline-flex rounded-full border px-2.5 py-1 text-[9px] font-extrabold ${statusClass(data.status)}`}>{data.status}</span></div><p className="mt-1 text-xs font-bold text-blue-700">{data.subtitle}</p><div className="mt-3 flex flex-wrap gap-x-4 gap-y-2">{data.metadata.map((item) => <span key={item.label} className="text-[10px] text-slate-500"><span className="font-bold text-slate-400">{item.label}</span> · {item.href ? <Link href={item.href} className="font-bold text-blue-700 hover:underline">{item.value}</Link> : <span className="font-bold text-slate-700">{item.value}</span>}</span>)}</div></div>
           </div>
-          <div className="flex flex-wrap gap-2">{data.actions.map((action) => action.action === 'edit' ? <button key={action.label} type="button" onClick={() => void openEditForm()} className={action.primary ? 'clay-button-primary' : 'clay-button-secondary'}>{actionIcon(action)} {action.label}</button> : action.href ? <Link key={action.label} href={action.href} className={action.primary ? 'clay-button-primary' : 'clay-button-secondary'}>{actionIcon(action)} {action.label}</Link> : null)}</div>
+          <div className="flex flex-wrap gap-2">
+            {resource === 'classes' && data.can_register && <button type="button" onClick={() => void openClassWorkflow('register')} className="clay-button-primary"><Users size={14} /> Register student</button>}
+            {resource === 'classes' && data.can_promote && <button type="button" onClick={() => void openClassWorkflow('promote')} className="clay-button-secondary"><GraduationCap size={14} /> Promote class</button>}
+            {data.actions.map((action) => action.action === 'edit' ? <button key={action.label} type="button" onClick={() => void openEditForm()} className={action.primary ? 'clay-button-primary' : 'clay-button-secondary'}>{actionIcon(action)} {action.label}</button> : action.href ? <Link key={action.label} href={action.href} className={action.primary ? 'clay-button-primary' : 'clay-button-secondary'}>{actionIcon(action)} {action.label}</Link> : null)}
+          </div>
         </div>
 
         <div className="border-t border-slate-100 bg-[#FBFCFE] px-3 pt-2"><div className="flex min-w-max gap-1 overflow-x-auto">{data.tabs.map((tab) => <button key={tab.key} type="button" onClick={() => selectTab(tab.key)} className={`relative h-10 px-3.5 text-[10px] font-extrabold transition ${activeTab === tab.key ? 'text-blue-700' : 'text-slate-500 hover:text-slate-800'}`}>{tab.label}{tab.count > 0 && <span className={`ml-1.5 rounded-full px-1.5 py-0.5 text-[8px] ${activeTab === tab.key ? 'bg-blue-50 text-blue-700' : 'bg-slate-100 text-slate-500'}`}>{tab.count}</span>}{activeTab === tab.key && <span className="absolute inset-x-2 bottom-0 h-0.5 rounded-full bg-blue-600" />}</button>)}</div></div>

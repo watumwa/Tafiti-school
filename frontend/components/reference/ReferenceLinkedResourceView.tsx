@@ -5,6 +5,7 @@ import { usePathname, useSearchParams } from 'next/navigation';
 import { BookOpen, Landmark, Settings2, WalletCards } from 'lucide-react';
 
 import { ReferenceAcademicSetupView } from './ReferenceAcademicSetupView';
+import { ReferenceClassesWorkspace } from './ReferenceClassesWorkspace';
 import { ReferenceAdmissionsWorkspace } from './ReferenceAdmissionsWorkspace';
 import { ReferenceAttendanceHub } from './ReferenceAttendanceHub';
 import { ReferenceCommunicationConsoleView } from './ReferenceCommunicationConsoleView';
@@ -58,6 +59,7 @@ export function ReferenceLinkedResourceView({ resource, dashboardPath }: { resou
   const searchParams = useSearchParams();
 
   if (resource === 'admissions') return <ReferenceAdmissionsWorkspace dashboardPath={dashboardPath} />;
+  if (resource === 'classes') return <ReferenceClassesWorkspace dashboardPath={dashboardPath} />;
   if (resource === 'attendance') return <ReferenceAttendanceHub dashboardPath={dashboardPath} />;
   if (resource === 'timetable') return <ReferenceTimetableWorkspace />;
   if (resource === 'communication') return <ReferenceCommunicationConsoleView />;

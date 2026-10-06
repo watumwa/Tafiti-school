@@ -206,6 +206,8 @@ export type WorkspaceEntity = {
   metrics: WorkspaceEntityMetric[];
   tabs: WorkspaceEntityTab[];
   actions: WorkspaceEntityAction[];
+  can_register?: boolean;
+  can_promote?: boolean;
   workflow?: ResultVerificationWorkflow | AttendanceCaptureWorkflow;
 };
 

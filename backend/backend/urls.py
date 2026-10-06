@@ -11,6 +11,7 @@ from .workspace import (
     WorkspaceSearchAPIView,
 )
 from .academic_workspace import AcademicToolAPIView
+from .classes_workspace import ClassesWorkspaceAPIView
 from .admissions_workspace import AdmissionsWorkspaceAPIView
 from .attendance_workspace import AttendanceWorkspaceAPIView
 from .auth_workspace import RoleSwitchAPIView
@@ -46,6 +47,7 @@ urlpatterns = [
     path("workspace/users-roles/<int:user_id>/", UserRolesWorkspaceAPIView.as_view(), name="api_workspace_users_roles_record"),
     path("workspace/academics/<str:tool>/", AcademicToolAPIView.as_view(), name="api_workspace_academic_tool"),
     path("workspace/academics/<str:tool>/<int:pk>/", AcademicToolAPIView.as_view(), name="api_workspace_academic_tool_record"),
+    path("workspace/classes/<int:pk>/<str:action>/", ClassesWorkspaceAPIView.as_view(), name="api_workspace_classes_action"),
     path("workspace/admissions/<str:screen>/", AdmissionsWorkspaceAPIView.as_view(), name="api_workspace_admissions"),
     path("workspace/admissions/<str:screen>/<int:pk>/", AdmissionsWorkspaceAPIView.as_view(), name="api_workspace_admissions_record"),
     path("workspace/attendance-console/<str:screen>/", AttendanceWorkspaceAPIView.as_view(), name="api_workspace_attendance_console"),

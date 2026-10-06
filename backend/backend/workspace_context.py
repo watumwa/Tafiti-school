@@ -422,10 +422,11 @@ def _admission_workspace(request, pk: int):
 def _class_workspace(request, pk: int):
     from .workspace import _active_role, _staff_for_user
 
+    role = canonical_role_label(_active_role(request))
     queryset = AcademicClass.objects.select_related("Class", "section", "academic_year", "term").prefetch_related(
         "class_streams__stream", "class_streams__class_teacher",
     )
-    if canonical_role_label(_active_role(request)) in {"Teacher", "Class Teacher"}:
+    if role in {"Teacher", "Class Teacher"}:
         staff = _staff_for_user(request.user)
         queryset = queryset.filter(Q(class_streams__class_teacher=staff) | Q(class_streams__subjects__subject_teacher=staff)).distinct() if staff else queryset.none()
     academic_class = queryset.get(pk=pk)
@@ -453,6 +454,16 @@ def _class_workspace(request, pk: int):
             ("Academic year", academic_class.academic_year), ("Term", academic_class.term),
             ("Configured class fee", f"UGX {_money(academic_class.fees_amount)}"),
         ]), "Academic class configuration for this term.", "No class details are available."),
+        _tab("streams", "Streams & teachers", [("stream", "Stream"), ("teacher", "Class teacher"), ("students", "Students"), ("subjects", "Subjects")], [
+            {
+                "stream": _str(row.stream),
+                "teacher": _str(row.class_teacher) or "Unassigned",
+                "students": ClassRegister.objects.filter(academic_class_stream=row).count(),
+                "subjects": row.subjects.filter(is_active=True).count(),
+                "_links": {"teacher": _entity_path(request, "staff", row.class_teacher_id)} if row.class_teacher_id else {},
+            }
+            for row in streams
+        ], "Each stream, its class teacher and register size.", "No streams are configured for this class."),
         _tab("students", "Students", [("student_id", "Student ID"), ("student", "Student"), ("stream", "Stream"), ("status", "Status")], [
             {"student_id": row.student.display_student_id, "student": row.student.student_name, "stream": _str(row.academic_class_stream.stream), "status": "Active" if row.student.is_active else "Inactive", "_links": {"student": _entity_path(request, "students", row.student_id)}}
             for row in registers
@@ -494,10 +505,18 @@ def _class_workspace(request, pk: int):
             {"label": "Pending results", "value": sum(1 for row in batches if row.status == "PENDING"), "hint": "Awaiting verification", "tone": "gold"},
         ],
         "tabs": tabs,
+        "can_register": bool(request.user.is_superuser or role in {"Admin", "Head Teacher", "Director of Studies"}),
+        "can_promote": bool(
+            (request.user.is_superuser or role in {"Admin", "Director of Studies"})
+            and academic_class.term.is_current
+            and str(academic_class.term.term) == "3"
+        ),
         "actions": [
             {"label": "Students", "href": _entity_path(request, "classes", academic_class.pk, query={"tab": "students"}), "icon": "student", "primary": True},
+            {"label": "Subjects", "href": _module_path(request, "subjects", query={"class": academic_class.pk}), "icon": "book-open"},
             {"label": "Take attendance", "href": _module_path(request, "attendance", query={"class": academic_class.pk}), "icon": "attendance"},
             {"label": "Class results", "href": _entity_path(request, "classes", academic_class.pk, query={"tab": "results"}), "icon": "chart"},
+            {"label": "Timetable", "href": _module_path(request, "timetable", query={"class": academic_class.pk}), "icon": "calendar-days"},
             {"label": "Send announcement", "href": _module_path(request, "communication", query={"class": academic_class.pk}), "icon": "message"},
         ],
     }

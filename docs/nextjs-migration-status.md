@@ -35,6 +35,7 @@ The migration is intentionally incremental. A legacy template is not considered 
 - Added reusable toast notifications for success, warning, information and errors.
 - Added a reusable data-table/resource pattern with server-side search, pagination, loading, empty and retry states, refresh and CSV export.
 - Added role-aware dashboard summaries, attention items and quick links.
+- Added a Classes & Streams workspace for academic-class setup, stream and class-teacher allocation, class registers, contextual student access, class promotion, subject allocation, attendance, results and timetable links. Student registration, billing initialisation and promotion continue to use the existing Django forms and services.
 - Added Next.js server-side proxy routes so browser clients do not need direct access to Django JWTs.
 - Authentication cookies remain HTTP-only.
 
@@ -59,15 +60,15 @@ The experimental `backend.Student`, `backend.GradeMatrix` and `backend.FeeLedger
 
 ### Write workflows are not yet migrated
 
-Phase 1 establishes read/navigation parity and the design foundation. The following legacy actions still need full Next.js migration and API endpoints before the old templates can be retired:
+The workspace now has core CRUD and selected specialist workflows, but the existing Django templates remain the fallback until remaining write and reporting workflows reach parity:
 
 - Student create/edit/transfer/archive/reactivate, guardian/document/photo workflows.
 - Staff create/edit/account creation/role assignment/status actions.
 - Admission application review, decision, enrolment and applicant communication.
 - Parent account activation/deactivation/permission management/password setup.
-- Academic year/term/class/stream/subject/allocation management.
+- Academic year/term management and remaining class/stream/subject/allocation parity checks, including historical records, bulk registration and promotion edge cases.
 - Result entry, bulk entry/import, submission, verification sampling, correction, approval, publishing, locking/unlocking and report generation.
-- Attendance session creation, marking, submission, locking/unlocking, correction and reporting.
+- Attendance correction history, reporting and export workflows (session creation, marking, draft saving, submit/lock and administrator reopening are now available in the workspace).
 - Timetable creation/editing/conflict handling/publishing/printing.
 - Billing, bill generation, payment posting, receipt generation, reversals, credits, carry-forward, adjustments and finance reports.
 - Budget, budget-item, expense/expenditure, vendor, approval and reconciliation workflows.
@@ -138,13 +139,10 @@ Open `http://localhost:3000`.
 
 ## Validation performed in this environment
 
-- Modified Python source files pass Python syntax compilation.
-- Hard-coded credentials identified in the settings source were removed.
-- Frontend TypeScript/TSX source passes parser-level syntax validation.
-- A full `npm install` / Next.js production build could not be completed in the current execution environment because the package registry was unreachable.
-- A full Django `manage.py check` could not be completed because the required Python packages could not be downloaded in the current execution environment.
-
-Therefore the first local run should execute `python manage.py check`, `npm run typecheck` and `npm run build` once dependencies are available, before production deployment.
+- `npm --prefix frontend run typecheck` passes.
+- `cd backend && ../venv/bin/python manage.py check --settings=core.settings.test` passes.
+- Targeted parent, finance and attendance Django regression tests pass (21 tests).
+- The production Next.js build passes. The full Django test suite has not yet been run.
 
 ## Phase 2 checkpoint — CRUD actions + soft-clay UI
 
@@ -166,7 +164,11 @@ The workspace now includes a permission-aware action layer instead of read-only 
 - **Academic classes:** Add, Edit, View, Delete when there are no linked dependencies.
 - **Subjects:** Add, Edit, View, Delete when there are no linked dependencies.
 - **School settings:** View and Edit, including logo replacement.
-- Other modules currently expose View while their workflow-specific actions are migrated (results verification, attendance locking, fee/payment posting, library circulation, finance approvals, communication workflows, parent access).
+- **Attendance:** Create a session for an allocated class/subject, save marks as a draft, submit and lock the session, and reopen a locked session as an administrator. Mark updates and session transitions use the existing attendance service and audit log; parent views remain permission-scoped.
+- **Parent portal:** The dashboard and parent-only navigation now cover linked children, verified academic results, submitted attendance, permission-scoped fee statements and receipts, assigned-teacher conversations, parent-facing calendar events, notifications and profile details. Academic reports download as PDFs and include verified marks only; Excel, print and publish/send-to-parent report-card workflows remain outstanding.
+- **Role dashboards:** Admin/head-teacher, bursar, admissions, librarian and teacher KPI cards use role-specific metrics. Finance data remains off teacher dashboards. Admin/academic/teacher workspaces show a seven-day attendance trend; finance-enabled leadership and bursar workspaces show six months of recorded fee collections.
+- **Finance:** Fee accounts show billed, collected and outstanding totals with paid/partial/outstanding filters; payment records show collection totals and bank-reconciliation status filters. Fee categories, class bills, payment posting and core budget/vendor/expenditure records have forms and role-checked APIs. Automated bill generation, credits, receipts, reversals, approvals and reconciliation actions still need parity work.
+- Other modules expose View while their remaining workflow-specific actions are migrated (results entry and publishing, library circulation, finance approvals, communication workflows and parent access).
 
 All write operations are checked again by Django. Hiding a button in Next.js is not treated as authorization.
 

@@ -18,6 +18,9 @@
 - Added parent-safe data scoping through `ParentAccess`.
 - Added read APIs for students, admissions, staff, classes, subjects, results, attendance, timetable, fees, finance, library, communication, reports catalogue, settings and audit.
 - Added read APIs for parent children/results/attendance/finance/library/timetable.
+- Added authenticated parent workspace screens for linked children, verified academic results, attendance history, finance statements and receipts, assigned-teacher messaging, school calendar, notifications, profile editing and verified-results PDF downloads. Parent menu modules are limited to family, academic, attendance, finance, communication and calendar workflows, and child data is filtered by the corresponding verified `ParentAccess` permission.
+- Added attendance session creation and roster capture, draft saving, submit-and-lock, and administrator reopening through the Next.js workspace, using the existing Django attendance services and audit log.
+- Added role-specific dashboard KPIs for school leadership, bursar, admissions, library and teachers, with attendance and fee-collection trends sourced from submitted attendance and recorded payments.
 - Removed committed database/email secrets from the working copy and moved configuration to environment variables.
 
 ## Deliberately not removed yet
@@ -26,13 +29,13 @@ The experimental API models in `backend/models.py` are still present. They shoul
 
 ## Next migration work
 
-The existing Django template system contains many create/edit/delete and workflow actions. The redesigned frontend currently establishes the read/navigation foundation. The following domains still need their mutation and specialist workflows exposed as APIs and rebuilt as Next.js forms/dialogs:
+The Next.js workspace now has core CRUD and selected specialist workflows, but the existing Django templates remain the fallback until remaining write and reporting workflows reach parity:
 
 1. Student create/edit/detail, documents and bulk registration.
 2. Staff create/edit/detail, account provisioning and role assignment.
 3. Academic year/term/class/stream/subject allocation administration.
 4. Admissions status transitions and enrolment service flow.
-5. Attendance capture, submit/lock, admin unlock and reports.
+5. Attendance correction history, reporting and export workflows.
 6. Assessment setup, mark entry, verification queue, corrections and report preparation.
 7. Timetable editing, conflict validation, classroom setup and print views.
 8. Fee item setup, class billing, bulk billing, payments, credits, carry-forward and receipts.
