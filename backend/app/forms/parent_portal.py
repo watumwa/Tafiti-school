@@ -1,4 +1,6 @@
 from django import forms
+from django.contrib.auth.password_validation import validate_password
+from django.core.exceptions import ValidationError
 
 from app.models import Message, ParentAccess, Staff
 
@@ -12,12 +14,18 @@ class ParentFirstPasswordForm(forms.Form):
     password = forms.CharField(min_length=8, widget=forms.PasswordInput, label="New password")
     confirm_password = forms.CharField(widget=forms.PasswordInput, label="Confirm password")
 
+    def clean_password(self):
+        password = self.cleaned_data["password"]
+        try:
+            validate_password(password)
+        except ValidationError as exc:
+            raise forms.ValidationError(list(exc.messages)) from exc
+        return password
+
     def clean(self):
         data = super().clean()
-        if data.get("password") != data.get("confirm_password"):
+        if data.get("password") and data.get("confirm_password") and data["password"] != data["confirm_password"]:
             self.add_error("confirm_password", "Passwords do not match.")
-        if data.get("password") == "123":
-            self.add_error("password", "Choose a private password instead of the temporary password.")
         return data
 
 
