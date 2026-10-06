@@ -67,6 +67,12 @@ interface ReceiptData {
   student: string;
   student_number: string;
   bill_id: number;
+  class: string;
+  term: string;
+  balance_after: string;
+  credit_after: string;
+  recorded_by: string;
+  school: { name: string; motto: string; address: string; phone: string; email: string };
 }
 
 type Tab = 'statement' | 'payments' | 'adjustments' | 'credits' | 'bill-items';
@@ -81,6 +87,30 @@ function statusClass(status: string) {
   if (status === 'Partial') return 'border-amber-100 bg-amber-50 text-amber-700';
   if (status === 'Credit') return 'border-violet-100 bg-violet-50 text-violet-700';
   return 'border-rose-100 bg-rose-50 text-rose-700';
+}
+
+function escapeHtml(value: string | number) {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;');
+}
+
+function printPaymentReceipt(receipt: ReceiptData) {
+  const popup = window.open('', '_blank', 'width=760,height=920');
+  if (!popup) return false;
+  const contact = [receipt.school.address, receipt.school.phone, receipt.school.email].filter(Boolean).map(escapeHtml).join(' · ');
+  popup.document.write(`<!doctype html>
+<html><head><meta charset="utf-8"><title>Receipt ${escapeHtml(receipt.reference)}</title>
+<style>
+@page{size:A5 portrait;margin:10mm}*{box-sizing:border-box}body{font-family:Arial,sans-serif;color:#0f172a;margin:0;background:#fff}.receipt{border:1px solid #cbd5e1;padding:22px}.head{text-align:center;border-bottom:2px solid #0f3b82;padding-bottom:14px}.school{font-size:20px;font-weight:800;color:#0f3b82}.motto{font-size:10px;font-style:italic;margin-top:4px}.contact{font-size:9px;color:#64748b;margin-top:5px}.title{font-size:14px;font-weight:800;letter-spacing:.12em;margin-top:14px}.ref{font-size:10px;color:#475569;margin-top:4px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:18px}.field{border-bottom:1px solid #e2e8f0;padding:7px 0}.label{font-size:8px;font-weight:700;color:#64748b;text-transform:uppercase}.value{font-size:11px;font-weight:700;margin-top:3px}.amount{margin-top:18px;border:2px solid #0f3b82;padding:14px;text-align:center}.amount .value{font-size:24px;color:#0f3b82}.summary{margin-top:15px;font-size:10px;display:flex;justify-content:space-between;gap:12px}.signatures{display:grid;grid-template-columns:1fr 1fr;gap:28px;margin-top:38px;font-size:9px}.line{border-top:1px solid #64748b;padding-top:5px;text-align:center}.footer{text-align:center;font-size:8px;color:#64748b;margin-top:24px}
+</style></head><body><div class="receipt"><div class="head"><div class="school">${escapeHtml(receipt.school.name)}</div>${receipt.school.motto ? `<div class="motto">${escapeHtml(receipt.school.motto)}</div>` : ''}${contact ? `<div class="contact">${contact}</div>` : ''}<div class="title">OFFICIAL PAYMENT RECEIPT</div><div class="ref">Receipt / Reference: ${escapeHtml(receipt.reference)}</div></div><div class="grid"><div class="field"><div class="label">Student</div><div class="value">${escapeHtml(receipt.student)}</div></div><div class="field"><div class="label">Student No.</div><div class="value">${escapeHtml(receipt.student_number)}</div></div><div class="field"><div class="label">Class</div><div class="value">${escapeHtml(receipt.class)}</div></div><div class="field"><div class="label">Term</div><div class="value">${escapeHtml(receipt.term)}</div></div><div class="field"><div class="label">Payment date</div><div class="value">${escapeHtml(receipt.date)}</div></div><div class="field"><div class="label">Payment method</div><div class="value">${escapeHtml(receipt.method)}</div></div><div class="field"><div class="label">Bill</div><div class="value">#${escapeHtml(receipt.bill_id)}</div></div><div class="field"><div class="label">Received by</div><div class="value">${escapeHtml(receipt.recorded_by)}</div></div></div><div class="amount"><div class="label">Amount received</div><div class="value">${escapeHtml(money(receipt.amount))}</div></div><div class="summary"><span>Balance after payment: <strong>${escapeHtml(money(receipt.balance_after))}</strong></span><span>Available credit: <strong>${escapeHtml(money(receipt.credit_after))}</strong></span></div><div class="signatures"><div class="line">Cashier / Bursar signature</div><div class="line">Parent / Payer signature</div></div><div class="footer">Computer-generated receipt · Keep this receipt for your records.</div></div></body></html>`);
+  popup.document.close();
+  popup.focus();
+  window.setTimeout(() => { popup.print(); popup.close(); }, 250);
+  return true;
 }
 
 function Modal({ open, title, children, onClose }: { open: boolean; title: string; children: React.ReactNode; onClose: () => void }) {
@@ -266,7 +296,7 @@ export function ReferenceFeeAccountWorkspace({ id, dashboardPath, onTitleChange 
       </Modal>
 
       <Modal open={Boolean(receipt)} title="Payment receipt" onClose={() => setReceipt(null)}>
-        {receipt && <div className="p-6" id="payment-receipt"><div className="text-center"><p className="text-[9px] font-extrabold uppercase tracking-[.16em] text-blue-600">Tafiti School Management System</p><h2 className="mt-2 text-xl font-extrabold text-[#10224A]">Payment Receipt</h2><p className="mt-1 text-xs text-slate-400">Reference {receipt.reference}</p></div><div className="mt-6 grid gap-3 rounded-2xl border border-slate-100 bg-[#F8FAFD] p-4 sm:grid-cols-2"><div><p className="text-[8px] font-bold text-slate-400">STUDENT</p><p className="mt-1 text-xs font-extrabold text-slate-800">{receipt.student}</p><p className="text-[9px] text-slate-400">{receipt.student_number}</p></div><div><p className="text-[8px] font-bold text-slate-400">BILL</p><p className="mt-1 text-xs font-extrabold text-slate-800">Bill #{receipt.bill_id}</p></div><div><p className="text-[8px] font-bold text-slate-400">DATE</p><p className="mt-1 text-xs font-bold text-slate-700">{receipt.date}</p></div><div><p className="text-[8px] font-bold text-slate-400">METHOD</p><p className="mt-1 text-xs font-bold text-slate-700">{receipt.method}</p></div></div><div className="mt-5 rounded-2xl bg-blue-600 px-5 py-5 text-center text-white"><p className="text-[9px] font-bold uppercase tracking-[.12em] text-blue-100">Amount received</p><p className="mt-1 text-3xl font-extrabold">{money(receipt.amount)}</p></div><div className="mt-5 flex justify-end gap-2 print:hidden"><button type="button" onClick={() => setReceipt(null)} className="clay-button-secondary">Close</button><button type="button" onClick={() => window.print()} className="clay-button-primary"><Printer size={14} />Print receipt</button></div></div>}
+        {receipt && <div className="p-6" id="payment-receipt"><div className="text-center"><p className="text-[9px] font-extrabold uppercase tracking-[.16em] text-blue-600">{receipt.school.name}</p><h2 className="mt-2 text-xl font-extrabold text-[#10224A]">Payment Receipt</h2><p className="mt-1 text-xs text-slate-400">Reference {receipt.reference}</p></div><div className="mt-6 grid gap-3 rounded-2xl border border-slate-100 bg-[#F8FAFD] p-4 sm:grid-cols-2"><div><p className="text-[8px] font-bold text-slate-400">STUDENT</p><p className="mt-1 text-xs font-extrabold text-slate-800">{receipt.student}</p><p className="text-[9px] text-slate-400">{receipt.student_number}</p></div><div><p className="text-[8px] font-bold text-slate-400">BILL</p><p className="mt-1 text-xs font-extrabold text-slate-800">Bill #{receipt.bill_id}</p></div><div><p className="text-[8px] font-bold text-slate-400">DATE</p><p className="mt-1 text-xs font-bold text-slate-700">{receipt.date}</p></div><div><p className="text-[8px] font-bold text-slate-400">METHOD</p><p className="mt-1 text-xs font-bold text-slate-700">{receipt.method}</p></div></div><div className="mt-5 rounded-2xl bg-blue-600 px-5 py-5 text-center text-white"><p className="text-[9px] font-bold uppercase tracking-[.12em] text-blue-100">Amount received</p><p className="mt-1 text-3xl font-extrabold">{money(receipt.amount)}</p></div><div className="mt-5 flex justify-end gap-2 print:hidden"><button type="button" onClick={() => setReceipt(null)} className="clay-button-secondary">Close</button><button type="button" onClick={() => { if (!printPaymentReceipt(receipt)) toast.error('Printing blocked', 'Allow pop-ups for this site, then try again.'); }} className="clay-button-primary"><Printer size={14} />Print receipt</button></div></div>}
       </Modal>
     </section>
   );

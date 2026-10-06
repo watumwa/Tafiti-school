@@ -105,9 +105,7 @@ class StudentBill(models.Model):
     def payment_status_display(self):
         balance = Decimal(self.balance)
         paid = Decimal(self.amount_paid)
-        if balance < 0:
-            return "Credit"
-        if balance == 0 and (Decimal(self.net_amount_due) > 0 or paid > 0):
+        if balance <= 0 and (Decimal(self.net_amount_due) > 0 or paid > 0):
             return "Paid"
         if paid > 0:
             return "Partial"
