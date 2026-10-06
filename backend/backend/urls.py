@@ -20,6 +20,7 @@ from .finance_operations import FinanceOperationsAPIView
 from .library_workspace import LibraryConsoleAPIView
 from .marks_workspace import MarksEntryAPIView, MarksHubAPIView
 from .parent_workspace import ParentWorkspaceAPIView
+from .password_policy import PasswordChangeAPIView
 from .results_operations import ResultsOperationsAPIView
 from .student_finance import StudentFinanceAPIView
 from .timetable_operations import TimetableOperationsAPIView
@@ -31,7 +32,6 @@ from .views import (
     FeeLedgerAPIView,
     GradeMatrixAPIView,
     LoginAPIView,
-    PasswordChangeAPIView,
     PasswordResetConfirmAPIView,
     PasswordResetRequestAPIView,
     StudentDetailAPIView,
