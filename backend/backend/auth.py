@@ -118,7 +118,7 @@ def assigned_role_labels(user) -> list[str]:
         roles.append("Parent")
 
     # Historical databases contain variants such as Head master / Headteacher and
-    # DOS.  Canonicalising at the API boundary keeps the UI consistent without
+    # DOS. Canonicalising at the API boundary keeps the UI consistent without
     # mutating old records during the frontend migration.
     canonical = [canonical_role_label(role) for role in roles if role]
     unique_roles = list(dict.fromkeys(canonical))
@@ -133,12 +133,30 @@ def resolve_active_role(user, preferred_context: str | None = None, *, strict: b
 
     context = (preferred_context or "").strip().lower()
     if context:
-        candidates = CONTEXT_ROLE_PREFERENCES.get(context, [])
-        compatible = next((label for label in candidates if label in roles), None)
-        if compatible:
-            primary = compatible
-        elif strict:
-            raise ValueError("The selected sign-in workspace is not assigned to this account.")
+        # Prefer an exact assigned-role match. This lets authenticated users switch
+        # between all of their real roles (for example Head Teacher and Parent)
+        # without inventing or changing any backend permissions.
+        exact = next(
+            (
+                label for label in roles
+                if context in {
+                    _role_code(label),
+                    canonical_role_label(label).lower(),
+                    canonical_role_label(label).lower().replace(" ", "_"),
+                }
+            ),
+            None,
+        )
+        if exact:
+            primary = exact
+        else:
+            # Keep the historical broad login contexts working for older clients.
+            candidates = CONTEXT_ROLE_PREFERENCES.get(context, [])
+            compatible = next((label for label in candidates if label in roles), None)
+            if compatible:
+                primary = compatible
+            elif strict:
+                raise ValueError("The selected sign-in workspace is not assigned to this account.")
 
     return RoleContext(
         code=_role_code(primary),

@@ -11,6 +11,7 @@ from .workspace import (
     WorkspaceSearchAPIView,
 )
 from .academic_workspace import AcademicToolAPIView
+from .auth_workspace import RoleSwitchAPIView
 from .communication_workspace import CommunicationConsoleAPIView
 from .library_workspace import LibraryConsoleAPIView
 from .marks_workspace import MarksEntryAPIView, MarksHubAPIView
@@ -50,6 +51,7 @@ urlpatterns = [
     path("workspace/resources/<str:resource>/<int:pk>/", WorkspaceEntityAPIView.as_view(), name="api_workspace_entity"),
     path("auth/login/", LoginAPIView.as_view(), name="api_auth_login"),
     path("auth/me/", CurrentUserAPIView.as_view(), name="api_auth_me"),
+    path("auth/switch-role/", RoleSwitchAPIView.as_view(), name="api_auth_switch_role"),
     path("auth/refresh/", TokenRefreshView.as_view(), name="api_auth_refresh"),
     path("auth/password/change/", PasswordChangeAPIView.as_view(), name="api_auth_password_change"),
     path("auth/password/reset/", PasswordResetRequestAPIView.as_view(), name="api_auth_password_reset"),
