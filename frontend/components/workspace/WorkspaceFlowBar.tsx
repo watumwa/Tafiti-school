@@ -61,7 +61,8 @@ export function WorkspaceFlowBar({ currentResource, currentSlug, dashboardPath, 
   const candidates = RELATED_WORK[currentResource || currentSlug] ?? [];
   const related = candidates
     .map((slug) => items.find((item) => item.slug === slug))
-    .filter((item): item is WorkspaceNavItem => Boolean(item) && item.slug !== currentSlug)
+    .filter((item): item is WorkspaceNavItem => item !== undefined)
+    .filter((item) => item.slug !== currentSlug)
     .slice(0, 5);
 
   if (!related.length) return null;
