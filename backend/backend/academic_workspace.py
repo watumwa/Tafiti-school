@@ -12,11 +12,13 @@ from app.forms.classes import AcademicClassStreamForm, ClassSubjectAllocationFor
 from app.forms.results import AssessmentForm, AssesmentTypeForm, GradingSystemForm
 from app.models import (
     AcademicClassStream,
+    AcademicYear,
     Assessment,
     AssessmentType,
     ClassSubjectAllocation,
     GradingSystem,
     Stream,
+    Term,
 )
 
 from .auth import canonical_role_label, resolve_active_role
@@ -34,6 +36,38 @@ READ_ROLES = {"Admin", "Head Teacher", "Director of Studies", "Teacher", "Class 
 WRITE_ROLES = {"Admin", "Director of Studies"}
 
 
+class AcademicYearWorkspaceForm(forms.ModelForm):
+    class Meta:
+        model = AcademicYear
+        fields = ("academic_year", "is_current")
+        labels = {"academic_year": "Academic year", "is_current": "Set as current year"}
+        help_texts = {
+            "is_current": "Setting this year current automatically clears the previous current year.",
+        }
+
+
+class TermWorkspaceForm(forms.ModelForm):
+    class Meta:
+        model = Term
+        fields = ("academic_year", "term", "start_date", "end_date", "is_current")
+        labels = {"is_current": "Set as current term"}
+        widgets = {
+            "start_date": forms.DateInput(attrs={"type": "date"}),
+            "end_date": forms.DateInput(attrs={"type": "date"}),
+        }
+        help_texts = {
+            "is_current": "Setting this term current also makes its academic year current.",
+        }
+
+    def clean(self):
+        cleaned = super().clean()
+        start = cleaned.get("start_date")
+        end = cleaned.get("end_date")
+        if start and end and end < start:
+            self.add_error("end_date", "End date cannot be earlier than the start date.")
+        return cleaned
+
+
 @dataclass(frozen=True)
 class ToolConfig:
     model: type
@@ -44,6 +78,20 @@ class ToolConfig:
 
 
 TOOLS: dict[str, ToolConfig] = {
+    "academic-years": ToolConfig(
+        model=AcademicYear,
+        form_class=AcademicYearWorkspaceForm,
+        title="Academic Years",
+        description="Manage school years and keep one unambiguous current academic year.",
+        create_label="Add academic year",
+    ),
+    "terms": ToolConfig(
+        model=Term,
+        form_class=TermWorkspaceForm,
+        title="Terms",
+        description="Manage term dates and keep the current term aligned with the current academic year.",
+        create_label="Add term",
+    ),
     "streams": ToolConfig(
         model=Stream,
         form_class=StreamForm,
@@ -161,6 +209,31 @@ _can_write_dummy = True
 
 
 def _rows(tool: str) -> tuple[list[list[str]], list[dict[str, Any]]]:
+    if tool == "academic-years":
+        queryset = AcademicYear.objects.order_by("-academic_year", "-id")
+        return [["year", "Academic Year"], ["status", "Status"]], [
+            {
+                "id": row.pk,
+                "year": row.academic_year,
+                "status": "Current" if row.is_current else "Historical",
+            }
+            for row in queryset[:200]
+        ]
+    if tool == "terms":
+        queryset = Term.objects.select_related("academic_year").order_by(
+            "-academic_year__academic_year", "term", "id"
+        )
+        return [["year", "Academic Year"], ["term", "Term"], ["start", "Start"], ["end", "End"], ["status", "Status"]], [
+            {
+                "id": row.pk,
+                "year": str(row.academic_year),
+                "term": row.get_term_display(),
+                "start": row.start_date.isoformat(),
+                "end": row.end_date.isoformat(),
+                "status": "Current" if row.is_current else "Historical",
+            }
+            for row in queryset[:500]
+        ]
     if tool == "streams":
         queryset = Stream.objects.order_by("stream", "id")
         return [["stream", "Stream"]], [
@@ -227,6 +300,36 @@ def _rows(tool: str) -> tuple[list[list[str]], list[dict[str, Any]]]:
     ]
 
 
+def _synchronise_current_period(tool: str, saved) -> None:
+    """Keep academic context deterministic without database-specific partial constraints."""
+    if tool == "academic-years" and saved.is_current:
+        AcademicYear.objects.exclude(pk=saved.pk).filter(is_current=True).update(is_current=False)
+        # A term from another year must never remain current beside the new year.
+        Term.objects.exclude(academic_year=saved).filter(is_current=True).update(is_current=False)
+        return
+
+    if tool == "terms" and saved.is_current:
+        Term.objects.exclude(pk=saved.pk).filter(is_current=True).update(is_current=False)
+        AcademicYear.objects.exclude(pk=saved.academic_year_id).filter(is_current=True).update(is_current=False)
+        if not saved.academic_year.is_current:
+            AcademicYear.objects.filter(pk=saved.academic_year_id).update(is_current=True)
+
+
+def _validate_current_period_transition(tool: str, form: forms.ModelForm, instance) -> bool:
+    """Prevent an edit from silently leaving the school with no current context."""
+    if instance is None or not getattr(instance, "is_current", False):
+        return True
+    if form.cleaned_data.get("is_current", False):
+        return True
+    if tool == "academic-years" and not AcademicYear.objects.exclude(pk=instance.pk).filter(is_current=True).exists():
+        form.add_error("is_current", "Set another academic year as current before clearing this one.")
+        return False
+    if tool == "terms" and not Term.objects.exclude(pk=instance.pk).filter(is_current=True).exists():
+        form.add_error("is_current", "Set another term as current before clearing this one.")
+        return False
+    return True
+
+
 class AcademicToolAPIView(WorkspaceBaseAPIView):
     def _config(self, request, tool: str):
         if not _can_read(request):
@@ -283,16 +386,20 @@ class AcademicToolAPIView(WorkspaceBaseAPIView):
         payload = request.data if hasattr(request.data, "get") else {}
         form_data = payload if hasattr(payload, "getlist") else _payload_to_querydict(dict(payload))
         form = _form(tool, instance=instance, data=form_data)
-        if not form.is_valid():
+        if not form.is_valid() or not _validate_current_period_transition(tool, form, instance):
             return Response({"detail": "Check the highlighted fields.", "errors": _form_errors(form)}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             with transaction.atomic():
                 saved = form.save()
+                _synchronise_current_period(tool, saved)
         except IntegrityError:
             return Response({"detail": "That academic configuration already exists or conflicts with an existing record."}, status=status.HTTP_409_CONFLICT)
 
+        detail = f"{config.title.rstrip('s')} {'updated' if instance is not None else 'created'} successfully."
+        if tool in {"academic-years", "terms"} and getattr(saved, "is_current", False):
+            detail += " Current academic context was updated automatically."
         return Response({
-            "detail": f"{config.title.rstrip('s')} {'updated' if instance is not None else 'created'} successfully.",
+            "detail": detail,
             "id": saved.pk,
         }, status=status.HTTP_200_OK if instance is not None else status.HTTP_201_CREATED)
