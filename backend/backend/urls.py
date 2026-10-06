@@ -25,6 +25,7 @@ from .results_operations import ResultsOperationsAPIView
 from .student_finance import StudentFinanceAPIView
 from .timetable_operations import TimetableOperationsAPIView
 from .user_management import UserRolesWorkspaceAPIView
+from .workspace_exports import WorkspaceExportAPIView
 
 from .views import (
     CurrentUserAPIView,
@@ -46,6 +47,7 @@ urlpatterns = [
     path("workspace/bootstrap/", WorkspaceBootstrapAPIView.as_view(), name="api_workspace_bootstrap"),
     path("workspace/dashboard/", WorkspaceDashboardAPIView.as_view(), name="api_workspace_dashboard"),
     path("workspace/search/", WorkspaceSearchAPIView.as_view(), name="api_workspace_search"),
+    path("workspace/export/<str:resource>/", WorkspaceExportAPIView.as_view(), name="api_workspace_export"),
     path("workspace/users-roles/", UserRolesWorkspaceAPIView.as_view(), name="api_workspace_users_roles"),
     path("workspace/users-roles/<int:user_id>/", UserRolesWorkspaceAPIView.as_view(), name="api_workspace_users_roles_record"),
     path("workspace/academics/<str:tool>/", AcademicToolAPIView.as_view(), name="api_workspace_academic_tool"),
