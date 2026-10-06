@@ -16,6 +16,7 @@ from app.models import (
     AuditLog,
     ClassRegister,
     ClassSubjectAllocation,
+    ParentAccess,
     Result,
     ResultBatch,
     Staff,
@@ -122,6 +123,21 @@ def _audit_rows(instance, limit=30):
     ]
 
 
+def can_view_student_finance(request, student) -> bool:
+    role = canonical_role_label(resolve_active_role(request.user, _token_context(request)).label)
+    if request.user.is_superuser or role in {"Admin", "Head Teacher", "Bursar"}:
+        return True
+    if role == "Parent":
+        return ParentAccess.objects.filter(
+            user=request.user,
+            student=student,
+            is_active=True,
+            is_verified=True,
+            can_view_finance=True,
+        ).exists()
+    return False
+
+
 def can_verify_results(request) -> bool:
     role = canonical_role_label(resolve_active_role(request.user, _token_context(request)).label)
     return bool(request.user.is_superuser or role in {"Admin", "Head Teacher", "Director of Studies"})
@@ -209,6 +225,8 @@ def _student_workspace(request, pk: int):
         term=student.term,
     ).first()
 
+    can_view_finance = can_view_student_finance(request, student)
+
     results = list(student.results.select_related(
         "assessment__subject", "assessment__assessment_type", "assessment__academic_class__Class",
     ).order_by("-assessment__date", "assessment__subject__name")[:100])
@@ -217,7 +235,7 @@ def _student_workspace(request, pk: int):
     ).order_by("-session__date")[:100])
     bills = list(student.bills.select_related("academic_class__Class", "academic_class__term").prefetch_related(
         "items", "payments", "applied_credits",
-    ).order_by("-bill_date")[:50])
+    ).order_by("-bill_date")[:50]) if can_view_finance else []
     documents = list(student.documents.order_by("-uploaded_at")[:50])
 
     billed = sum((Decimal(bill.total_amount) for bill in bills), Decimal("0"))
@@ -269,7 +287,7 @@ def _student_workspace(request, pk: int):
     if resource_action_policy(request, "students")["edit"]:
         actions.insert(0, {"label": "Edit profile", "action": "edit", "icon": "edit", "primary": True})
 
-    return {
+    payload = {
         "resource": "students", "id": student.pk, "eyebrow": "Student workspace",
         "title": student.student_name, "subtitle": student.display_student_id,
         "photo": _file_url(student.photo), "status": "Active" if student.is_active else "Inactive",
@@ -287,6 +305,12 @@ def _student_workspace(request, pk: int):
         ],
         "tabs": tabs, "actions": actions,
     }
+    if not can_view_finance:
+        payload["tabs"] = [tab for tab in payload["tabs"] if tab.get("key") != "fees"]
+        payload["actions"] = [action for action in payload["actions"] if action.get("label") != "Open fee account"]
+        payload["metrics"] = [metric for metric in payload["metrics"] if metric.get("label") not in {"Paid", "Outstanding"}]
+    return payload
+
 
 
 def _staff_workspace(request, pk: int):

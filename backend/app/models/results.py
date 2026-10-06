@@ -61,6 +61,10 @@ class ResultModeSetting(models.Model):
 
 class ResultVerificationSetting(models.Model):
     """Global settings for result verification rules."""
+    enabled = models.BooleanField(
+        default=True,
+        help_text="When enabled, submitted marks must pass script verification before reporting.",
+    )
     sample_percent = models.DecimalField(max_digits=5, decimal_places=2, default=5.00)
     tolerance_marks = models.DecimalField(max_digits=5, decimal_places=2, default=1.00)
 

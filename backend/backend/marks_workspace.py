@@ -15,6 +15,7 @@ from app.models import (
     GradingSystem,
     Result,
     ResultModeSetting,
+    ResultVerificationSetting,
     StaffAccount,
     VerificationDiscrepancy,
 )
@@ -65,9 +66,7 @@ def _permission_error(request, assessment: Assessment | None = None) -> str | No
     if request.user.is_superuser:
         return None
     role = _active_role(request)
-    if role == "Class Teacher":
-        return "Class teachers cannot enter subject marks. Please contact the allocated subject teacher."
-    if role == "Teacher":
+    if role in {"Teacher", "Class Teacher"}:
         if assessment is None:
             return None
         if not _teacher_can_enter(_staff_member(request), assessment):
@@ -146,7 +145,7 @@ def _hub_queryset_for(request):
         queryset = queryset.filter(academic_class__term=current_term)
 
     role = _active_role(request)
-    if not request.user.is_superuser and role == "Teacher":
+    if not request.user.is_superuser and role in {"Teacher", "Class Teacher"}:
         staff = _staff_member(request)
         if not staff:
             return queryset.none(), current_year, current_term
@@ -154,8 +153,6 @@ def _hub_queryset_for(request):
             academic_class__class_streams__subjects__subject_teacher=staff,
             academic_class__class_streams__subjects__subject_id=F("subject_id"),
         ).distinct()
-    elif not request.user.is_superuser and role == "Class Teacher":
-        return queryset.none(), current_year, current_term
     elif not request.user.is_superuser and role not in MARK_ENTRY_MANAGERS:
         return queryset.none(), current_year, current_term
 
@@ -179,7 +176,9 @@ class MarksHubAPIView(WorkspaceBaseAPIView):
         rows = [_assessment_payload(assessment) for assessment in assessments]
         return Response({
             "role": role,
-            "can_enter": role != "Class Teacher" and not bool(denial),
+            "verification_enabled": bool(ResultVerificationSetting.get_settings().enabled),
+            "can_manage_verification": bool(request.user.is_superuser or role in MARK_ENTRY_MANAGERS),
+            "can_enter": not bool(denial),
             "blocked_reason": denial or "",
             "academic_year": str(current_year or ""),
             "term": str(current_term or ""),
@@ -190,6 +189,31 @@ class MarksHubAPIView(WorkspaceBaseAPIView):
                 "flagged": sum(1 for row in rows if row["status"] == "FLAGGED"),
             },
             "assessments": rows,
+        })
+
+
+    def post(self, request):
+        role = _active_role(request)
+        if not (request.user.is_superuser or role in MARK_ENTRY_MANAGERS):
+            return Response(
+                {"detail": "Your current role cannot change script verification settings."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        if str(request.data.get("action") or "") != "set_verification_mode":
+            return Response({"detail": "Choose a valid results settings action."}, status=status.HTTP_400_BAD_REQUEST)
+        enabled = request.data.get("enabled")
+        if not isinstance(enabled, bool):
+            return Response({"detail": "Verification mode must be on or off."}, status=status.HTTP_400_BAD_REQUEST)
+        setting = ResultVerificationSetting.get_settings()
+        setting.enabled = enabled
+        setting.save(update_fields=["enabled"])
+        return Response({
+            "verification_enabled": enabled,
+            "detail": (
+                "Script verification is ON. New result submissions must pass verification before reports."
+                if enabled
+                else "Script verification is OFF. New result submissions will be released directly to reports."
+            ),
         })
 
 
@@ -273,7 +297,7 @@ class MarksEntryAPIView(WorkspaceBaseAPIView):
                 batch.status == "VERIFIED"
                 and (request.user.is_superuser or role in UNLOCK_ROLES)
             ),
-            "verification_enabled": True,
+            "verification_enabled": bool(ResultVerificationSetting.get_settings().enabled),
             "total_students": len(students),
             "entered": entered,
             "missing": max(len(students) - entered, 0),

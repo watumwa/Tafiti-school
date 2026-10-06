@@ -4,7 +4,7 @@ from decimal import Decimal, InvalidOperation
 from uuid import uuid4
 
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import Q, Sum
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.response import Response
@@ -12,6 +12,7 @@ from rest_framework.response import Response
 from app.models import (
     AcademicYear,
     Payment,
+    SchoolSetting,
     StudentBill,
     StudentCredit,
     StudentFeeAdjustment,
@@ -69,35 +70,66 @@ def _status_for_bill(bill: StudentBill) -> str:
     return bill.payment_status_display
 
 
+def _school_receipt_context() -> dict:
+    school = SchoolSetting.objects.first()
+    if not school:
+        return {"name": "Tafiti School", "motto": "", "address": "", "phone": "", "email": ""}
+
+    def clean(value):
+        text = str(value or "").strip()
+        return "" if text.lower() in {"none", "null", "-"} else text
+
+    address = ", ".join(part for part in [clean(school.address), clean(school.city)] if part)
+    return {
+        "name": clean(school.school_name) or "Tafiti School",
+        "motto": clean(school.school_motto),
+        "address": address,
+        "phone": clean(school.mobile) or clean(school.office_phone_number1),
+        "email": clean(school.email),
+    }
+
+
 def _reconcile_overpayment_credit(bill: StudentBill) -> Decimal:
-    """Keep the unused overpayment credit aligned with the bill's net amount due."""
+    """Keep only the genuinely unused portion of this bill's overpayment as student credit."""
     bill.refresh_from_db()
-    overpayment = max(Decimal(bill.amount_paid) - Decimal(bill.net_amount_due), Decimal("0"))
+    applied_to_bill = bill.applied_credits.filter(amount__lt=0).aggregate(total=Sum("amount"))["total"] or Decimal("0")
+    credit_reduction = abs(Decimal(applied_to_bill))
+    cash_due = max(Decimal(bill.net_amount_due) - credit_reduction, Decimal("0"))
+    total_overpayment = max(Decimal(bill.amount_paid) - cash_due, Decimal("0"))
+
+    used_from_this_overpayment = StudentCredit.objects.filter(
+        student=bill.student,
+        original_bill=bill,
+        amount__lt=0,
+        is_applied=True,
+    ).aggregate(total=Sum("amount"))["total"] or Decimal("0")
+    remaining_overpayment = max(total_overpayment - abs(Decimal(used_from_this_overpayment)), Decimal("0"))
+
     unused = StudentCredit.objects.filter(
         student=bill.student,
         original_bill=bill,
+        amount__gt=0,
         description__icontains="overpayment credit",
         is_applied=False,
     ).order_by("id")
-
     first = unused.first()
-    if overpayment > 0:
+    if remaining_overpayment > 0:
         if first:
-            first.amount = overpayment
+            first.amount = remaining_overpayment
             first.description = f"Overpayment credit from bill #{bill.id}"
             first.save(update_fields=["amount", "description"])
             unused.exclude(pk=first.pk).delete()
         else:
             StudentCredit.objects.create(
                 student=bill.student,
-                amount=overpayment,
+                amount=remaining_overpayment,
                 description=f"Overpayment credit from bill #{bill.id}",
                 original_bill=bill,
                 is_applied=False,
             )
     else:
         unused.delete()
-    return overpayment
+    return remaining_overpayment
 
 
 def _serialize_bill_row(bill: StudentBill) -> dict:
@@ -121,7 +153,7 @@ def _serialize_bill_row(bill: StudentBill) -> dict:
         "net_due": _money(net_due),
         "paid": _money(paid),
         "balance": _money(max(balance, Decimal("0"))),
-        "credit": _money(max(-balance, Decimal("0")) + available_credit),
+        "credit": _money(available_credit),
         "status": _status_for_bill(bill),
         "due_date": bill.due_date.isoformat() if bill.due_date else "",
     }
@@ -351,6 +383,12 @@ class StudentFinanceAPIView(WorkspaceBaseAPIView):
                     "student": bill.student.student_name,
                     "student_number": bill.student.display_student_id,
                     "bill_id": bill.pk,
+                    "class": str(bill.academic_class.Class),
+                    "term": str(bill.academic_class.term),
+                    "balance_after": _money(max(Decimal(bill.balance), Decimal("0"))),
+                    "credit_after": _money(bill.available_credits),
+                    "recorded_by": payment.recorded_by,
+                    "school": _school_receipt_context(),
                 },
                 "account": _serialize_account(bill, request),
             }, status=status.HTTP_201_CREATED)

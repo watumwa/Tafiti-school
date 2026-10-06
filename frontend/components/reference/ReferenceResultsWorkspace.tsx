@@ -45,6 +45,8 @@ type MarksHub = {
   role: string;
   can_enter: boolean;
   blocked_reason: string;
+  verification_enabled: boolean;
+  can_manage_verification: boolean;
   academic_year: string;
   term: string;
   metrics: { assessments: number; need_marks: number; ready: number; flagged: number };
@@ -118,6 +120,64 @@ function ResultsTabs({ dashboardPath, view }: { dashboardPath: string; view: str
         {items.map(([key, label, href]) => <Link key={key} href={href} className={`rounded-lg px-3.5 py-2 text-[10px] font-extrabold transition ${view === key ? 'bg-blue-600 text-white shadow-[0_5px_12px_rgba(37,99,235,.18)]' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'}`}>{label}</Link>)}
       </div>
     </div>
+  );
+}
+
+function VerificationModeControl() {
+  const toast = useToast();
+  const [enabled, setEnabled] = useState<boolean | null>(null);
+  const [canManage, setCanManage] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch('/api/workspace/results/marks', { cache: 'no-store', signal: controller.signal })
+      .then(async (response) => {
+        const payload = await response.json();
+        if (!response.ok) throw new Error(payload.detail || 'Verification setting could not be loaded.');
+        return payload as MarksHub;
+      })
+      .then((payload) => {
+        setEnabled(Boolean(payload.verification_enabled));
+        setCanManage(Boolean(payload.can_manage_verification));
+      })
+      .catch((reason: unknown) => {
+        if (!controller.signal.aborted) toast.error('Verification setting unavailable', reason instanceof Error ? reason.message : 'Please try again.');
+      });
+    return () => controller.abort();
+  }, [toast]);
+
+  async function toggle() {
+    if (enabled === null || !canManage || saving) return;
+    const next = !enabled;
+    setSaving(true);
+    try {
+      const response = await fetch('/api/workspace/results/marks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'set_verification_mode', enabled: next }),
+      });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.detail || 'Verification setting could not be changed.');
+      setEnabled(Boolean(payload.verification_enabled));
+      toast.success(next ? 'Script verification enabled' : 'Script verification disabled', payload.detail || 'Results workflow updated.');
+    } catch (reason: unknown) {
+      toast.error('Setting not changed', reason instanceof Error ? reason.message : 'Please try again.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (enabled === null) return null;
+
+  return (
+    <section className={`mb-4 flex flex-col gap-4 rounded-2xl border p-4 sm:flex-row sm:items-center sm:justify-between ${enabled ? 'border-emerald-100 bg-emerald-50/70' : 'border-slate-200 bg-slate-50'}`}>
+      <div className="flex items-start gap-3">
+        <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${enabled ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-600'}`}><ShieldCheck size={18} /></span>
+        <div><div className="flex flex-wrap items-center gap-2"><h2 className="text-sm font-extrabold text-[#10224A]">Script verification</h2><span className={`rounded-full px-2 py-1 text-[9px] font-extrabold ${enabled ? 'bg-emerald-600 text-white' : 'bg-slate-600 text-white'}`}>{enabled ? 'ON' : 'OFF'}</span></div><p className="mt-1 max-w-2xl text-[10px] leading-4 text-slate-600">{enabled ? 'Submitted marks must pass independent verification before they become available to reports.' : 'Submitted marks are verified automatically and released directly to reports.'}</p></div>
+      </div>
+      {canManage && <button type="button" role="switch" aria-checked={enabled} disabled={saving} onClick={() => void toggle()} className={`relative h-7 w-12 shrink-0 rounded-full transition ${enabled ? 'bg-emerald-600' : 'bg-slate-300'} disabled:opacity-60`}><span className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition-all ${enabled ? 'left-6' : 'left-1'}`} /></button>}
+    </section>
   );
 }
 
@@ -273,7 +333,9 @@ export function ReferenceResultsWorkspace({ dashboardPath }: { dashboardPath: st
   return (
     <section>
       <ResultsTabs dashboardPath={dashboardPath} view={view === 'marks' ? 'marks' : view === 'verification' ? 'verification' : 'overview'} />
-      {view === 'marks' ? (assessment > 0 ? <MarksEntrySheet assessmentId={assessment} dashboardPath={dashboardPath} /> : <MarksHubView dashboardPath={dashboardPath} />) : <ReferenceResourceView resource="results" />}
+      {view === 'marks'
+        ? (assessment > 0 ? <MarksEntrySheet assessmentId={assessment} dashboardPath={dashboardPath} /> : <MarksHubView dashboardPath={dashboardPath} />)
+        : <><VerificationModeControl /><ReferenceResourceView resource="results" /></>}
     </section>
   );
 }

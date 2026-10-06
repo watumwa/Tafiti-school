@@ -57,7 +57,7 @@ def submit_batch_for_verification(assessment, user):
     attach_batch_to_results(assessment, batch)
 
     with transaction.atomic():
-        if not getattr(django_settings, "RESULT_VERIFICATION_ENABLED", True):
+        if not ResultVerificationSetting.get_settings().enabled:
             now = timezone.now()
             batch.status = "VERIFIED"
             batch.submitted_by = user

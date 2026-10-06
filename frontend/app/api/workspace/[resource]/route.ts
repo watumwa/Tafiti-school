@@ -61,7 +61,7 @@ export async function GET(
 
   if (!hasAdvancedFilters) {
     const query = original.toString();
-    const result = await authenticatedBackendGet(`workspace/${encodeURIComponent(resource)}/${query ? `?${query}` : ''}`);
+    const result = await authenticatedBackendGet(`workspace/resources/${encodeURIComponent(resource)}/${query ? `?${query}` : ''}`);
     return NextResponse.json(result.body, { status: result.status });
   }
 
@@ -79,7 +79,7 @@ export async function GET(
   backendParams.set('page_size', '100');
 
   const first = await authenticatedBackendGet(
-    `workspace/${encodeURIComponent(resource)}/?${backendParams.toString()}`,
+    `workspace/resources/${encodeURIComponent(resource)}/?${backendParams.toString()}`,
   );
   if (first.status !== 200 || !first.body || typeof first.body !== 'object') {
     return NextResponse.json(first.body, { status: first.status });
