@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server';
 import {
   ACCESS_COOKIE,
   REFRESH_COOKIE,
+  REMEMBER_COOKIE,
   authCookieOptions,
   backendApiUrl,
   readJsonResponse,
@@ -14,7 +15,6 @@ export const dynamic = 'force-dynamic';
 type LoginBody = {
   identifier?: string;
   password?: string;
-  login_context?: string;
   remember_me?: boolean;
 };
 
@@ -33,7 +33,6 @@ export async function POST(request: Request) {
       body: JSON.stringify({
         identifier: body.identifier,
         password: body.password,
-        login_context: body.login_context,
       }),
       cache: 'no-store',
     });
@@ -59,6 +58,10 @@ export async function POST(request: Request) {
       ...(persistent ? { maxAge: 15 * 60 } : {}),
     });
     cookieStore.set(REFRESH_COOKIE, refresh, {
+      ...authCookieOptions,
+      ...(persistent ? { maxAge: 7 * 24 * 60 * 60 } : {}),
+    });
+    cookieStore.set(REMEMBER_COOKIE, persistent ? '1' : '0', {
       ...authCookieOptions,
       ...(persistent ? { maxAge: 7 * 24 * 60 * 60 } : {}),
     });
