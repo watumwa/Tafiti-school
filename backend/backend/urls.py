@@ -20,6 +20,7 @@ from .marks_workspace import MarksEntryAPIView, MarksHubAPIView
 from .parent_workspace import ParentWorkspaceAPIView
 from .results_operations import ResultsOperationsAPIView
 from .student_finance import StudentFinanceAPIView
+from .timetable_operations import TimetableOperationsAPIView
 from .user_management import UserRolesWorkspaceAPIView
 
 from .views import (
@@ -57,6 +58,7 @@ urlpatterns = [
     path("workspace/results/operations/<str:screen>/", ResultsOperationsAPIView.as_view(), name="api_workspace_results_operations"),
     path("workspace/results/marks/", MarksHubAPIView.as_view(), name="api_workspace_marks_hub"),
     path("workspace/results/marks/<int:assessment_id>/", MarksEntryAPIView.as_view(), name="api_workspace_marks_entry"),
+    path("workspace/timetable-console/<str:screen>/", TimetableOperationsAPIView.as_view(), name="api_workspace_timetable_console"),
     path("workspace/resources/<str:resource>/", WorkspaceResourceAPIView.as_view(), name="api_workspace_resource"),
     path("workspace/resources/<str:resource>/form/", WorkspaceResourceFormAPIView.as_view(), name="api_workspace_resource_create_form"),
     path("workspace/resources/<str:resource>/<int:pk>/form/", WorkspaceResourceFormAPIView.as_view(), name="api_workspace_resource_edit_form"),
