@@ -9,6 +9,7 @@ import { ReferenceCommunicationConsoleView } from './ReferenceCommunicationConso
 import { ReferenceLibraryConsoleView } from './ReferenceLibraryConsoleView';
 import { ReferenceResourceView } from './ReferenceResourceView';
 import { ReferenceResultsWorkspace } from './ReferenceResultsWorkspace';
+import { ReferenceStudentAccountsView } from './ReferenceStudentAccountsView';
 
 type Tab = { slug: string; label: string; icon?: 'wallet' | 'finance' | 'book' };
 
@@ -87,7 +88,7 @@ export function ReferenceLinkedResourceView({ resource, dashboardPath }: { resou
           })}
         </div>
       </div>
-      <ReferenceResourceView resource={resource} />
+      {resource === 'fees' ? <ReferenceStudentAccountsView dashboardPath={dashboardPath} /> : <ReferenceResourceView resource={resource} />}
     </section>
   );
 }
