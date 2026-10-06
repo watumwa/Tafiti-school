@@ -3,6 +3,7 @@ from decimal import Decimal
 
 from django.contrib.auth import get_user_model
 from django.urls import reverse
+from django.utils.crypto import get_random_string
 from rest_framework import status
 from rest_framework.test import APITestCase
 
@@ -30,7 +31,7 @@ class ResultsOperationsWorkspaceTests(APITestCase):
         self.admin = get_user_model().objects.create_superuser(
             username="results-ops-admin",
             email="results-ops@example.test",
-            password="A-strong-test-password-123",
+            password=get_random_string(24),
         )
         self.client.force_authenticate(user=self.admin)
 
@@ -144,13 +145,13 @@ class ResultsOperationsWorkspaceTests(APITestCase):
         self.assertEqual(response.data["rows"][0]["status_code"], "VERIFIED")
         self.assertEqual(response.data["rows"][0]["missing"], 0)
 
-    def test_report_card_readiness_uses_verified_batches(self):
+    def test_report_card_readiness_requires_remarks_after_verified_batches(self):
         response = self.client.get(
             reverse("api_workspace_results_operations", kwargs={"screen": "report-cards"}),
         )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data["rows"]), 1)
-        self.assertEqual(response.data["rows"][0]["status"], "Ready")
+        self.assertEqual(response.data["rows"][0]["status"], "Remarks pending")
         self.assertEqual(response.data["rows"][0]["verified_assessments"], 1)
 
     def test_performance_excludes_unverified_results(self):
