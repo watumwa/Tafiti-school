@@ -6,6 +6,7 @@ import { BookOpen, Landmark, WalletCards } from 'lucide-react';
 
 import { ReferenceLibraryView } from './ReferenceLibraryView';
 import { ReferenceResourceView } from './ReferenceResourceView';
+import { ReferenceResultsWorkspace } from './ReferenceResultsWorkspace';
 
 type Tab = { slug: string; label: string; icon?: 'wallet' | 'finance' | 'book' };
 
@@ -50,6 +51,7 @@ export function ReferenceLinkedResourceView({ resource, dashboardPath }: { resou
   const pathname = usePathname();
 
   if (resource === 'library') return <ReferenceLibraryView />;
+  if (resource === 'results') return <ReferenceResultsWorkspace dashboardPath={dashboardPath} />;
 
   const tabs = groups[resource];
   if (!tabs) return <ReferenceResourceView resource={resource} />;
