@@ -1,14 +1,18 @@
 from django.contrib.auth import get_user_model
 from django.db import models
+
 from app.models.staffs import *
+
 
 User = get_user_model()
 
 
 class StaffAccount(models.Model):
     staff = models.ForeignKey(Staff, on_delete=models.CASCADE)
-    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='staff_account')
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="staff_account")
     role = models.ForeignKey(Role, on_delete=models.CASCADE)
+    must_change_password = models.BooleanField(default=False)
+    temporary_password_expires_at = models.DateTimeField(null=True, blank=True)
 
     def save(self, *args, **kwargs):
         if not self.user.username:
@@ -23,15 +27,17 @@ class StaffAccount(models.Model):
                 counter += 1
 
             self.user.username = unique_username
-            self.user.set_password('123')
+            # Never silently create a shared/default credential at model level.
+            # Account-creation services must explicitly set and disclose a secure
+            # one-time credential, otherwise this account stays unusable.
+            if not self.user.has_usable_password():
+                self.user.set_unusable_password()
 
         if self.user.email != self.staff.email:
             self.user.email = self.staff.email
-            self.user.save(update_fields=['email'])
+            self.user.save(update_fields=["email"])
 
         super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.staff.first_name} {self.staff.last_name}"
-
-

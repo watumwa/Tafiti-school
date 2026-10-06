@@ -12,11 +12,13 @@ from app.forms.classes import AcademicClassStreamForm, ClassSubjectAllocationFor
 from app.forms.results import AssessmentForm, AssesmentTypeForm, GradingSystemForm
 from app.models import (
     AcademicClassStream,
+    AcademicYear,
     Assessment,
     AssessmentType,
     ClassSubjectAllocation,
     GradingSystem,
     Stream,
+    Term,
 )
 
 from .auth import canonical_role_label, resolve_active_role
@@ -34,6 +36,38 @@ READ_ROLES = {"Admin", "Head Teacher", "Director of Studies", "Teacher", "Class 
 WRITE_ROLES = {"Admin", "Director of Studies"}
 
 
+class AcademicYearWorkspaceForm(forms.ModelForm):
+    class Meta:
+        model = AcademicYear
+        fields = ("academic_year", "is_current")
+        labels = {"academic_year": "Academic year", "is_current": "Set as current year"}
+        help_texts = {
+            "is_current": "Setting this year current automatically clears the previous current year.",
+        }
+
+
+class TermWorkspaceForm(forms.ModelForm):
+    class Meta:
+        model = Term
+        fields = ("academic_year", "term", "start_date", "end_date", "is_current")
+        labels = {"is_current": "Set as current term"}
+        widgets = {
+            "start_date": forms.DateInput(attrs={"type": "date"}),
+            "end_date": forms.DateInput(attrs={"type": "date"}),
+        }
+        help_texts = {
+            "is_current": "Setting this term current also makes its academic year current.",
+        }
+
+    def clean(self):
+        cleaned = super().clean()
+        start = cleaned.get("start_date")
+        end = cleaned.get("end_date")
+        if start and end and end < start:
+            self.add_error("end_date", "End date cannot be earlier than the start date.")
+        return cleaned
+
+
 @dataclass(frozen=True)
 class ToolConfig:
     model: type
@@ -44,47 +78,61 @@ class ToolConfig:
 
 
 TOOLS: dict[str, ToolConfig] = {
+    "academic-years": ToolConfig(
+        AcademicYear,
+        AcademicYearWorkspaceForm,
+        "Academic Years",
+        "Manage school years and keep one unambiguous current academic year.",
+        "Add academic year",
+    ),
+    "terms": ToolConfig(
+        Term,
+        TermWorkspaceForm,
+        "Terms",
+        "Manage term dates and keep the current term aligned with the current academic year.",
+        "Add term",
+    ),
     "streams": ToolConfig(
-        model=Stream,
-        form_class=StreamForm,
-        title="Streams",
-        description="Reusable stream names used when building academic classes.",
-        create_label="Add stream",
+        Stream,
+        StreamForm,
+        "Streams",
+        "Reusable stream names used when building academic classes.",
+        "Add stream",
     ),
     "class-streams": ToolConfig(
-        model=AcademicClassStream,
-        form_class=AcademicClassStreamForm,
-        title="Class & Stream Setup",
-        description="Connect an academic class to a stream and assign its class teacher.",
-        create_label="Add class stream",
+        AcademicClassStream,
+        AcademicClassStreamForm,
+        "Class & Stream Setup",
+        "Connect an academic class to a stream and assign its class teacher.",
+        "Add class stream",
     ),
     "subject-allocations": ToolConfig(
-        model=ClassSubjectAllocation,
-        form_class=ClassSubjectAllocationForm,
-        title="Subject Allocations",
-        description="Allocate subjects and subject teachers to configured class streams.",
-        create_label="Add allocation",
+        ClassSubjectAllocation,
+        ClassSubjectAllocationForm,
+        "Subject Allocations",
+        "Allocate subjects and subject teachers to configured class streams.",
+        "Add allocation",
     ),
     "assessments": ToolConfig(
-        model=Assessment,
-        form_class=AssessmentForm,
-        title="Assessments",
-        description="Assessment structure that drives mark entry and verification.",
-        create_label="Create assessment",
+        Assessment,
+        AssessmentForm,
+        "Assessments",
+        "Assessment structure that drives mark entry and verification.",
+        "Create assessment",
     ),
     "assessment-types": ToolConfig(
-        model=AssessmentType,
-        form_class=AssesmentTypeForm,
-        title="Assessment Types",
-        description="Assessment stages and weighting used by the existing results engine.",
-        create_label="Add assessment type",
+        AssessmentType,
+        AssesmentTypeForm,
+        "Assessment Types",
+        "Assessment stages and weighting used by the existing results engine.",
+        "Add assessment type",
     ),
     "grading": ToolConfig(
-        model=GradingSystem,
-        form_class=GradingSystemForm,
-        title="Grading System",
-        description="Score bands, grades and points used by existing result calculations.",
-        create_label="Add grading band",
+        GradingSystem,
+        GradingSystemForm,
+        "Grading System",
+        "Score bands, grades and points used by existing result calculations.",
+        "Add grading band",
     ),
 }
 
@@ -117,7 +165,7 @@ def _form(tool: str, *, instance=None, data=None):
     return _configure_form(tool, config.form_class(**kwargs))
 
 
-def _serialize_form(tool: str, *, instance=None) -> dict[str, Any]:
+def _serialize_form(tool: str, *, instance=None, can_write=True) -> dict[str, Any]:
     config = TOOLS[tool]
     form = _form(tool, instance=instance)
     fields = []
@@ -145,8 +193,8 @@ def _serialize_form(tool: str, *, instance=None) -> dict[str, Any]:
         "fields": fields,
         "actions": {
             "view": True,
-            "create": _can_write_dummy,
-            "edit": _can_write_dummy,
+            "create": can_write,
+            "edit": can_write,
             "delete": False,
             "create_label": config.create_label,
             "edit_label": "Edit",
@@ -155,17 +203,32 @@ def _serialize_form(tool: str, *, instance=None) -> dict[str, Any]:
     }
 
 
-# Replaced per-request before response; kept here only so the schema shape stays
-# identical to the general workspace form schema.
-_can_write_dummy = True
-
-
 def _rows(tool: str) -> tuple[list[list[str]], list[dict[str, Any]]]:
+    if tool == "academic-years":
+        queryset = AcademicYear.objects.order_by("-academic_year", "-id")
+        return [["year", "Academic Year"], ["status", "Status"]], [
+            {"id": row.pk, "year": row.academic_year, "status": "Current" if row.is_current else "Historical"}
+            for row in queryset[:200]
+        ]
+
+    if tool == "terms":
+        queryset = Term.objects.select_related("academic_year").order_by("-academic_year__academic_year", "term", "id")
+        return [["year", "Academic Year"], ["term", "Term"], ["start", "Start"], ["end", "End"], ["status", "Status"]], [
+            {
+                "id": row.pk,
+                "year": str(row.academic_year),
+                "term": row.get_term_display(),
+                "start": row.start_date.isoformat(),
+                "end": row.end_date.isoformat(),
+                "status": "Current" if row.is_current else "Historical",
+            }
+            for row in queryset[:500]
+        ]
+
     if tool == "streams":
         queryset = Stream.objects.order_by("stream", "id")
-        return [["stream", "Stream"]], [
-            {"id": row.pk, "stream": str(row)} for row in queryset[:500]
-        ]
+        return [["stream", "Stream"]], [{"id": row.pk, "stream": str(row)} for row in queryset[:500]]
+
     if tool == "class-streams":
         queryset = AcademicClassStream.objects.select_related(
             "academic_class__Class", "academic_class__academic_year", "academic_class__term", "stream", "class_teacher"
@@ -179,6 +242,7 @@ def _rows(tool: str) -> tuple[list[list[str]], list[dict[str, Any]]]:
             }
             for row in queryset[:1000]
         ]
+
     if tool == "subject-allocations":
         queryset = ClassSubjectAllocation.objects.select_related(
             "academic_class_stream__academic_class__Class", "academic_class_stream__stream", "subject", "subject_teacher"
@@ -193,6 +257,7 @@ def _rows(tool: str) -> tuple[list[list[str]], list[dict[str, Any]]]:
             }
             for row in queryset[:1500]
         ]
+
     if tool == "assessments":
         queryset = Assessment.objects.select_related(
             "academic_class__Class", "academic_class__academic_year", "academic_class__term", "subject", "assessment_type"
@@ -209,11 +274,13 @@ def _rows(tool: str) -> tuple[list[list[str]], list[dict[str, Any]]]:
             }
             for row in queryset[:1500]
         ]
+
     if tool == "assessment-types":
         queryset = AssessmentType.objects.order_by("name")
         return [["name", "Assessment Type"], ["weight", "Weight"]], [
             {"id": row.pk, "name": row.name, "weight": str(row.weight)} for row in queryset[:500]
         ]
+
     queryset = GradingSystem.objects.order_by("min_score", "max_score")
     return [["min", "Min Score"], ["max", "Max Score"], ["grade", "Grade"], ["points", "Points"]], [
         {
@@ -227,10 +294,38 @@ def _rows(tool: str) -> tuple[list[list[str]], list[dict[str, Any]]]:
     ]
 
 
+def _synchronise_current_period(tool: str, saved) -> None:
+    if tool == "academic-years" and saved.is_current:
+        AcademicYear.objects.exclude(pk=saved.pk).filter(is_current=True).update(is_current=False)
+        Term.objects.exclude(academic_year=saved).filter(is_current=True).update(is_current=False)
+        return
+
+    if tool == "terms" and saved.is_current:
+        Term.objects.exclude(pk=saved.pk).filter(is_current=True).update(is_current=False)
+        AcademicYear.objects.exclude(pk=saved.academic_year_id).filter(is_current=True).update(is_current=False)
+        AcademicYear.objects.filter(pk=saved.academic_year_id).update(is_current=True)
+
+
+def _validate_current_period_transition(tool: str, form: forms.ModelForm, instance, was_current: bool) -> bool:
+    """Prevent an edit from silently leaving the school with no current context."""
+    if instance is None or not was_current or form.cleaned_data.get("is_current", False):
+        return True
+    if tool == "academic-years" and not AcademicYear.objects.exclude(pk=instance.pk).filter(is_current=True).exists():
+        form.add_error("is_current", "Set another academic year as current before clearing this one.")
+        return False
+    if tool == "terms" and not Term.objects.exclude(pk=instance.pk).filter(is_current=True).exists():
+        form.add_error("is_current", "Set another term as current before clearing this one.")
+        return False
+    return True
+
+
 class AcademicToolAPIView(WorkspaceBaseAPIView):
     def _config(self, request, tool: str):
         if not _can_read(request):
-            return None, Response({"detail": "Your current role cannot access academic configuration."}, status=status.HTTP_403_FORBIDDEN)
+            return None, Response(
+                {"detail": "Your current role cannot access academic configuration."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
         config = TOOLS.get(tool)
         if not config:
             return None, Response({"detail": "Academic tool not found."}, status=status.HTTP_404_NOT_FOUND)
@@ -240,30 +335,24 @@ class AcademicToolAPIView(WorkspaceBaseAPIView):
         config, failure = self._config(request, tool)
         if failure:
             return failure
-        instance = None
+        can_write = _can_write(request)
         if pk is not None:
             try:
                 instance = config.model.objects.get(pk=pk)
             except config.model.DoesNotExist:
                 return Response({"detail": "Record not found."}, status=status.HTTP_404_NOT_FOUND)
-            schema = _serialize_form(tool, instance=instance)
-            schema["actions"]["create"] = _can_write(request)
-            schema["actions"]["edit"] = _can_write(request)
-            return Response(schema)
+            return Response(_serialize_form(tool, instance=instance, can_write=can_write))
 
         columns, rows = _rows(tool)
-        schema = _serialize_form(tool)
-        schema["actions"]["create"] = _can_write(request)
-        schema["actions"]["edit"] = _can_write(request)
         return Response({
             "tool": tool,
             "title": config.title,
             "description": config.description,
             "columns": [{"key": key, "label": label} for key, label in columns],
             "rows": rows,
-            "can_write": _can_write(request),
+            "can_write": can_write,
             "create_label": config.create_label,
-            "form": schema,
+            "form": _serialize_form(tool, can_write=can_write),
         })
 
     def post(self, request, tool: str, pk: int | None = None):
@@ -274,25 +363,34 @@ class AcademicToolAPIView(WorkspaceBaseAPIView):
             return Response({"detail": "Your current role cannot change academic configuration."}, status=status.HTTP_403_FORBIDDEN)
 
         instance = None
+        was_current = False
         if pk is not None:
             try:
                 instance = config.model.objects.get(pk=pk)
             except config.model.DoesNotExist:
                 return Response({"detail": "Record not found."}, status=status.HTTP_404_NOT_FOUND)
+            was_current = bool(getattr(instance, "is_current", False))
 
         payload = request.data if hasattr(request.data, "get") else {}
         form_data = payload if hasattr(payload, "getlist") else _payload_to_querydict(dict(payload))
         form = _form(tool, instance=instance, data=form_data)
-        if not form.is_valid():
+        if not form.is_valid() or not _validate_current_period_transition(tool, form, instance, was_current):
             return Response({"detail": "Check the highlighted fields.", "errors": _form_errors(form)}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             with transaction.atomic():
                 saved = form.save()
+                _synchronise_current_period(tool, saved)
         except IntegrityError:
-            return Response({"detail": "That academic configuration already exists or conflicts with an existing record."}, status=status.HTTP_409_CONFLICT)
+            return Response(
+                {"detail": "That academic configuration already exists or conflicts with an existing record."},
+                status=status.HTTP_409_CONFLICT,
+            )
 
-        return Response({
-            "detail": f"{config.title.rstrip('s')} {'updated' if instance is not None else 'created'} successfully.",
-            "id": saved.pk,
-        }, status=status.HTTP_200_OK if instance is not None else status.HTTP_201_CREATED)
+        detail = f"{config.title.rstrip('s')} {'updated' if instance is not None else 'created'} successfully."
+        if tool in {"academic-years", "terms"} and getattr(saved, "is_current", False):
+            detail += " Current academic context was updated automatically."
+        return Response(
+            {"detail": detail, "id": saved.pk},
+            status=status.HTTP_200_OK if instance is not None else status.HTTP_201_CREATED,
+        )

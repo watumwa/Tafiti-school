@@ -2,6 +2,7 @@ from datetime import timedelta
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.utils.crypto import get_random_string
 
 User = get_user_model()
 from django.db import transaction
@@ -15,6 +16,14 @@ from app.models import (
     Result, Staff, StaffAccount,
 )
 from app.models.students import normalize_guardian_contact
+
+
+TEMP_PASSWORD_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789"
+
+
+def _new_temporary_password():
+    """Generate a one-time parent credential without ambiguous characters."""
+    return get_random_string(14, allowed_chars=TEMP_PASSWORD_ALPHABET)
 
 
 def _normalized_name(value):
@@ -34,7 +43,12 @@ def parent_username(contact):
 
 @transaction.atomic
 def activate_parent_access(*, student, verified_by, allow_guardian_mismatch=False):
-    """Create/reuse a portal login from the guardian data already on Student."""
+    """Create/reuse a portal login from the guardian data already on Student.
+
+    A generated temporary password is exposed only on the returned in-memory
+    access object as ``temporary_password`` so an authorised caller can display
+    it once. It is never stored in plaintext.
+    """
     username = parent_username(student.contact)
     if not student.is_active:
         raise ParentAccessError("Parent access cannot be activated for an inactive student.")
@@ -56,8 +70,10 @@ def activate_parent_access(*, student, verified_by, allow_guardian_mismatch=Fals
     if is_new_user:
         user = User(username=username, first_name=student.guardian[:150], is_active=True)
     user.is_active = True
+    temporary_password = None
     if not has_live_access:
-        user.set_password("123")
+        temporary_password = _new_temporary_password()
+        user.set_password(temporary_password)
     user.save()
 
     requires_change = not has_live_access
@@ -74,6 +90,8 @@ def activate_parent_access(*, student, verified_by, allow_guardian_mismatch=Fals
             "verified_at": timezone.now(),
         },
     )
+    # Plaintext exists only for this request and is intentionally not persisted.
+    access.temporary_password = temporary_password
     ParentPortalAudit.objects.create(
         user=user, student=student, action=ParentPortalAudit.ACTION_ACTIVATED,
         details={
@@ -107,11 +125,14 @@ def reset_parent_password(*, user_id, actor):
     accesses = ParentAccess.objects.select_for_update().filter(user=user, is_active=True, is_verified=True)
     if not accesses.exists():
         raise ParentAccessError("This parent account has no active verified student access.")
-    user.set_password("123")
+    temporary_password = _new_temporary_password()
+    user.set_password(temporary_password)
     user.is_active = True
     user.save(update_fields=("password", "is_active"))
     expiry = timezone.now() + timedelta(hours=settings.PARENT_TEMP_PASSWORD_HOURS)
     accesses.update(must_change_password=True, temporary_password_expires_at=expiry)
+    # As with activation, expose it once to the authorised caller only.
+    user.temporary_password = temporary_password
     ParentPortalAudit.objects.create(
         user=user, action=ParentPortalAudit.ACTION_PASSWORD_RESET,
         details={"actor": actor.pk, "temporary_password_expires_at": expiry.isoformat()},
