@@ -1,8 +1,8 @@
-import { proxyWorkspaceRequest } from '@/lib/workspace-server';
+import { proxyWorkspaceDownload } from '@/lib/workspace-server';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request, { params }: { params: Promise<{ resource: string }> }) {
   const { resource } = await params;
-  return proxyWorkspaceRequest(`workspace/export/${resource}/`, request);
+  return proxyWorkspaceDownload(`workspace/export/${resource}/`, request);
 }
