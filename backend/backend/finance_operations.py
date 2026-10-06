@@ -3,6 +3,7 @@ from __future__ import annotations
 from decimal import Decimal
 
 from django.db import transaction
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.response import Response
 
@@ -215,7 +216,7 @@ class FinanceOperationsAPIView(WorkspaceBaseAPIView):
                     return Response({"detail": "The bank transaction and payment amounts must match exactly."}, status=status.HTTP_409_CONFLICT)
                 transaction_row.reconciled = True
                 transaction_row.reconciled_with = payment
-                transaction_row.reconciliation_date = __import__("django.utils.timezone", fromlist=["now"]).now()
+                transaction_row.reconciliation_date = timezone.now()
                 transaction_row.notes = str(request.data.get("notes") or transaction_row.notes or "")
                 transaction_row.save(update_fields=["reconciled", "reconciled_with", "reconciliation_date", "notes"])
                 return Response({"detail": "Bank transaction matched to the payment successfully."})
