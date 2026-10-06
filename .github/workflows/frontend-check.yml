@@ -43,7 +43,7 @@ jobs:
         with:
           python-version: '3.12'
       - name: Compile workspace backend modules
-        run: python -m py_compile backend/backend/academic_workspace.py backend/backend/communication_workspace.py backend/backend/library_workspace.py backend/backend/marks_workspace.py backend/backend/urls.py backend/backend/workspace.py backend/backend/workspace_context.py
+        run: python -m py_compile backend/backend/academic_workspace.py backend/backend/communication_workspace.py backend/backend/library_workspace.py backend/backend/marks_workspace.py backend/backend/student_finance.py backend/backend/urls.py backend/backend/workspace.py backend/backend/workspace_context.py
 
   backend-runtime:
     runs-on: ubuntu-latest
@@ -66,3 +66,13 @@ jobs:
           DJANGO_SETTINGS_MODULE: core.settings.development
           DJANGO_SECRET_KEY: ci-development-secret
         run: python manage.py check
+      - name: Verify migrations are committed
+        env:
+          DJANGO_SETTINGS_MODULE: core.settings.development
+          DJANGO_SECRET_KEY: ci-development-secret
+        run: python manage.py makemigrations --check --dry-run
+      - name: Student finance workflow tests
+        env:
+          DJANGO_SETTINGS_MODULE: core.settings.development
+          DJANGO_SECRET_KEY: ci-development-secret
+        run: python manage.py test backend.test_student_finance_workflow backend.test_workspace_finance
