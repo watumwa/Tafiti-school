@@ -1,4 +1,4 @@
-name: Frontend Check
+name: Workspace Check
 
 on:
   push:
@@ -7,6 +7,7 @@ on:
   pull_request:
     paths:
       - 'frontend/**'
+      - 'backend/backend/**'
       - '.github/workflows/frontend-check.yml'
 
 jobs:
@@ -30,3 +31,15 @@ jobs:
         run: npm run typecheck
       - name: Production build
         run: npm run build
+
+  backend-syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Compile workspace backend modules
+        run: python -m py_compile backend/backend/marks_workspace.py backend/backend/urls.py backend/backend/workspace.py backend/backend/workspace_context.py
