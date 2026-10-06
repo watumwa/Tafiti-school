@@ -5,6 +5,7 @@ import { usePathname, useSearchParams } from 'next/navigation';
 import { BookOpen, Landmark, Settings2, WalletCards } from 'lucide-react';
 
 import { ReferenceAcademicSetupView } from './ReferenceAcademicSetupView';
+import { ReferenceCommunicationConsoleView } from './ReferenceCommunicationConsoleView';
 import { ReferenceLibraryConsoleView } from './ReferenceLibraryConsoleView';
 import { ReferenceResourceView } from './ReferenceResourceView';
 import { ReferenceResultsWorkspace } from './ReferenceResultsWorkspace';
@@ -52,6 +53,7 @@ export function ReferenceLinkedResourceView({ resource, dashboardPath }: { resou
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
+  if (resource === 'communication') return <ReferenceCommunicationConsoleView />;
   if (resource === 'library') return <ReferenceLibraryConsoleView />;
   if (resource === 'results') {
     const configMode = searchParams.get('view') === 'config';
