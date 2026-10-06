@@ -22,6 +22,7 @@ import { useToast } from '@/components/ui/ToastProvider';
 import { ProfileAvatar } from '@/components/workspace/ProfileAvatar';
 import { ResourceFormDialog } from '@/components/workspace/ResourceFormDialog';
 import { WorkspaceIcon } from '@/components/workspace/WorkspaceIcon';
+import { ReferenceAdmissionsWorkspace } from './ReferenceAdmissionsWorkspace';
 
 function statusClass(status: string) {
   const value = status.toLowerCase();
@@ -77,7 +78,7 @@ function EntityTable({ entity, activeTab }: { entity: WorkspaceEntity; activeTab
   );
 }
 
-export function ReferenceEntityWorkspace({ resource, id, dashboardPath, onTitleChange }: { resource: string; id: number; dashboardPath: string; onTitleChange?: (title: string) => void }) {
+function ReferenceEntityWorkspaceBase({ resource, id, dashboardPath, onTitleChange }: { resource: string; id: number; dashboardPath: string; onTitleChange?: (title: string) => void }) {
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -180,4 +181,11 @@ export function ReferenceEntityWorkspace({ resource, id, dashboardPath, onTitleC
       <ResourceFormDialog open={formOpen} schema={formSchema} loading={formLoading} errors={formErrors} onClose={() => { setFormOpen(false); setFormErrors({}); }} onSubmit={submitForm} />
     </section>
   );
+}
+
+export function ReferenceEntityWorkspace(props: { resource: string; id: number; dashboardPath: string; onTitleChange?: (title: string) => void }) {
+  if (props.resource === 'admissions') {
+    return <ReferenceAdmissionsWorkspace id={props.id} dashboardPath={props.dashboardPath} />;
+  }
+  return <ReferenceEntityWorkspaceBase {...props} />;
 }
