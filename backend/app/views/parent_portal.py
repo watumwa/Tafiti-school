@@ -218,27 +218,16 @@ def parent_dashboard(request):
             "title": f"{result.assessment.subject} result published", "description": result.student.student_name,
             "url": reverse("parent_results", args=[result.student_id]),
         })
-    for announcement in Announcement.objects.filter(
-        is_active=True,
-        audience__in=("all", "parents"),
-        starts_at__lte=now,
-    ).filter(Q(ends_at__isnull=True) | Q(ends_at__gte=now)).order_by("-starts_at")[:4]:
-        activities.append({
-            "when": announcement.starts_at, "icon": "ph-megaphone", "tone": "warning",
-            "title": announcement.title, "description": "School announcement",
-            "url": reverse("parent_announcements"),
-        })
-    activities.sort(key=lambda item: item["when"], reverse=True)
 
-    ParentPortalAudit.objects.create(user=request.user, student=student, action=ParentPortalAudit.ACTION_VIEWED, ip_address=client_ip(request), details={"page": "dashboard"})
+    activities.sort(key=lambda item: item["when"], reverse=True)
+    notifications = ParentNotification.objects.filter(user=request.user, read_at__isnull=True).select_related("student")[:6]
     return render(request, "parent_portal/dashboard.html", {
-        "access": access, "student": student, "children": request.parent_accesses,
+        "children": request.parent_accesses, "access": access, "student": student,
         "child_rows": child_rows, "selected_summary": selected_summary,
         "family_attendance": family_attendance, "total_balance": total_balance,
-        "today_schedule": today_schedule[:8], "today": today,
-        "upcoming_events": upcoming_events, "action_items": action_items[:6],
-        "recent_activity": activities[:8], "current_term": current_term,
-        "unread_notification_count": ParentNotification.objects.filter(user=request.user, read_at__isnull=True).count(),
+        "today_schedule": today_schedule, "upcoming_events": upcoming_events,
+        "action_items": action_items[:6], "activities": activities[:8], "notifications": notifications,
+        "current_term": current_term,
     })
 
 
@@ -246,155 +235,73 @@ def parent_dashboard(request):
 @parent_required
 def parent_children(request):
     current_term = current_academic_term()
-    rows = [child_summary(access, current_term) for access in request.parent_accesses]
-    return render(request, "parent_portal/children.html", {
-        "child_rows": rows, "children": request.parent_accesses, "current_term": current_term,
-    })
+    children = [child_summary(access, current_term) for access in request.parent_accesses]
+    return render(request, "parent_portal/children.html", {"children": children, "current_term": current_term})
 
 
 @feature_required("PARENT_PORTAL_ENABLED")
 @parent_required
 def parent_child_overview(request, student_id):
     access = _selected_access(request, student_id)
-    request.session["parent_selected_student_id"] = access.student_id
     current_term = current_academic_term()
     summary = child_summary(access, current_term)
-    results = verified_results_for(access.student, current_term).order_by("-assessment__date") if access.can_view_academics else Result.objects.none()
-    attendance = attendance_for(access.student, current_term) if access.can_view_attendance else AttendanceRecord.objects.none()
-    counts = {row["status"]: row["total"] for row in attendance.values("status").annotate(total=Count("id"))}
-    today_entries, class_stream = timetable_for_student(
-        access.student,
-        current_term,
-        timezone.localdate().strftime("%a").upper()[:3],
-    )
-
-    feedback = []
-    if current_term:
-        for remark in ReportCycleRemark.objects.filter(
-            student=access.student,
-            academic_class__term=current_term,
-            class_teacher_submitted_at__isnull=False,
-        ).order_by("-updated_at")[:4]:
-            if remark.class_teacher_remark:
-                feedback.append({"role": "Class teacher", "text": remark.class_teacher_remark, "scope": remark.scope_label})
-            if remark.head_teacher_approved_at and remark.head_teacher_remark:
-                feedback.append({"role": "Head teacher", "text": remark.head_teacher_remark, "scope": remark.scope_label})
-        if not feedback:
-            legacy = ReportRemark.objects.filter(student=access.student, term=current_term).first()
-            if legacy and legacy.class_teacher_remark:
-                feedback.append({"role": "Class teacher", "text": legacy.class_teacher_remark, "scope": str(current_term)})
-            if legacy and legacy.head_teacher_remark:
-                feedback.append({"role": "Head teacher", "text": legacy.head_teacher_remark, "scope": str(current_term)})
-
-    ParentPortalAudit.objects.create(
-        user=request.user,
-        student=access.student,
-        action=ParentPortalAudit.ACTION_VIEWED,
-        ip_address=client_ip(request),
-        details={"page": "child_360"},
-    )
+    schedule, class_stream = timetable_for_student(access.student, current_term)
     return render(request, "parent_portal/child_overview.html", {
-        "access": access,
-        "student": access.student,
-        "children": request.parent_accesses,
-        "summary": summary,
-        "current_term": current_term,
-        "recent_results": results[:5],
-        "subject_rows": subject_performance(access.student, current_term) if access.can_view_academics else [],
-        "attendance_counts": counts,
-        "today_entries": today_entries,
-        "class_stream": class_stream,
-        "feedback": feedback,
-        "documents": _visible_student_documents(access).order_by("-uploaded_at")[:5],
+        "access": access, "student": access.student, "summary": summary, "current_term": current_term,
+        "schedule": schedule, "class_stream": class_stream, "children": request.parent_accesses,
     })
 
 
 @feature_required("PARENT_PORTAL_ENABLED")
 @parent_required
-def parent_timetable(request, student_id):
+def parent_results(request, student_id):
     access = _selected_access(request, student_id)
+    if not access.can_view_academics:
+        messages.warning(request, "Academic results are not enabled for this child.")
+        return redirect("parent_dashboard")
+    term_id = request.GET.get("term_id", "")
     current_term = current_academic_term()
-    entries, class_stream = timetable_for_student(access.student, current_term)
-    has_timetable = entries.exists()
-    by_day = defaultdict(list)
-    for entry in entries:
-        by_day[entry.weekday].append(entry)
-    weekday_choices = (
-        ("MON", "Monday"), ("TUE", "Tuesday"), ("WED", "Wednesday"),
-        ("THU", "Thursday"), ("FRI", "Friday"), ("SAT", "Saturday"), ("SUN", "Sunday"),
-    )
-    return render(request, "parent_portal/timetable.html", {
-        "access": access,
-        "student": access.student,
-        "children": request.parent_accesses,
-        "current_term": current_term,
-        "class_stream": class_stream,
-        "weekday_rows": [{"code": code, "label": label, "entries": by_day.get(code, [])} for code, label in weekday_choices],
-        "today_code": timezone.localdate().strftime("%a").upper()[:3],
-        "has_timetable": has_timetable,
+    term = Term.objects.filter(pk=int(term_id)).first() if term_id.isdigit() else current_term
+    results = verified_results_for(access.student, term)
+    performance = subject_performance(results)
+    terms = Term.objects.filter(
+        academicclass__result__student=access.student, academicclass__result__status="VERIFIED"
+    ).distinct().order_by("-academic_year__academic_year", "term")
+    return render(request, "parent_portal/results.html", {
+        "access": access, "student": access.student, "results": results, "performance": performance,
+        "terms": terms, "selected_term": term, "current_term": current_term, "children": request.parent_accesses,
     })
 
 
 @feature_required("PARENT_PORTAL_ENABLED")
 @parent_required
-def parent_documents(request, student_id):
+def parent_attendance(request, student_id):
     access = _selected_access(request, student_id)
-    documents = _visible_student_documents(access).select_related("bill").order_by("-uploaded_at")
-    payments = Payment.objects.filter(bill__student=access.student).select_related("bill").order_by("-payment_date", "-id") if access.can_view_finance else Payment.objects.none()
-    return render(request, "parent_portal/documents.html", {
-        "access": access,
-        "student": access.student,
-        "children": request.parent_accesses,
-        "documents": documents,
-        "payments": payments,
-        "has_results": verified_results_for(access.student).exists() if access.can_view_academics else False,
-    })
-
-
-@feature_required("PARENT_PORTAL_ENABLED")
-@parent_required
-def parent_document_download(request, student_id, document_id):
-    access = _selected_access(request, student_id)
-    document = get_object_or_404(_visible_student_documents(access), pk=document_id)
-    try:
-        response = FileResponse(
-            document.file.open("rb"),
-            as_attachment=True,
-            filename=Path(document.file.name).name,
-        )
-    except (FileNotFoundError, OSError):
-        raise Http404("This document file is not available.")
-    ParentPortalAudit.objects.create(
-        user=request.user,
-        student=access.student,
-        action=ParentPortalAudit.ACTION_VIEWED,
-        ip_address=client_ip(request),
-        details={"page": "document_download", "document_id": document.pk},
-    )
-    return response
-
-
-@feature_required("PARENT_PORTAL_ENABLED")
-@parent_required
-def parent_calendar(request):
+    if not access.can_view_attendance:
+        messages.warning(request, "Attendance is not enabled for this child.")
+        return redirect("parent_dashboard")
     month = _selected_month(request.GET.get("month"))
-    next_month = _shift_month(month, 1)
-    events = Event.objects.filter(
-        is_active=True,
-        audience__in=("all", "parents"),
-        start_datetime__date__gte=month,
-        start_datetime__date__lt=next_month,
-    ).order_by("start_datetime")
-    events_by_date = defaultdict(list)
-    for event in events:
-        events_by_date[timezone.localtime(event.start_datetime).date()].append(event)
-    return render(request, "parent_portal/calendar.html", {
+    records = attendance_for(access.student).filter(session__attendance_date__year=month.year, session__attendance_date__month=month.month)
+    by_date = defaultdict(list)
+    for record in records:
+        by_date[record.session.attendance_date].append(record)
+    return render(request, "parent_portal/attendance.html", {
+        "access": access, "student": access.student, "records": records, "calendar_rows": _calendar_rows(month, by_date),
+        "month": month, "previous_month": _shift_month(month, -1), "next_month": _shift_month(month, 1),
         "children": request.parent_accesses,
-        "month": month,
-        "previous_month": _shift_month(month, -1),
-        "next_month": next_month,
-        "calendar_weeks": _calendar_rows(month, events_by_date),
-        "events": events,
+    })
+
+
+@feature_required("PARENT_PORTAL_ENABLED")
+@parent_required
+def parent_finance(request, student_id):
+    access = _selected_access(request, student_id)
+    if not access.can_view_finance:
+        messages.warning(request, "Finance information is not enabled for this child.")
+        return redirect("parent_dashboard")
+    bills = access.student.bills.select_related("academic_class").prefetch_related("items", "payments").order_by("-academic_class__academic_year__academic_year")
+    return render(request, "parent_portal/finance.html", {
+        "access": access, "student": access.student, "bills": bills, "children": request.parent_accesses,
     })
 
 
@@ -404,113 +311,58 @@ def parent_payment_receipt(request, student_id, payment_id):
     access = _selected_access(request, student_id)
     if not access.can_view_finance:
         raise Http404
-    payment = get_object_or_404(
-        Payment.objects.select_related(
-            "bill", "bill__student", "bill__academic_class", "bill__academic_class__Class",
-            "bill__academic_class__academic_year", "bill__academic_class__term",
-        ).prefetch_related("bill__items", "bill__items__bill_item", "bill__payments"),
-        pk=payment_id,
-        bill__student=access.student,
-    )
-    bill = payment.bill
-    amount_paid_after = Decimal(str(bill.amount_paid or 0))
-    payment_amount = Decimal(str(payment.amount or 0))
-    amount_paid_before = max(amount_paid_after - payment_amount, Decimal("0"))
-    bill_total = Decimal(str(bill.total_amount or 0))
-    balance_after = Decimal(str(bill.balance or 0))
-    balance_before = balance_after + payment_amount
-    if balance_after < 0:
-        receipt_status, status_class, balance_label, balance_display = "CREDIT BALANCE", "credit", "Credit after payment", abs(balance_after)
-    elif balance_after == 0:
-        receipt_status, status_class, balance_label, balance_display = "FULLY PAID", "paid", "Balance after payment", Decimal("0")
-    else:
-        receipt_status, status_class, balance_label, balance_display = "PART PAYMENT", "partial", "Balance after payment", balance_after
-    ParentPortalAudit.objects.create(
-        user=request.user,
-        student=access.student,
-        action=ParentPortalAudit.ACTION_VIEWED,
-        ip_address=client_ip(request),
-        details={"page": "payment_receipt", "payment_id": payment.pk},
-    )
-    return render(request, "fees/payment_receipt.html", {
-        "payment": payment, "bill": bill, "student": access.student,
-        "school_settings": SchoolSetting.objects.first(), "bill_total": bill_total,
-        "amount_paid_before": amount_paid_before, "amount_paid_after": amount_paid_after,
-        "payment_amount": payment_amount, "balance_before": balance_before,
-        "balance_after": balance_after, "balance_display": balance_display,
-        "balance_label": balance_label, "receipt_status": receipt_status,
-        "status_class": status_class, "printed_at": timezone.localtime(),
-        "receipt_back_url": reverse("parent_finance", args=[access.student_id]),
-        "parent_copy": True,
+    payment = get_object_or_404(Payment.objects.select_related("bill__student", "bill__academic_class"), pk=payment_id, bill__student=access.student)
+    school = SchoolSetting.objects.first()
+    return render(request, "parent_portal/payment_receipt.html", {
+        "access": access, "student": access.student, "payment": payment, "school": school,
+        "children": request.parent_accesses,
     })
 
 
 @feature_required("PARENT_PORTAL_ENABLED")
 @parent_required
-def parent_finance(request, student_id):
+def parent_timetable(request, student_id):
     access = _selected_access(request, student_id)
-    if not access.can_view_finance:
-        messages.error(request, "Financial access is not enabled for this child.")
-        return redirect("parent_dashboard")
-    bills = access.student.bills.prefetch_related("items", "payments", "applied_credits").order_by("-bill_date")
-    total_billed = sum((Decimal(str(bill.total_amount)) for bill in bills), Decimal("0"))
-    total_paid = sum((Decimal(str(bill.amount_paid)) for bill in bills), Decimal("0"))
-    balance = sum((Decimal(str(bill.balance)) for bill in bills), Decimal("0"))
-    paid_percent = float(min(Decimal("100"), total_paid / total_billed * 100)) if total_billed > 0 else None
-    ParentPortalAudit.objects.create(user=request.user, student=access.student, action=ParentPortalAudit.ACTION_VIEWED, ip_address=client_ip(request), details={"page": "finance"})
-    return render(request, "parent_portal/finance.html", {
-        "access": access, "student": access.student, "bills": bills,
-        "total_billed": total_billed, "total_paid": total_paid, "balance": balance,
-        "paid_percent": paid_percent, "children": request.parent_accesses,
-    })
-
-
-@feature_required("PARENT_PORTAL_ENABLED")
-@parent_required
-def parent_results(request, student_id):
-    access = _selected_access(request, student_id)
-    if not access.can_view_academics:
-        messages.error(request, "Academic access is not enabled for this child.")
-        return redirect("parent_dashboard")
     current_term = current_academic_term()
-    results = verified_results_for(access.student, current_term).order_by(
-        "-assessment__date", "assessment__subject__name"
-    )
-    subject_rows = subject_performance(access.student, current_term)
-    academic_values = [row["average"] for row in subject_rows if row["average"] is not None]
-    academic_average = sum(academic_values) / len(academic_values) if academic_values else None
-    ParentPortalAudit.objects.create(user=request.user, student=access.student, action=ParentPortalAudit.ACTION_VIEWED, ip_address=client_ip(request), details={"page": "results"})
-    return render(request, "parent_portal/results.html", {
-        "access": access, "student": access.student, "results": results,
-        "current_term": current_term, "subject_rows": subject_rows,
-        "academic_average": academic_average, "children": request.parent_accesses,
+    schedule, class_stream = timetable_for_student(access.student, current_term)
+    grouped = defaultdict(list)
+    for row in schedule:
+        grouped[row.weekday].append(row)
+    return render(request, "parent_portal/timetable.html", {
+        "access": access, "student": access.student, "schedule": schedule, "grouped": dict(grouped),
+        "class_stream": class_stream, "current_term": current_term, "children": request.parent_accesses,
     })
 
 
 @feature_required("PARENT_PORTAL_ENABLED")
 @parent_required
-def parent_attendance(request, student_id):
+def parent_documents(request, student_id):
     access = _selected_access(request, student_id)
-    if not access.can_view_attendance:
-        messages.error(request, "Attendance access is not enabled for this child.")
-        return redirect("parent_dashboard")
-    current_term = current_academic_term()
-    records = attendance_for(access.student, current_term).order_by("-session__date", "session__time_slot__start_time")
-    counts = {row["status"]: row["total"] for row in records.values("status").annotate(total=Count("id"))}
-    total = sum(counts.values())
-    present = counts.get("present", 0) + counts.get("late", 0)
+    documents = _visible_student_documents(access).order_by("-uploaded_at")
+    payments = Payment.objects.filter(bill__student=access.student).select_related("bill").order_by("-payment_date", "-id") if access.can_view_finance else Payment.objects.none()
+    return render(request, "parent_portal/documents.html", {
+        "access": access, "student": access.student, "documents": documents, "payments": payments,
+        "children": request.parent_accesses,
+    })
+
+
+@feature_required("PARENT_PORTAL_ENABLED")
+@parent_required
+def parent_calendar(request):
     month = _selected_month(request.GET.get("month"))
+    start = timezone.make_aware(datetime.combine(month, time.min))
     next_month = _shift_month(month, 1)
-    month_records = records.filter(session__date__gte=month, session__date__lt=next_month)
-    records_by_date = defaultdict(list)
-    for record in month_records:
-        records_by_date[record.session.date].append(record)
-    return render(request, "parent_portal/attendance.html", {
-        "access": access, "student": access.student, "records": records[:100], "counts": counts,
-        "attendance_percent": round((present / total) * 100, 1) if total else None,
-        "current_term": current_term, "children": request.parent_accesses,
-        "month": month, "previous_month": _shift_month(month, -1), "next_month": next_month,
-        "calendar_weeks": _calendar_rows(month, records_by_date),
+    end = timezone.make_aware(datetime.combine(next_month, time.min))
+    events = Event.objects.filter(
+        is_active=True, audience__in=("all", "parents"), start_datetime__gte=start, start_datetime__lt=end,
+    ).order_by("start_datetime")
+    by_date = defaultdict(list)
+    for event in events:
+        by_date[timezone.localtime(event.start_datetime).date()].append(event)
+    return render(request, "parent_portal/calendar.html", {
+        "calendar_rows": _calendar_rows(month, by_date), "month": month,
+        "previous_month": _shift_month(month, -1), "next_month": next_month,
+        "children": request.parent_accesses,
     })
 
 
@@ -648,8 +500,12 @@ def parent_access_activate(request, student_id):
                 student=student, verified_by=request.user,
                 allow_guardian_mismatch=request.POST.get("confirm_shared_contact") == "yes",
             )
-            if access.must_change_password:
-                notice = f"Username: {access.user.username}; temporary password: 123 (expires in {settings.PARENT_TEMP_PASSWORD_HOURS} hours)."
+            temporary_password = getattr(access, "_temporary_password", None)
+            if access.must_change_password and temporary_password:
+                notice = (
+                    f"Username: {access.user.username}; one-time password: {temporary_password} "
+                    f"(expires in {settings.PARENT_TEMP_PASSWORD_HOURS} hours). Share it privately; it will not be shown again."
+                )
             else:
                 notice = f"Linked to the existing parent account {access.user.username}; its private password was not changed."
             messages.success(request, f"Parent access activated. {notice}")
@@ -707,9 +563,11 @@ def parent_password_reset(request, user_id):
     if request.method == "POST":
         try:
             user = reset_parent_password(user_id=user_id, actor=request.user)
+            temporary_password = getattr(user, "_temporary_password", None)
             messages.success(
-                request, f"Password reset for {user.username}. Temporary password: 123; it expires in "
-                f"{settings.PARENT_TEMP_PASSWORD_HOURS} hours.",
+                request,
+                f"Password reset for {user.username}. One-time password: {temporary_password}; it expires in "
+                f"{settings.PARENT_TEMP_PASSWORD_HOURS} hours. Share it privately; it will not be shown again.",
             )
         except ParentAccessError as exc:
             messages.error(request, str(exc))
@@ -718,5 +576,7 @@ def parent_password_reset(request, user_id):
 
 @feature_required("PARENT_PORTAL_ENABLED")
 def parent_logout(request):
+    if request.user.is_authenticated:
+        ParentPortalAudit.objects.create(user=request.user, action=ParentPortalAudit.ACTION_LOGOUT, ip_address=client_ip(request))
     logout(request)
     return redirect("parent_login")
