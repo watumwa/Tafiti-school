@@ -2,13 +2,14 @@
 
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
-import { BookOpen, Landmark, Settings2, WalletCards } from 'lucide-react';
+import { BookOpen, Landmark, Settings2, ShieldCheck, WalletCards } from 'lucide-react';
 
 import { ReferenceAcademicSetupView } from './ReferenceAcademicSetupView';
 import { ReferenceClassesWorkspace } from './ReferenceClassesWorkspace';
 import { ReferenceAdmissionsWorkspace } from './ReferenceAdmissionsWorkspace';
 import { ReferenceAttendanceHub } from './ReferenceAttendanceHub';
 import { ReferenceCommunicationConsoleView } from './ReferenceCommunicationConsoleView';
+import { ReferenceFinanceOperations } from './ReferenceFinanceOperations';
 import { ReferenceLibraryConsoleView } from './ReferenceLibraryConsoleView';
 import { ReferenceResourceView } from './ReferenceResourceView';
 import { ReferenceResultsOperations } from './ReferenceResultsOperations';
@@ -78,6 +79,8 @@ export function ReferenceLinkedResourceView({ resource, dashboardPath }: { resou
     );
   }
 
+  const financeView = resource === 'finance' ? searchParams.get('view') : null;
+  const financeOperation = financeView === 'approvals' || financeView === 'reconciliation' ? financeView : null;
   const tabs = groups[resource];
   if (!tabs) return <ReferenceResourceView resource={resource} />;
 
@@ -87,16 +90,22 @@ export function ReferenceLinkedResourceView({ resource, dashboardPath }: { resou
         <div className="flex min-w-max gap-1">
           {tabs.map((tab) => {
             const href = `${dashboardPath}/${tab.slug}`;
-            const active = pathname === href || pathname.startsWith(`${href}/`);
+            const active = !financeOperation && (pathname === href || pathname.startsWith(`${href}/`));
             return (
               <Link key={tab.slug} href={href} className={`inline-flex h-9 items-center gap-1.5 rounded-lg px-3 text-[10px] font-extrabold transition ${active ? 'bg-blue-600 text-white shadow-[0_5px_12px_rgba(37,99,235,.18)]' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'}`}>
                 <TabIcon icon={tab.icon} />{tab.label}
               </Link>
             );
           })}
+          {resource === 'finance' && <>
+            <Link href={`${dashboardPath}/finance?view=approvals`} className={`inline-flex h-9 items-center gap-1.5 rounded-lg px-3 text-[10px] font-extrabold transition ${financeOperation === 'approvals' ? 'bg-blue-600 text-white shadow-[0_5px_12px_rgba(37,99,235,.18)]' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'}`}><ShieldCheck size={13} />Approvals</Link>
+            <Link href={`${dashboardPath}/finance?view=reconciliation`} className={`inline-flex h-9 items-center gap-1.5 rounded-lg px-3 text-[10px] font-extrabold transition ${financeOperation === 'reconciliation' ? 'bg-blue-600 text-white shadow-[0_5px_12px_rgba(37,99,235,.18)]' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'}`}><Landmark size={13} />Bank Reconciliation</Link>
+          </>}
         </div>
       </div>
-      {resource === 'fees' ? <ReferenceStudentAccountsView dashboardPath={dashboardPath} /> : <ReferenceResourceView resource={resource} />}
+      {resource === 'fees' ? <ReferenceStudentAccountsView dashboardPath={dashboardPath} />
+        : financeOperation ? <ReferenceFinanceOperations screen={financeOperation} />
+        : <ReferenceResourceView resource={resource} />}
     </section>
   );
 }
