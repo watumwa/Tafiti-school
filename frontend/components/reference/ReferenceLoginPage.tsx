@@ -14,23 +14,17 @@ import {
   School,
   ShieldCheck,
   UserRound,
+  UsersRound,
 } from 'lucide-react';
 
 import { Logo } from '@/components/brand/Logo';
-import type { AuthFailure, AuthSuccess, LoginContext } from '@/lib/auth';
-
-const workspaceOptions: { value: LoginContext; label: string; description: string }[] = [
-  { value: 'admin', label: 'School management', description: 'Admin, head teacher, admissions, library and support roles' },
-  { value: 'teacher', label: 'Teaching', description: 'Teacher and class-teacher workspaces' },
-  { value: 'bursar', label: 'Finance', description: 'Bursar and school finance workspace' },
-  { value: 'parent', label: 'Parent portal', description: 'Parent and guardian access' },
-];
+import type { AuthFailure, AuthSuccess } from '@/lib/auth';
 
 const errorMessages: Record<string, string> = {
   invalid_credentials: "We couldn't sign you in. Check your username and password and try again.",
   inactive_account: 'Your account is inactive. Please contact your school administrator.',
   portal_access_denied: 'This account does not have active portal access.',
-  role_context_denied: 'This account is not assigned to the selected workspace.',
+  temporary_password_expired: 'Your temporary password has expired. Please contact your school administrator.',
   network_error: "We couldn't connect to Tafiti. Check your connection and try again.",
 };
 
@@ -38,7 +32,6 @@ export function ReferenceLoginPage({ notice }: { notice?: string }) {
   const router = useRouter();
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
-  const [workspace, setWorkspace] = useState<LoginContext>('admin');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -47,12 +40,14 @@ export function ReferenceLoginPage({ notice }: { notice?: string }) {
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!identifier.trim() || !password || submitting) return;
-    setSubmitting(true); setFormError('');
+    setSubmitting(true);
+    setFormError('');
+
     try {
       const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ identifier: identifier.trim(), password, login_context: workspace, remember_me: rememberMe }),
+        body: JSON.stringify({ identifier: identifier.trim(), password, remember_me: rememberMe }),
       });
       const result = await response.json() as AuthSuccess | AuthFailure;
       if (!response.ok || !('user' in result)) {
@@ -60,13 +55,21 @@ export function ReferenceLoginPage({ notice }: { notice?: string }) {
         setFormError((code && errorMessages[code]) || result.detail || 'Sign in failed. Please try again.');
         return;
       }
-      router.replace(result.user.dashboard_path); router.refresh();
+
+      if (result.user.must_change_password) {
+        router.replace('/account/change-password');
+      } else if (result.user.roles.length > 1) {
+        router.replace('/choose-role');
+      } else {
+        router.replace(result.user.dashboard_path);
+      }
+      router.refresh();
     } catch {
       setFormError(errorMessages.network_error);
-    } finally { setSubmitting(false); }
+    } finally {
+      setSubmitting(false);
+    }
   }
-
-  const selected = workspaceOptions.find((item) => item.value === workspace) ?? workspaceOptions[0];
 
   return (
     <main className="relative min-h-dvh overflow-hidden bg-[#EFF5FD] text-[#10224A]">
@@ -89,14 +92,14 @@ export function ReferenceLoginPage({ notice }: { notice?: string }) {
           <div className="w-full max-w-[470px]">
             <div className="mb-6 flex justify-center lg:hidden"><Logo accent="blue" /></div>
             <div className="rounded-[24px] border border-white bg-white/95 p-6 shadow-[0_28px_80px_rgba(31,76,139,.14)] backdrop-blur-xl sm:p-8">
-              <div className="flex items-start gap-3"><span className="grid h-11 w-11 place-items-center rounded-xl bg-blue-50 text-blue-600"><ShieldCheck size={20} /></span><div><h2 className="text-[1.85rem] font-extrabold tracking-[-.04em] text-[#10224A]">Welcome back</h2><p className="mt-1 text-xs text-slate-500">Sign in to continue to your school portal.</p></div></div>
+              <div className="flex items-start gap-3"><span className="grid h-11 w-11 place-items-center rounded-xl bg-blue-50 text-blue-600"><ShieldCheck size={20} /></span><div><h2 className="text-[1.85rem] font-extrabold tracking-[-.04em] text-[#10224A]">Welcome back</h2><p className="mt-1 text-xs text-slate-500">Sign in with your school account to continue.</p></div></div>
 
               <form onSubmit={submit} className="mt-6 space-y-4">
                 <label className="block"><span className="mb-1.5 block text-[11px] font-extrabold text-slate-700">Username or email</span><span className="relative block"><UserRound className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={16} /><input value={identifier} onChange={(event) => setIdentifier(event.target.value)} disabled={submitting} autoComplete="username" placeholder="Enter your username or email" className="tafiti-input h-11 w-full pl-10 pr-3 text-sm" required /></span></label>
 
                 <label className="block"><div className="mb-1.5 flex items-center justify-between"><span className="text-[11px] font-extrabold text-slate-700">Password</span><Link href="/forgot-password" className="text-[10px] font-bold text-blue-600 hover:underline">Forgot password?</Link></div><span className="relative block"><LockKeyhole className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={16} /><input value={password} onChange={(event) => setPassword(event.target.value)} disabled={submitting} type={showPassword ? 'text' : 'password'} autoComplete="current-password" placeholder="Enter your password" className="tafiti-input h-11 w-full pl-10 pr-11 text-sm" required /><button type="button" onClick={() => setShowPassword((value) => !value)} className="absolute right-2.5 top-1/2 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-lg text-slate-400 hover:bg-blue-50 hover:text-blue-600">{showPassword ? <EyeOff size={16} /> : <Eye size={16} />}</button></span></label>
 
-                <label className="block"><div className="mb-1.5 flex items-center justify-between"><span className="text-[11px] font-extrabold text-slate-700">Workspace</span><span className="text-[9px] font-semibold text-slate-400">Your permissions are still enforced by Django</span></div><select value={workspace} onChange={(event) => setWorkspace(event.target.value as LoginContext)} disabled={submitting} className="tafiti-input h-11 w-full px-3 text-sm font-semibold"><option value="admin">School management</option><option value="teacher">Teaching</option><option value="bursar">Finance</option><option value="parent">Parent portal</option></select><p className="mt-1.5 text-[10px] leading-4 text-slate-400">{selected.description}. This avoids listing every assigned role on the login card.</p></label>
+                <div className="rounded-xl border border-blue-100 bg-blue-50/70 p-3.5"><div className="flex items-start gap-2.5"><span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-white text-blue-600 shadow-sm"><UsersRound size={15} /></span><div><p className="text-[10px] font-extrabold text-blue-900">Your role is detected after sign in</p><p className="mt-1 text-[9px] leading-4 text-blue-700/75">If your account has one role, Tafiti opens it directly. If you have several roles, you will choose from only the workspaces assigned to you.</p></div></div></div>
 
                 <div className="flex items-center justify-between"><label className="inline-flex items-center gap-2 text-[10px] font-semibold text-slate-500"><input type="checkbox" checked={rememberMe} onChange={(event) => setRememberMe(event.target.checked)} className="h-4 w-4 accent-blue-600" />Remember me</label><span className="text-[9px] text-slate-400">Secure access</span></div>
 
