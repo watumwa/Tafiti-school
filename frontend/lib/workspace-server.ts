@@ -21,17 +21,22 @@ async function refreshAccess(refresh: string): Promise<string> {
   return response.ok && typeof result.access === 'string' ? result.access : '';
 }
 
-export async function proxyWorkspaceRequest(path: string, request?: Request) {
+async function authenticatedToken() {
   const cookieStore = await cookies();
   const refresh = cookieStore.get(REFRESH_COOKIE)?.value ?? '';
   let access = cookieStore.get(ACCESS_COOKIE)?.value ?? '';
+  if (!access && refresh) {
+    access = await refreshAccess(refresh);
+    if (access) cookieStore.set(ACCESS_COOKIE, access, authCookieOptions);
+  }
+  return { cookieStore, refresh, access };
+}
+
+export async function proxyWorkspaceRequest(path: string, request?: Request) {
+  const { cookieStore, refresh, access: initialAccess } = await authenticatedToken();
+  let access = initialAccess;
 
   try {
-    if (!access && refresh) {
-      access = await refreshAccess(refresh);
-      if (access) cookieStore.set(ACCESS_COOKIE, access, authCookieOptions);
-    }
-
     if (!access) {
       await clearAuthCookies();
       return NextResponse.json(
@@ -74,6 +79,7 @@ export async function proxyWorkspaceRequest(path: string, request?: Request) {
     if (response.status === 401 && refresh) {
       const nextAccess = await refreshAccess(refresh);
       if (nextAccess) {
+        access = nextAccess;
         cookieStore.set(ACCESS_COOKIE, nextAccess, authCookieOptions);
         response = await sendRequest(nextAccess);
       }
@@ -94,5 +100,54 @@ export async function proxyWorkspaceRequest(path: string, request?: Request) {
       { code: 'network_error', detail: 'The school server could not be reached.' },
       { status: 503 },
     );
+  }
+}
+
+export async function proxyWorkspaceDownload(path: string, request: Request) {
+  const { cookieStore, refresh, access: initialAccess } = await authenticatedToken();
+  let access = initialAccess;
+
+  try {
+    if (!access) {
+      await clearAuthCookies();
+      return NextResponse.json({ code: 'session_expired', detail: 'Your session has expired.' }, { status: 401 });
+    }
+
+    const query = new URL(request.url).search;
+    const sendRequest = (token: string) => fetch(`${backendApiUrl(path)}${query}`, {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${token}` },
+      cache: 'no-store',
+    });
+
+    let response = await sendRequest(access);
+    if (response.status === 401 && refresh) {
+      const nextAccess = await refreshAccess(refresh);
+      if (nextAccess) {
+        access = nextAccess;
+        cookieStore.set(ACCESS_COOKIE, nextAccess, authCookieOptions);
+        response = await sendRequest(nextAccess);
+      }
+    }
+
+    if (response.status === 401) {
+      await clearAuthCookies();
+      return NextResponse.json({ code: 'session_expired', detail: 'Your session has expired. Please sign in again.' }, { status: 401 });
+    }
+
+    if (!response.ok) {
+      const data = await readJsonResponse(response);
+      return NextResponse.json(data, { status: response.status });
+    }
+
+    const headers = new Headers();
+    const contentType = response.headers.get('content-type');
+    const disposition = response.headers.get('content-disposition');
+    if (contentType) headers.set('content-type', contentType);
+    if (disposition) headers.set('content-disposition', disposition);
+    headers.set('cache-control', 'no-store');
+    return new Response(await response.arrayBuffer(), { status: response.status, headers });
+  } catch {
+    return NextResponse.json({ code: 'network_error', detail: 'The school server could not be reached.' }, { status: 503 });
   }
 }
