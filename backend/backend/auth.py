@@ -117,9 +117,6 @@ def assigned_role_labels(user) -> list[str]:
     if ParentAccess.objects.filter(user=user, is_active=True, is_verified=True).exists():
         roles.append("Parent")
 
-    # Historical databases contain variants such as Head master / Headteacher and
-    # DOS. Canonicalising at the API boundary keeps the UI consistent without
-    # mutating old records during the frontend migration.
     canonical = [canonical_role_label(role) for role in roles if role]
     unique_roles = list(dict.fromkeys(canonical))
     canonical_priority = [canonical_role_label(name) for name in ROLE_PRIORITY]
@@ -133,9 +130,6 @@ def resolve_active_role(user, preferred_context: str | None = None, *, strict: b
 
     context = (preferred_context or "").strip().lower()
     if context:
-        # Prefer an exact assigned-role match. This lets authenticated users switch
-        # between all of their real roles (for example Head Teacher and Parent)
-        # without inventing or changing any backend permissions.
         exact = next(
             (
                 label for label in roles
@@ -150,7 +144,6 @@ def resolve_active_role(user, preferred_context: str | None = None, *, strict: b
         if exact:
             primary = exact
         else:
-            # Keep the historical broad login contexts working for older clients.
             candidates = CONTEXT_ROLE_PREFERENCES.get(context, [])
             compatible = next((label for label in candidates if label in roles), None)
             if compatible:
@@ -165,12 +158,34 @@ def resolve_active_role(user, preferred_context: str | None = None, *, strict: b
     )
 
 
+def staff_must_change_password(user) -> bool:
+    try:
+        return bool(user.staff_account.must_change_password)
+    except (AttributeError, User.staff_account.RelatedObjectDoesNotExist):
+        return False
+
+
+def staff_temporary_password_expired(user) -> bool:
+    try:
+        account = user.staff_account
+    except (AttributeError, User.staff_account.RelatedObjectDoesNotExist):
+        return False
+    return bool(
+        account.must_change_password
+        and account.temporary_password_expires_at
+        and account.temporary_password_expires_at <= timezone.now()
+    )
+
+
 def serialize_user_context(user, preferred_context: str | None = None) -> dict:
     role_labels = assigned_role_labels(user)
     role = resolve_active_role(user, preferred_context)
     parent_accesses = ParentAccess.objects.filter(user=user, is_active=True, is_verified=True)
 
-    must_change_password = parent_accesses.filter(must_change_password=True).exists()
+    must_change_password = (
+        staff_must_change_password(user)
+        or parent_accesses.filter(must_change_password=True).exists()
+    )
     dashboard_path = "/account/change-password" if must_change_password else role.dashboard_path
 
     return {
@@ -202,3 +217,7 @@ def parent_temporary_password_expired(user) -> bool:
             must_change_password=True,
             temporary_password_expires_at__lte=timezone.now(),
         ).exists()
+
+
+def temporary_password_expired(user) -> bool:
+    return staff_temporary_password_expired(user) or parent_temporary_password_expired(user)
