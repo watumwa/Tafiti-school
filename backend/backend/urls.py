@@ -16,6 +16,7 @@ from .communication_workspace import CommunicationConsoleAPIView
 from .library_workspace import LibraryConsoleAPIView
 from .marks_workspace import MarksEntryAPIView, MarksHubAPIView
 from .parent_workspace import ParentWorkspaceAPIView
+from .user_management import UserRolesWorkspaceAPIView
 
 from .views import (
     CurrentUserAPIView,
@@ -36,6 +37,8 @@ urlpatterns = [
     path("workspace/bootstrap/", WorkspaceBootstrapAPIView.as_view(), name="api_workspace_bootstrap"),
     path("workspace/dashboard/", WorkspaceDashboardAPIView.as_view(), name="api_workspace_dashboard"),
     path("workspace/search/", WorkspaceSearchAPIView.as_view(), name="api_workspace_search"),
+    path("workspace/users-roles/", UserRolesWorkspaceAPIView.as_view(), name="api_workspace_users_roles"),
+    path("workspace/users-roles/<int:user_id>/", UserRolesWorkspaceAPIView.as_view(), name="api_workspace_users_roles_record"),
     path("workspace/academics/<str:tool>/", AcademicToolAPIView.as_view(), name="api_workspace_academic_tool"),
     path("workspace/academics/<str:tool>/<int:pk>/", AcademicToolAPIView.as_view(), name="api_workspace_academic_tool_record"),
     path("workspace/communication-console/<str:screen>/", CommunicationConsoleAPIView.as_view(), name="api_workspace_communication_console"),
