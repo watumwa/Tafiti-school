@@ -15,6 +15,7 @@ from app.models import (
     ParentAccess,
     Payment,
     Section,
+    Staff,
     Student,
     StudentBill,
     Stream,
@@ -46,6 +47,22 @@ class WorkflowCompletionFixture(APITestCase):
         self.section = Section.objects.create(section_name="Workflow Completion")
         self.base_class = Class.objects.create(name="Primary 6", code="P6-WF", section=self.section)
         self.stream = Stream.objects.create(stream="Blue-WF")
+        self.teacher = Staff.objects.create(
+            first_name="Workflow",
+            last_name="Teacher",
+            birth_date=date(1990, 1, 1),
+            gender="M",
+            address="School",
+            marital_status="S",
+            contacts="0700111222",
+            email="workflow-teacher@example.test",
+            qualification="Diploma",
+            hire_date=date(2020, 1, 1),
+            department="Academic",
+            salary=1,
+            staff_status="Active",
+            staff_photo="Staff/Profile_pics/workflow-teacher.jpg",
+        )
         self.academic_class = AcademicClass.objects.create(
             section=self.section,
             Class=self.base_class,
@@ -56,6 +73,7 @@ class WorkflowCompletionFixture(APITestCase):
         self.class_stream = AcademicClassStream.objects.create(
             academic_class=self.academic_class,
             stream=self.stream,
+            class_teacher=self.teacher,
         )
         self.student = Student.objects.create(
             reg_no="WF-2026-001",
