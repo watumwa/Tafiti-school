@@ -90,7 +90,8 @@ class FinanceOperationsTests(APITestCase):
         self.assertEqual(first.status_code, status.HTTP_200_OK, first.data)
         self.assertEqual(first.data["posted_count"], 1)
         target_bill = StudentBill.objects.get(student=self.student, academic_class=self.class2)
-        self.assertEqual(target_bill.balance, Decimal("60000.00"))
+        carry_forward = target_bill.items.get(description__icontains="Balance brought forward")
+        self.assertEqual(carry_forward.amount, Decimal("60000.00"))
 
         second = self.client.post(self.url("carry-forward"), {
             "source_term_id": self.term1.pk, "target_term_id": self.term2.pk, "active_students_only": True,
@@ -99,7 +100,7 @@ class FinanceOperationsTests(APITestCase):
         self.assertEqual(target_bill.items.filter(description__icontains="Balance brought forward").count(), 1)
 
     def test_reconciliation_matches_exact_credit_to_payment(self):
-        bill = StudentBill.objects.create(student=self.student, academic_class=self.class2)
+        bill, _ = StudentBill.objects.get_or_create(student=self.student, academic_class=self.class2)
         payment = Payment.objects.create(
             bill=bill, payment_date=date(2026, 6, 1), amount=Decimal("50000"), payment_method="Bank",
             reference_no="PAY-FIN-001", recorded_by="admin",
@@ -118,7 +119,7 @@ class FinanceOperationsTests(APITestCase):
         self.assertEqual(bank_tx.reconciled_with_id, payment.pk)
 
     def test_reconciliation_rejects_amount_mismatch(self):
-        bill = StudentBill.objects.create(student=self.student, academic_class=self.class2)
+        bill, _ = StudentBill.objects.get_or_create(student=self.student, academic_class=self.class2)
         payment = Payment.objects.create(
             bill=bill, payment_date=date(2026, 6, 2), amount=Decimal("40000"), payment_method="Bank",
             reference_no="PAY-FIN-002", recorded_by="admin",
