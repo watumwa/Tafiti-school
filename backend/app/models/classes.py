@@ -1,4 +1,4 @@
-from django.db import models
+from django.db import models, transaction
 from django.core.exceptions import ValidationError
 from django.urls import reverse
 from django.conf import settings
@@ -50,6 +50,22 @@ class Term(models.Model):
         verbose_name = ("Term")
         verbose_name_plural = ("Terms")
         unique_together = ("academic_year", "term")
+
+    def clean(self):
+        super().clean()
+        if self.start_date and self.end_date and self.end_date < self.start_date:
+            raise ValidationError({"end_date": "Term end date cannot be earlier than the start date."})
+
+    def save(self, *args, **kwargs):
+        """Allow only one current term inside each academic year."""
+        self.full_clean()
+        with transaction.atomic():
+            super().save(*args, **kwargs)
+            if self.is_current:
+                type(self).objects.exclude(pk=self.pk).filter(
+                    academic_year_id=self.academic_year_id,
+                    is_current=True,
+                ).update(is_current=False)
 
     def get_absolute_url(self):
         return reverse("Term_detail", kwargs={"pk": self.pk})

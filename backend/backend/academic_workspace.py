@@ -12,11 +12,13 @@ from app.forms.classes import AcademicClassStreamForm, ClassSubjectAllocationFor
 from app.forms.results import AssessmentForm, AssesmentTypeForm, GradingSystemForm
 from app.models import (
     AcademicClassStream,
+    AcademicYear,
     Assessment,
     AssessmentType,
     ClassSubjectAllocation,
     GradingSystem,
     Stream,
+    Term,
 )
 
 from .auth import canonical_role_label, resolve_active_role
@@ -34,6 +36,33 @@ READ_ROLES = {"Admin", "Head Teacher", "Director of Studies", "Teacher", "Class 
 WRITE_ROLES = {"Admin", "Director of Studies"}
 
 
+class AcademicYearWorkspaceForm(forms.ModelForm):
+    class Meta:
+        model = AcademicYear
+        fields = ["academic_year", "is_current"]
+        widgets = {
+            "academic_year": forms.TextInput(attrs={"placeholder": "2026"}),
+        }
+
+
+class TermWorkspaceForm(forms.ModelForm):
+    class Meta:
+        model = Term
+        fields = ["academic_year", "term", "start_date", "end_date", "is_current"]
+        widgets = {
+            "start_date": forms.DateInput(attrs={"type": "date"}),
+            "end_date": forms.DateInput(attrs={"type": "date"}),
+        }
+
+    def clean(self):
+        cleaned = super().clean()
+        start = cleaned.get("start_date")
+        end = cleaned.get("end_date")
+        if start and end and end < start:
+            self.add_error("end_date", "Term end date cannot be earlier than the start date.")
+        return cleaned
+
+
 @dataclass(frozen=True)
 class ToolConfig:
     model: type
@@ -44,6 +73,20 @@ class ToolConfig:
 
 
 TOOLS: dict[str, ToolConfig] = {
+    "academic-years": ToolConfig(
+        model=AcademicYear,
+        form_class=AcademicYearWorkspaceForm,
+        title="Academic Years",
+        description="Create academic years and explicitly choose the one Tafiti should treat as current.",
+        create_label="Add academic year",
+    ),
+    "terms": ToolConfig(
+        model=Term,
+        form_class=TermWorkspaceForm,
+        title="Terms",
+        description="Manage term dates and the current term inside each academic year.",
+        create_label="Add term",
+    ),
     "streams": ToolConfig(
         model=Stream,
         form_class=StreamForm,
@@ -106,6 +149,10 @@ def _configure_form(tool: str, form: forms.ModelForm) -> forms.ModelForm:
         field = form.fields.get("academic_class")
         if field:
             field.widget = forms.Select()
+    if tool == "terms":
+        year_field = form.fields.get("academic_year")
+        if year_field:
+            year_field.queryset = AcademicYear.objects.order_by("-academic_year", "-id")
     return form
 
 
@@ -155,12 +202,34 @@ def _serialize_form(tool: str, *, instance=None) -> dict[str, Any]:
     }
 
 
-# Replaced per-request before response; kept here only so the schema shape stays
-# identical to the general workspace form schema.
 _can_write_dummy = True
 
 
 def _rows(tool: str) -> tuple[list[list[str]], list[dict[str, Any]]]:
+    if tool == "academic-years":
+        queryset = AcademicYear.objects.order_by("-academic_year", "-id")
+        return [["academic_year", "Academic Year"], ["status", "Status"]], [
+            {
+                "id": row.pk,
+                "academic_year": row.academic_year,
+                "status": "Current" if row.is_current else "Historical",
+            }
+            for row in queryset[:500]
+        ]
+    if tool == "terms":
+        queryset = Term.objects.select_related("academic_year").order_by(
+            "-academic_year__academic_year", "term", "id"
+        )
+        return [["academic_year", "Academic Year"], ["term", "Term"], ["dates", "Dates"], ["status", "Status"]], [
+            {
+                "id": row.pk,
+                "academic_year": str(row.academic_year),
+                "term": row.get_term_display(),
+                "dates": f"{row.start_date:%d %b %Y} – {row.end_date:%d %b %Y}",
+                "status": "Current" if row.is_current else "Closed / Historical",
+            }
+            for row in queryset[:1000]
+        ]
     if tool == "streams":
         queryset = Stream.objects.order_by("stream", "id")
         return [["stream", "Stream"]], [

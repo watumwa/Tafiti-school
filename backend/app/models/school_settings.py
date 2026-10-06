@@ -1,6 +1,6 @@
 from django.core.exceptions import ValidationError
 from django.core.validators import EmailValidator
-from django.db import models
+from django.db import models, transaction
 from django.urls import reverse
 
 from AbstractModels.singleton import SingletonModel
@@ -98,12 +98,8 @@ class SchoolSetting(SingletonModel):
         if self.education_level not in enabled_levels:
             self.education_level = enabled_levels[0]
 
-    
-   
-
 
 class AcademicYear(models.Model):
-    
     academic_year = models.CharField(max_length=10, unique=True)
     is_current = models.BooleanField(default=True)
 
@@ -114,12 +110,23 @@ class AcademicYear(models.Model):
     def __str__(self):
         return self.academic_year
 
+    def save(self, *args, **kwargs):
+        """Keep the application-wide current academic year unambiguous.
+
+        The project supports both SQLite in development and MySQL/PostgreSQL in
+        deployments, so this is enforced transactionally instead of relying on a
+        backend-specific partial unique constraint.
+        """
+        with transaction.atomic():
+            super().save(*args, **kwargs)
+            if self.is_current:
+                type(self).objects.exclude(pk=self.pk).filter(is_current=True).update(is_current=False)
+
     def get_absolute_url(self):
         return reverse("AcademicYear_detail", kwargs={"pk": self.pk})
 
 
 class Section(models.Model):
-    
     section_name = models.CharField(max_length=50, unique=True)
     LOWER_SECONDARY_HINTS = ("o-level", "o level", "olevel", "lower secondary")
     UPPER_SECONDARY_HINTS = ("a-level", "a level", "alevel", "upper secondary")
@@ -161,7 +168,6 @@ class Section(models.Model):
         )
 
 class Signature(models.Model):
-    
     position = models.CharField(max_length=25,choices=POSITION_SIGNATURE_CHOICES)
     signature = models.ImageField(upload_to="signatures", height_field=None, width_field=None, max_length=None)
 
