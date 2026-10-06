@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   BookOpen,
+  CalendarDays,
   ClipboardList,
   GraduationCap,
   Layers3,
@@ -32,6 +33,8 @@ type ToolData = {
 };
 
 const tools = [
+  { key: 'academic-years', label: 'Academic Years', icon: CalendarDays },
+  { key: 'terms', label: 'Terms', icon: CalendarDays },
   { key: 'streams', label: 'Streams', icon: Layers3 },
   { key: 'class-streams', label: 'Class Streams', icon: School },
   { key: 'subject-allocations', label: 'Subject Allocations', icon: Users },
@@ -53,8 +56,8 @@ export function ReferenceAcademicSetupView({
   const searchParams = useSearchParams();
   const toast = useToast();
   const availableTools = visibleTools ? tools.filter((item) => visibleTools.includes(item.key)) : tools;
-  const requested = searchParams.get('tool') || initialTool || availableTools[0]?.key || 'streams';
-  const tool = availableTools.some((item) => item.key === requested) ? requested : availableTools[0]?.key || 'streams';
+  const requested = searchParams.get('tool') || initialTool || availableTools[0]?.key || 'academic-years';
+  const tool = availableTools.some((item) => item.key === requested) ? requested : availableTools[0]?.key || 'academic-years';
   const [data, setData] = useState<ToolData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -157,7 +160,7 @@ export function ReferenceAcademicSetupView({
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div className="flex items-start gap-3">
           <span className="grid h-11 w-11 place-items-center rounded-xl bg-blue-50 text-blue-600"><GraduationCap size={21} /></span>
-          <div><h1 className="text-[1.65rem] font-extrabold tracking-[-0.035em] text-[#10224A]">Academic Setup</h1><p className="mt-1 max-w-3xl text-xs leading-5 text-slate-500">Classes, streams, allocations, assessments and grading are configured here instead of being scattered across separate pages.</p></div>
+          <div><h1 className="text-[1.65rem] font-extrabold tracking-[-0.035em] text-[#10224A]">Academic Setup</h1><p className="mt-1 max-w-3xl text-xs leading-5 text-slate-500">Academic years, terms, streams, allocations, assessments and grading are managed in one connected workspace.</p></div>
         </div>
         {data?.can_write && <button type="button" onClick={openCreate} className="clay-button-primary"><Plus size={14} />{data.create_label}</button>}
       </div>
