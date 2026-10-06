@@ -42,7 +42,6 @@ class Assessment(models.Model):
         return f'{self.assessment_type} - {self.subject} {self.academic_class}'
 
 
-
 class ResultModeSetting(models.Model):
     MODE_CHOICES = [
         ("CUMULATIVE", "Cumulative"),
@@ -169,6 +168,7 @@ class ResultVerificationNotification(models.Model):
     def __str__(self):
         return f"{self.title} - {self.recipient}"
 
+
 class Result(models.Model):
     STATUS_CHOICES = [
         ("DRAFT", "Draft"),
@@ -231,8 +231,6 @@ class ReportResults(models.Model):
         return f"{self.student} - {self.subject} - {self.academic_class}"
 
     def calculate_term_result(self):
-    
-
         mode = ResultModeSetting.get_mode()
         details = self.details.all()
 
@@ -336,6 +334,7 @@ class ReportCycleRemark(models.Model):
     def __str__(self):
         return f"{self.student} - {self.scope_label}"
 
+
 class TermResult(models.Model):
     student = models.ForeignKey("app.Student", on_delete=models.CASCADE, related_name='term_results')
     academic_class = models.ForeignKey("app.AcademicClass", on_delete=models.CASCADE, related_name='term_results')
@@ -348,15 +347,18 @@ class TermResult(models.Model):
         return f'{self.academic_class} - {self.student}'
 
     def calculate_term_result(self):
-        """Calculate total and average scores, and total GPA points."""
-        exam_results = self.student.results.filter(assessment__academic_class__term=self.term)
+        """Calculate this student's aggregate for this exact academic class/term."""
+        exam_results = self.student.results.filter(
+            assessment__academic_class=self.academic_class,
+        )
         total_score = sum(result.actual_score for result in exam_results)
         total_points = sum(result.points for result in exam_results)
         subjects_count = exam_results.count()
         self.total_score = total_score
         self.average_score = total_score / subjects_count if subjects_count > 0 else 0
         self.total_points = total_points
-        self.save()
+        self.save(update_fields=["total_score", "average_score", "total_points"])
+
 
 class AnnualResult(models.Model):
     student = models.ForeignKey("app.Student", on_delete=models.CASCADE, related_name='annual_results')
@@ -370,8 +372,13 @@ class AnnualResult(models.Model):
         return f'Annual Result - {self.student} - {self.academic_class.academic_year}'
 
     def calculate_annual_result(self):
-        """Calculate total and average scores, and total GPA points for the academic year."""
-        term_results = self.student.term_results.filter(term__academic_year=self.academic_year)
+        """Aggregate term results for the same year and underlying class level."""
+        year = self.academic_class.academic_year
+        class_level = self.academic_class.Class
+        term_results = self.student.term_results.filter(
+            academic_class__academic_year=year,
+            academic_class__Class=class_level,
+        )
         total_score = sum(term_result.total_score for term_result in term_results)
         total_points = sum(term_result.total_points for term_result in term_results)
         term_count = term_results.count()
@@ -379,14 +386,19 @@ class AnnualResult(models.Model):
         self.total_score = total_score
         self.average_score = total_score / term_count if term_count > 0 else 0
         self.total_points = total_points
-        self.save()
+        self.save(update_fields=["total_score", "average_score", "total_points"])
 
     def calculate_rank(self):
-        """Optional: Calculate rank within the class based on total score."""
-        all_results = AnnualResult.objects.filter(academic_year=self.academic_year, student__class_level=self.student.class_level)
-        sorted_results = sorted(all_results, key=lambda x: x.total_score, reverse=True)
+        """Calculate rank among annual results for the same year and class level."""
+        year = self.academic_class.academic_year
+        class_level = self.academic_class.Class
+        all_results = AnnualResult.objects.filter(
+            academic_class__academic_year=year,
+            academic_class__Class=class_level,
+        )
+        sorted_results = sorted(all_results, key=lambda item: item.total_score, reverse=True)
         for index, result in enumerate(sorted_results):
-            if result.student == self.student:
+            if result.pk == self.pk:
                 self.rank_in_class = index + 1
-                self.save()
+                self.save(update_fields=["rank_in_class"])
                 break
