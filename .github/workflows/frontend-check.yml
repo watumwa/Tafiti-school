@@ -4,10 +4,11 @@ on:
   push:
     branches:
       - nextjs-ui-reference-rest
+      - main
   pull_request:
     paths:
       - 'frontend/**'
-      - 'backend/backend/**'
+      - 'backend/**'
       - '.github/workflows/frontend-check.yml'
 
 jobs:
@@ -43,3 +44,25 @@ jobs:
           python-version: '3.12'
       - name: Compile workspace backend modules
         run: python -m py_compile backend/backend/academic_workspace.py backend/backend/communication_workspace.py backend/backend/library_workspace.py backend/backend/marks_workspace.py backend/backend/urls.py backend/backend/workspace.py backend/backend/workspace_context.py
+
+  backend-runtime:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+      - name: Install backend dependencies
+        run: pip install -r requirements.txt
+      - name: Django system check with development SQLite
+        env:
+          DJANGO_SETTINGS_MODULE: core.settings.development
+          DJANGO_SECRET_KEY: ci-development-secret
+        run: python manage.py check
