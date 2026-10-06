@@ -10,6 +10,7 @@ from .workspace import (
     WorkspaceResourceFormAPIView,
     WorkspaceSearchAPIView,
 )
+from .marks_workspace import MarksEntryAPIView, MarksHubAPIView
 from .parent_workspace import ParentWorkspaceAPIView
 
 from .views import (
@@ -31,6 +32,8 @@ urlpatterns = [
     path("workspace/bootstrap/", WorkspaceBootstrapAPIView.as_view(), name="api_workspace_bootstrap"),
     path("workspace/dashboard/", WorkspaceDashboardAPIView.as_view(), name="api_workspace_dashboard"),
     path("workspace/search/", WorkspaceSearchAPIView.as_view(), name="api_workspace_search"),
+    path("workspace/results/marks/", MarksHubAPIView.as_view(), name="api_workspace_marks_hub"),
+    path("workspace/results/marks/<int:assessment_id>/", MarksEntryAPIView.as_view(), name="api_workspace_marks_entry"),
     path("workspace/resources/<str:resource>/", WorkspaceResourceAPIView.as_view(), name="api_workspace_resource"),
     path("workspace/resources/<str:resource>/form/", WorkspaceResourceFormAPIView.as_view(), name="api_workspace_resource_create_form"),
     path("workspace/resources/<str:resource>/<int:pk>/form/", WorkspaceResourceFormAPIView.as_view(), name="api_workspace_resource_edit_form"),
