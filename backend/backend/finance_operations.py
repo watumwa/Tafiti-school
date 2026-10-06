@@ -3,6 +3,7 @@ from __future__ import annotations
 from decimal import Decimal, InvalidOperation
 
 from django.db import transaction
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.response import Response
 
@@ -16,6 +17,7 @@ from app.models import (
     ClassBill,
     ClassRegister,
     Payment,
+    Student,
     StudentBill,
     Term,
 )
@@ -101,7 +103,7 @@ def _billing_payload():
 
 
 def _carry_payload(request):
-    year, current_term = _current_period()
+    _year, current_term = _current_period()
     terms = Term.objects.select_related("academic_year").order_by("-academic_year__academic_year", "term", "id")
     source_id = request.query_params.get("source_term")
     target_id = request.query_params.get("target_term")
@@ -110,6 +112,7 @@ def _carry_payload(request):
     if not source and target:
         source = Term.objects.select_related("academic_year").filter(end_date__lt=target.start_date).order_by("-end_date", "-id").first()
     rows = []
+    preview_total = Decimal("0")
     if source and target and source.pk != target.pk:
         preview = build_carry_forward_preview(
             source_term=source,
@@ -118,22 +121,25 @@ def _carry_payload(request):
             active_students_only=(request.query_params.get("active_only", "1") != "0"),
             student_id=request.query_params.get("student_id") or "",
         )
-        rows = [{
-            "student_id": row.student.pk,
-            "student": row.student.student_name,
-            "student_number": row.student.display_student_id,
-            "source_bill_id": row.source_bill.pk,
-            "source_class": str(row.source_bill.academic_class),
-            "target_class": str(row.target_academic_class or "Not configured"),
-            "outstanding": _money(row.outstanding),
-            "can_post": row.can_post,
-        } for row in preview[:2500]]
+        for row in preview[:2500]:
+            if row.can_post:
+                preview_total += Decimal(row.outstanding)
+            rows.append({
+                "student_id": row.student.pk,
+                "student": row.student.student_name,
+                "student_number": row.student.display_student_id,
+                "source_bill_id": row.source_bill.pk,
+                "source_class": str(row.source_bill.academic_class),
+                "target_class": str(row.target_academic_class or "Not configured"),
+                "outstanding": _money(row.outstanding),
+                "can_post": row.can_post,
+            })
     return {
         "terms": [{"id": item.pk, "label": f"{item.academic_year} · Term {item.term}"} for item in terms[:100]],
         "source_term_id": source.pk if source else None,
         "target_term_id": target.pk if target else None,
         "rows": rows,
-        "total": _money(sum((Decimal(row["outstanding"].replace(",", "")) for row in rows if row["can_post"]), Decimal("0"))),
+        "total": _money(preview_total),
     }
 
 
@@ -202,6 +208,10 @@ class FinanceOperationsAPIView(WorkspaceBaseAPIView):
             class_ids = request.data.get("class_ids") or []
             if not isinstance(class_ids, list) or not class_ids:
                 return Response({"detail": "Choose at least one class."}, status=status.HTTP_400_BAD_REQUEST)
+            try:
+                normalized_ids = {int(value) for value in class_ids}
+            except (TypeError, ValueError):
+                return Response({"detail": "One or more selected classes are invalid."}, status=status.HTTP_400_BAD_REQUEST)
             bill_item = BillItem.objects.filter(pk=request.data.get("bill_item_id")).first()
             if not bill_item:
                 return Response({"detail": "Choose a valid fee category."}, status=status.HTTP_400_BAD_REQUEST)
@@ -210,8 +220,8 @@ class FinanceOperationsAPIView(WorkspaceBaseAPIView):
             except ValueError as exc:
                 return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
-            classes = list(AcademicClass.objects.filter(pk__in=class_ids).select_related("Class", "academic_year", "term"))
-            if len(classes) != len({int(value) for value in class_ids}):
+            classes = list(AcademicClass.objects.filter(pk__in=normalized_ids).select_related("Class", "academic_year", "term"))
+            if len(classes) != len(normalized_ids):
                 return Response({"detail": "One or more selected classes are invalid."}, status=status.HTTP_400_BAD_REQUEST)
             generated = 0
             for academic_class in classes:
@@ -224,10 +234,6 @@ class FinanceOperationsAPIView(WorkspaceBaseAPIView):
                     academic_class_stream__academic_class=academic_class,
                     student__is_active=True,
                 ).values_list("student_id", flat=True).distinct()
-                for registration in academic_class.class_streams.filter(student_registers__student_id__in=student_ids).distinct():
-                    # Iteration is intentionally through registrations below; this line only keeps class scope explicit.
-                    pass
-                from app.models import Student
                 for student in Student.objects.filter(pk__in=student_ids, is_active=True):
                     create_student_bill(student, academic_class)
                     generated += 1
@@ -273,7 +279,6 @@ class FinanceOperationsAPIView(WorkspaceBaseAPIView):
                 return Response({"detail": "Bank transaction and payment amounts must match exactly."}, status=status.HTTP_409_CONFLICT)
             transaction_row.reconciled = True
             transaction_row.reconciled_with = payment
-            from django.utils import timezone
             transaction_row.reconciliation_date = timezone.now()
             transaction_row.save(update_fields=("reconciled", "reconciled_with", "reconciliation_date"))
             return Response({
