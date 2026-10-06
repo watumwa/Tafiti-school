@@ -18,7 +18,7 @@ class AcademicPeriodConsistencyTests(TestCase):
         self.assertTrue(second.is_current)
         self.assertEqual(AcademicYear.objects.filter(is_current=True).count(), 1)
 
-    def test_new_current_term_only_closes_current_term_in_same_year(self):
+    def test_new_current_term_closes_all_previous_current_terms(self):
         year_2025 = AcademicYear.objects.create(academic_year="2025", is_current=False)
         year_2026 = AcademicYear.objects.create(academic_year="2026", is_current=True)
 
@@ -48,10 +48,10 @@ class AcademicPeriodConsistencyTests(TestCase):
         first.refresh_from_db()
         second.refresh_from_db()
 
-        self.assertTrue(historical.is_current)
+        self.assertFalse(historical.is_current)
         self.assertFalse(first.is_current)
         self.assertTrue(second.is_current)
-        self.assertEqual(Term.objects.filter(academic_year=year_2026, is_current=True).count(), 1)
+        self.assertEqual(Term.objects.filter(is_current=True).count(), 1)
 
     def test_term_rejects_end_date_before_start_date(self):
         year = AcademicYear.objects.create(academic_year="2026", is_current=True)
