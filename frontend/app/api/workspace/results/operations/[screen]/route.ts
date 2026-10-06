@@ -6,3 +6,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ scre
   const { screen } = await params;
   return proxyWorkspaceRequest(`workspace/results/operations/${screen}/`, request);
 }
+
+export async function POST(request: Request, { params }: { params: Promise<{ screen: string }> }) {
+  const { screen } = await params;
+  return proxyWorkspaceRequest(`workspace/results/operations/${screen}/`, request);
+}
