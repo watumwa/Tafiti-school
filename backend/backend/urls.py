@@ -19,6 +19,7 @@ from .communication_workspace import CommunicationConsoleAPIView
 from .finance_operations import FinanceOperationsAPIView
 from .library_workspace import LibraryConsoleAPIView
 from .marks_workspace import MarksEntryAPIView, MarksHubAPIView
+from .parent_access_management import ParentAccessManagementAPIView
 from .parent_workspace import ParentWorkspaceAPIView
 from .results_operations import ResultsOperationsAPIView
 from .student_finance import StudentFinanceAPIView
@@ -41,6 +42,7 @@ from .views import (
 
 urlpatterns = [
     path("workspace/parent/<str:action>/", ParentWorkspaceAPIView.as_view(), name="api_workspace_parent"),
+    path("workspace/parent-access/", ParentAccessManagementAPIView.as_view(), name="api_workspace_parent_access"),
     path("workspace/bootstrap/", WorkspaceBootstrapAPIView.as_view(), name="api_workspace_bootstrap"),
     path("workspace/dashboard/", WorkspaceDashboardAPIView.as_view(), name="api_workspace_dashboard"),
     path("workspace/search/", WorkspaceSearchAPIView.as_view(), name="api_workspace_search"),
