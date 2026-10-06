@@ -20,12 +20,11 @@ EXPORTABLE_RESOURCES = {
 
 
 def _export_payload(request, resource: str):
-    builder = RESOURCE_BUILDERS.get(resource)
-    if not builder or resource not in EXPORTABLE_RESOURCES:
-        raise KeyError(resource)
+    if resource not in EXPORTABLE_RESOURCES or resource not in RESOURCE_BUILDERS:
+        return None
     if not _can_access(request, resource):
         raise PermissionError("Your current role does not have access to this report.")
-    payload = builder(request)
+    payload = RESOURCE_BUILDERS[resource](request)
     columns = payload.get("columns", [])
     rows = _search(payload.get("rows", []), request.query_params.get("q", ""))
     return payload.get("title", resource.replace("-", " ").title()), columns, rows
@@ -59,12 +58,14 @@ def _html_response(title: str, columns, rows):
 class WorkspaceExportAPIView(WorkspaceBaseAPIView):
     def get(self, request, resource: str):
         try:
-            title, columns, rows = _export_payload(request, resource)
-        except KeyError:
-            return Response({"detail": "This workspace report is not exportable."}, status=status.HTTP_404_NOT_FOUND)
+            payload = _export_payload(request, resource)
         except PermissionError as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_403_FORBIDDEN)
 
+        if payload is None:
+            return Response({"detail": "This workspace report is not exportable."}, status=status.HTTP_404_NOT_FOUND)
+
+        title, columns, rows = payload
         format_name = str(request.query_params.get("format") or "csv").strip().lower()
         if format_name == "csv":
             return _csv_response(resource, title, columns, rows)
