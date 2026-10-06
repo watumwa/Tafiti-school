@@ -4,7 +4,7 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase, override_settings
 from django.utils import timezone
 
-from app.models import AcademicYear, Class, ParentAccess, Section, Student, Term
+from app.models import AcademicYear, Class, ParentAccess, Section, Stream, Student, Term
 from app.services.parent_portal import activate_parent_access, reset_parent_password
 
 
@@ -26,6 +26,7 @@ class ParentCredentialSecurityTests(TestCase):
         )
         cls.section = Section.objects.create(section_name="Primary")
         cls.school_class = Class.objects.create(name="Primary One", code="P1", section=cls.section)
+        cls.stream = Stream.objects.create(stream="Blue")
 
     def make_student(self, *, name="Child One", contact="0772000000"):
         return Student.objects.create(
@@ -40,6 +41,7 @@ class ParentCredentialSecurityTests(TestCase):
             contact=contact,
             academic_year=self.year,
             current_class=self.school_class,
+            stream=self.stream,
             term=self.term,
         )
 
