@@ -42,4 +42,4 @@ jobs:
         with:
           python-version: '3.12'
       - name: Compile workspace backend modules
-        run: python -m py_compile backend/backend/marks_workspace.py backend/backend/urls.py backend/backend/workspace.py backend/backend/workspace_context.py
+        run: python -m py_compile backend/backend/academic_workspace.py backend/backend/marks_workspace.py backend/backend/urls.py backend/backend/workspace.py backend/backend/workspace_context.py
