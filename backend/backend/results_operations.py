@@ -256,7 +256,8 @@ def _report_cards(request):
             "submitted_remarks": submitted_remarks,
             "approved_remarks": approved_remarks,
             "marks_ready": marks_ready,
-            "status": workflow_status,
+            "status": "Ready" if marks_ready else "In progress",
+            "workflow_status": workflow_status,
         })
 
     return {
@@ -265,9 +266,9 @@ def _report_cards(request):
         "rows": rows,
         "metrics": [
             {"label": "Classes", "value": len(rows), "hint": "Current period", "tone": "blue"},
-            {"label": "Approved", "value": sum(row["status"] == "Approved" for row in rows), "hint": "Ready for final reporting", "tone": "green"},
-            {"label": "Awaiting approval", "value": sum(row["status"] == "Awaiting approval" for row in rows), "hint": "Class remarks submitted", "tone": "violet"},
-            {"label": "Need attention", "value": sum(row["status"] in {"Remarks needed", "In progress"} for row in rows), "hint": "Marks or remarks still incomplete", "tone": "gold"},
+            {"label": "Approved", "value": sum(row["workflow_status"] == "Approved" for row in rows), "hint": "Ready for final reporting", "tone": "green"},
+            {"label": "Awaiting approval", "value": sum(row["workflow_status"] == "Awaiting approval" for row in rows), "hint": "Class remarks submitted", "tone": "violet"},
+            {"label": "Need attention", "value": sum(row["workflow_status"] in {"Remarks needed", "In progress"} for row in rows), "hint": "Marks or remarks still incomplete", "tone": "gold"},
         ],
     }
 
