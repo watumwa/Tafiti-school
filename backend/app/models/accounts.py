@@ -11,6 +11,8 @@ class StaffAccount(models.Model):
     staff = models.ForeignKey(Staff, on_delete=models.CASCADE)
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="staff_account")
     role = models.ForeignKey(Role, on_delete=models.CASCADE)
+    must_change_password = models.BooleanField(default=False)
+    temporary_password_expires_at = models.DateTimeField(null=True, blank=True)
 
     def save(self, *args, **kwargs):
         if not self.user.username:
