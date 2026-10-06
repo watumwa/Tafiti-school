@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import date, timedelta
 
 from django.contrib.auth import get_user_model
 from django.urls import reverse
@@ -16,6 +16,7 @@ from app.models import (
     Class,
     ClassRegister,
     Section,
+    Staff,
     Student,
     StudentBill,
     Stream,
@@ -44,6 +45,22 @@ class WorkspaceAdmissionsTests(APITestCase):
         self.section = Section.objects.create(section_name="Admissions Test")
         self.class_record = Class.objects.create(name="Admissions Class", code="ADM", section=self.section)
         self.stream = Stream.objects.create(stream="Admissions Stream")
+        self.teacher = Staff.objects.create(
+            first_name="Admissions",
+            last_name="Teacher",
+            birth_date=date(1990, 1, 1),
+            gender="M",
+            address="School",
+            marital_status="S",
+            contacts="0700999000",
+            email="admissions-teacher@example.test",
+            qualification="Diploma",
+            hire_date=date(2020, 1, 1),
+            department="Academic",
+            salary=1,
+            staff_status="Active",
+            staff_photo="Staff/Profile_pics/admissions-test.jpg",
+        )
         self.academic_class = AcademicClass.objects.create(
             section=self.section,
             Class=self.class_record,
@@ -54,6 +71,7 @@ class WorkspaceAdmissionsTests(APITestCase):
         self.class_stream = AcademicClassStream.objects.create(
             academic_class=self.academic_class,
             stream=self.stream,
+            class_teacher=self.teacher,
         )
         self.cycle = AdmissionCycle.objects.create(
             name="Admissions Test Intake",
@@ -113,7 +131,7 @@ class WorkspaceAdmissionsTests(APITestCase):
             )
         )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data["application"]["student_name"] if "student_name" in response.data["application"] else response.data["application"]["applicant"], self.application.student_name)
+        self.assertEqual(response.data["application"]["applicant"], self.application.student_name)
         self.assertIn(
             AdmissionApplication.STATUS_REVIEW,
             [item["value"] for item in response.data["allowed_transitions"]],
