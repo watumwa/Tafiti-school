@@ -2,6 +2,7 @@ import { cookies } from 'next/headers';
 
 export const ACCESS_COOKIE = 'tafiti_access';
 export const REFRESH_COOKIE = 'tafiti_refresh';
+export const REMEMBER_COOKIE = 'tafiti_remember';
 
 export function backendApiUrl(path: string): string {
   const configured =
@@ -24,6 +25,7 @@ export async function clearAuthCookies(): Promise<void> {
   const cookieStore = await cookies();
   cookieStore.set(ACCESS_COOKIE, '', { ...authCookieOptions, maxAge: 0 });
   cookieStore.set(REFRESH_COOKIE, '', { ...authCookieOptions, maxAge: 0 });
+  cookieStore.set(REMEMBER_COOKIE, '', { ...authCookieOptions, maxAge: 0 });
 }
 
 export async function readJsonResponse(response: Response): Promise<Record<string, unknown>> {
