@@ -18,6 +18,7 @@ from .communication_workspace import CommunicationConsoleAPIView
 from .library_workspace import LibraryConsoleAPIView
 from .marks_workspace import MarksEntryAPIView, MarksHubAPIView
 from .parent_workspace import ParentWorkspaceAPIView
+from .results_operations import ResultsOperationsAPIView
 from .student_finance import StudentFinanceAPIView
 from .user_management import UserRolesWorkspaceAPIView
 
@@ -53,6 +54,7 @@ urlpatterns = [
     path("workspace/communication-console/<str:screen>/<int:pk>/", CommunicationConsoleAPIView.as_view(), name="api_workspace_communication_console_record"),
     path("workspace/library-console/<str:screen>/", LibraryConsoleAPIView.as_view(), name="api_workspace_library_console"),
     path("workspace/library-console/<str:screen>/<int:pk>/", LibraryConsoleAPIView.as_view(), name="api_workspace_library_console_record"),
+    path("workspace/results/operations/<str:screen>/", ResultsOperationsAPIView.as_view(), name="api_workspace_results_operations"),
     path("workspace/results/marks/", MarksHubAPIView.as_view(), name="api_workspace_marks_hub"),
     path("workspace/results/marks/<int:assessment_id>/", MarksEntryAPIView.as_view(), name="api_workspace_marks_entry"),
     path("workspace/resources/<str:resource>/", WorkspaceResourceAPIView.as_view(), name="api_workspace_resource"),
