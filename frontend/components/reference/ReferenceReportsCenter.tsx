@@ -5,10 +5,12 @@ import {
   BarChart3,
   BookOpenCheck,
   CalendarCheck,
+  Download,
   FileBarChart,
   FileText,
   GraduationCap,
   Library,
+  Printer,
   ReceiptText,
   Users,
 } from 'lucide-react';
@@ -61,7 +63,6 @@ const groups = [
     description: 'Staff profiles, roles and teaching allocations.',
     items: [
       ['Staff directory', 'staff'],
-      ['Users & roles', 'users-roles'],
       ['Timetable', 'timetable'],
     ],
   },
@@ -75,6 +76,13 @@ const groups = [
   },
 ] as const;
 
+function exportHref(itemHref: string, format: 'csv' | 'print') {
+  const [resource, query = ''] = itemHref.split('?');
+  const params = new URLSearchParams(query);
+  params.set('format', format);
+  return `/api/workspace/export/${resource}?${params.toString()}`;
+}
+
 export function ReferenceReportsCenter({ dashboardPath }: { dashboardPath: string }) {
   return (
     <section>
@@ -82,7 +90,7 @@ export function ReferenceReportsCenter({ dashboardPath }: { dashboardPath: strin
         <span className="grid h-11 w-11 place-items-center rounded-xl bg-blue-50 text-blue-600"><BarChart3 size={21} /></span>
         <div>
           <h1 className="text-[1.65rem] font-extrabold tracking-[-0.035em] text-[#10224A]">Report Center</h1>
-          <p className="mt-1 max-w-3xl text-xs leading-5 text-slate-500">One place to reach operational and management reports without filling the sidebar with dozens of report links.</p>
+          <p className="mt-1 max-w-3xl text-xs leading-5 text-slate-500">Open live operational reports, export the same permission-scoped data to CSV, or prepare a print-friendly copy without navigating through separate legacy report pages.</p>
         </div>
       </div>
 
@@ -99,11 +107,14 @@ export function ReferenceReportsCenter({ dashboardPath }: { dashboardPath: strin
               </div>
               <div className="divide-y divide-slate-100">
                 {group.items.map(([label, href], index) => (
-                  <Link key={label} href={`${dashboardPath}/${href}`} className="group flex items-center gap-3 px-4 py-3 text-xs font-bold text-slate-700 transition hover:bg-blue-50/40 sm:px-5">
-                    <span className="grid h-8 w-8 place-items-center rounded-lg bg-[#F5F8FC] text-slate-500 group-hover:bg-blue-100 group-hover:text-blue-700">{index % 2 === 0 ? <FileText size={14} /> : <BookOpenCheck size={14} />}</span>
-                    <span className="flex-1">{label}</span>
-                    <span className="text-[10px] font-semibold text-blue-600 opacity-0 transition group-hover:opacity-100">Open</span>
-                  </Link>
+                  <div key={label} className="group flex items-center gap-2 px-4 py-2.5 transition hover:bg-blue-50/40 sm:px-5">
+                    <Link href={`${dashboardPath}/${href}`} className="flex min-w-0 flex-1 items-center gap-3 py-0.5 text-xs font-bold text-slate-700">
+                      <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-[#F5F8FC] text-slate-500 group-hover:bg-blue-100 group-hover:text-blue-700">{index % 2 === 0 ? <FileText size={14} /> : <BookOpenCheck size={14} />}</span>
+                      <span className="truncate">{label}</span>
+                    </Link>
+                    <a href={exportHref(href, 'csv')} className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-slate-200 bg-white text-slate-400 transition hover:border-blue-200 hover:text-blue-600" title={`Export ${label} CSV`} aria-label={`Export ${label} CSV`}><Download size={13} /></a>
+                    <a href={exportHref(href, 'print')} target="_blank" rel="noreferrer" className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-slate-200 bg-white text-slate-400 transition hover:border-blue-200 hover:text-blue-600" title={`Print ${label}`} aria-label={`Print ${label}`}><Printer size={13} /></a>
+                  </div>
                 ))}
               </div>
             </article>
