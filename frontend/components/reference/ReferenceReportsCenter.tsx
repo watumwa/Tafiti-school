@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import {
   BarChart3,
   BookOpenCheck,
@@ -12,6 +13,8 @@ import {
   ReceiptText,
   Users,
 } from 'lucide-react';
+
+import { ReferenceReportCardPreparation } from './ReferenceReportCardPreparation';
 
 const groups = [
   {
@@ -29,6 +32,7 @@ const groups = [
     icon: GraduationCap,
     description: 'Results, verification, performance and report preparation.',
     items: [
+      ['Report card preparation', 'reports?view=report-cards'],
       ['Results overview', 'results'],
       ['Verification queue', 'results?view=verification'],
       ['Subjects', 'subjects'],
@@ -76,6 +80,11 @@ const groups = [
 ] as const;
 
 export function ReferenceReportsCenter({ dashboardPath }: { dashboardPath: string }) {
+  const searchParams = useSearchParams();
+  if (searchParams.get('view') === 'report-cards') {
+    return <ReferenceReportCardPreparation />;
+  }
+
   return (
     <section>
       <div className="mb-5 flex items-start gap-3">
