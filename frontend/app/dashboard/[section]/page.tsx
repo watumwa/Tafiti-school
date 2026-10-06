@@ -1,11 +1,11 @@
 import type { Metadata } from 'next';
 
-import { ReferenceDashboardShellV2 } from '@/components/reference/ReferenceDashboardShellV2';
+import { ReferenceDashboardShellV3 } from '@/components/reference/ReferenceDashboardShellV3';
 
 export const metadata: Metadata = {
   title: 'School workspace',
 };
 
 export default function DashboardPage() {
-  return <ReferenceDashboardShellV2 />;
+  return <ReferenceDashboardShellV3 />;
 }
