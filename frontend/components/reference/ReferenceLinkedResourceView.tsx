@@ -1,9 +1,10 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { BookOpen, Landmark, WalletCards } from 'lucide-react';
+import { usePathname, useSearchParams } from 'next/navigation';
+import { BookOpen, Landmark, Settings2, WalletCards } from 'lucide-react';
 
+import { ReferenceAcademicSetupView } from './ReferenceAcademicSetupView';
 import { ReferenceLibraryView } from './ReferenceLibraryView';
 import { ReferenceResourceView } from './ReferenceResourceView';
 import { ReferenceResultsWorkspace } from './ReferenceResultsWorkspace';
@@ -49,9 +50,22 @@ function TabIcon({ icon }: { icon?: Tab['icon'] }) {
 
 export function ReferenceLinkedResourceView({ resource, dashboardPath }: { resource: string; dashboardPath: string }) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
 
   if (resource === 'library') return <ReferenceLibraryView />;
-  if (resource === 'results') return <ReferenceResultsWorkspace dashboardPath={dashboardPath} />;
+  if (resource === 'results') {
+    const configMode = searchParams.get('view') === 'config';
+    return (
+      <section>
+        <div className="mb-3 flex justify-end">
+          <Link href={configMode ? `${dashboardPath}/results` : `${dashboardPath}/results?view=config`} className="clay-button-secondary">
+            <Settings2 size={14} />{configMode ? 'Back to Results' : 'Academic Setup'}
+          </Link>
+        </div>
+        {configMode ? <ReferenceAcademicSetupView /> : <ReferenceResultsWorkspace dashboardPath={dashboardPath} />}
+      </section>
+    );
+  }
 
   const tabs = groups[resource];
   if (!tabs) return <ReferenceResourceView resource={resource} />;
