@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from decimal import Decimal
 
+from django.db import transaction
 from django.db.models import Avg, Count, Q
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.response import Response
 
@@ -77,6 +79,70 @@ def _assessment_queryset(request):
     return queryset
 
 
+def _report_classes(request):
+    year, term = _current_period()
+    queryset = AcademicClass.objects.select_related("Class", "academic_year", "term").order_by("Class__name", "id")
+    if year:
+        queryset = queryset.filter(academic_year=year)
+    if term:
+        queryset = queryset.filter(term=term)
+
+    role = _role(request)
+    if role == "Class Teacher" and not request.user.is_superuser:
+        staff = _staff_for_user(request.user)
+        if not staff:
+            return queryset.none()
+        queryset = queryset.filter(class_streams__class_teacher=staff).distinct()
+    elif role == "Teacher" and not request.user.is_superuser:
+        staff = _staff_for_user(request.user)
+        if not staff:
+            return queryset.none()
+        queryset = queryset.filter(
+            class_streams__subjects__subject_teacher=staff,
+            class_streams__subjects__is_active=True,
+        ).distinct()
+    return queryset
+
+
+def _report_scope(academic_class: AcademicClass) -> tuple[str, str]:
+    assessment_types = list(
+        Assessment.objects.filter(academic_class=academic_class)
+        .select_related("assessment_type")
+        .order_by("assessment_type_id")
+        .values_list("assessment_type_id", "assessment_type__name")
+        .distinct()
+    )
+    if not assessment_types:
+        return f"term:{academic_class.term_id}", str(academic_class.term)
+    if len(assessment_types) == 1:
+        assessment_type_id, name = assessment_types[0]
+        return f"assessment:{assessment_type_id}", name
+    ids = [str(item[0]) for item in assessment_types]
+    names = [item[1] for item in assessment_types]
+    return "combined:" + "-".join(ids), "Combined: " + ", ".join(names)
+
+
+def _class_student_ids(academic_class: AcademicClass):
+    return ClassRegister.objects.filter(
+        academic_class_stream__academic_class=academic_class,
+        student__is_active=True,
+    ).values_list("student_id", flat=True).distinct()
+
+
+def _can_edit_class_remarks(request, academic_class: AcademicClass) -> bool:
+    role = _role(request)
+    if request.user.is_superuser or role == "Admin":
+        return True
+    if role != "Class Teacher":
+        return False
+    staff = _staff_for_user(request.user)
+    return bool(staff and academic_class.class_streams.filter(class_teacher=staff).exists())
+
+
+def _can_approve_reports(request) -> bool:
+    return bool(request.user.is_superuser or _role(request) in {"Admin", "Head Teacher"})
+
+
 def _status_label(batch: ResultBatch | None) -> str:
     if not batch:
         return "Not started"
@@ -146,19 +212,12 @@ def _overview(request):
 
 
 def _report_cards(request):
-    assessments = _assessment_queryset(request)
-    class_ids = list(assessments.values_list("academic_class_id", flat=True).distinct())
-    classes = AcademicClass.objects.filter(pk__in=class_ids).select_related(
-        "Class", "academic_year", "term"
-    ).order_by("Class__name", "id")
-
+    classes = list(_report_classes(request)[:500])
     rows = []
     for academic_class in classes:
-        student_ids = ClassRegister.objects.filter(
-            academic_class_stream__academic_class=academic_class
-        ).values_list("student_id", flat=True).distinct()
+        student_ids = _class_student_ids(academic_class)
         students = student_ids.count()
-        class_assessments = assessments.filter(academic_class=academic_class)
+        class_assessments = Assessment.objects.filter(academic_class=academic_class)
         total_assessments = class_assessments.count()
         verified_assessments = ResultBatch.objects.filter(
             assessment__in=class_assessments,
@@ -168,13 +227,23 @@ def _report_cards(request):
             assessment__in=class_assessments,
             status__in=("PENDING", "FLAGGED"),
         ).count()
+        scope_key, _scope_label = _report_scope(academic_class)
         remarks = ReportCycleRemark.objects.filter(
             academic_class=academic_class,
             student_id__in=student_ids,
+            scope_key=scope_key,
         )
         submitted_remarks = remarks.exclude(class_teacher_submitted_at__isnull=True).count()
         approved_remarks = remarks.exclude(head_teacher_approved_at__isnull=True).count()
-        ready = bool(total_assessments and verified_assessments == total_assessments and pending_assessments == 0)
+        marks_ready = bool(total_assessments and verified_assessments == total_assessments and pending_assessments == 0)
+        if marks_ready and students and approved_remarks == students:
+            workflow_status = "Approved"
+        elif marks_ready and students and submitted_remarks == students:
+            workflow_status = "Awaiting approval"
+        elif marks_ready:
+            workflow_status = "Remarks needed"
+        else:
+            workflow_status = "In progress"
         rows.append({
             "class_id": academic_class.pk,
             "class": str(academic_class.Class),
@@ -186,19 +255,88 @@ def _report_cards(request):
             "pending_assessments": pending_assessments,
             "submitted_remarks": submitted_remarks,
             "approved_remarks": approved_remarks,
-            "status": "Ready" if ready else "In progress",
+            "marks_ready": marks_ready,
+            "status": "Ready" if marks_ready else "In progress",
+            "workflow_status": workflow_status,
         })
 
     return {
         "title": "Report Cards",
-        "description": "Check class readiness before previewing, printing or publishing official student reports.",
+        "description": "Complete report cards in one flow: verified marks, class-teacher remarks, Head Teacher approval and final reporting.",
         "rows": rows,
         "metrics": [
             {"label": "Classes", "value": len(rows), "hint": "Current period", "tone": "blue"},
-            {"label": "Ready", "value": sum(row["status"] == "Ready" for row in rows), "hint": "All assessment batches verified", "tone": "green"},
-            {"label": "In progress", "value": sum(row["status"] != "Ready" for row in rows), "hint": "Marks or verification still pending", "tone": "gold"},
-            {"label": "Students", "value": sum(row["students"] for row in rows), "hint": "Across visible classes", "tone": "violet"},
+            {"label": "Approved", "value": sum(row["workflow_status"] == "Approved" for row in rows), "hint": "Ready for final reporting", "tone": "green"},
+            {"label": "Awaiting approval", "value": sum(row["workflow_status"] == "Awaiting approval" for row in rows), "hint": "Class remarks submitted", "tone": "violet"},
+            {"label": "Need attention", "value": sum(row["workflow_status"] in {"Remarks needed", "In progress"} for row in rows), "hint": "Marks or remarks still incomplete", "tone": "gold"},
         ],
+    }
+
+
+def _report_card_class(request, class_id: int):
+    try:
+        academic_class = _report_classes(request).get(pk=class_id)
+    except AcademicClass.DoesNotExist:
+        return None
+
+    student_ids = list(_class_student_ids(academic_class))
+    students = {
+        row.student_id: row.student
+        for row in ClassRegister.objects.filter(
+            academic_class_stream__academic_class=academic_class,
+            student_id__in=student_ids,
+        ).select_related("student").order_by("student__student_name", "student__reg_no")
+    }
+    scope_key, scope_label = _report_scope(academic_class)
+    remarks = {
+        row.student_id: row
+        for row in ReportCycleRemark.objects.filter(
+            academic_class=academic_class,
+            student_id__in=student_ids,
+            scope_key=scope_key,
+        )
+    }
+    class_assessments = Assessment.objects.filter(academic_class=academic_class)
+    assessment_count = class_assessments.count()
+    verified_count = ResultBatch.objects.filter(assessment__in=class_assessments, status="VERIFIED").count()
+    marks_ready = bool(assessment_count and verified_count == assessment_count)
+
+    rows = []
+    seen = set()
+    for student_id in student_ids:
+        if student_id in seen or student_id not in students:
+            continue
+        seen.add(student_id)
+        student = students[student_id]
+        remark = remarks.get(student_id)
+        rows.append({
+            "student_id": student.pk,
+            "student": student.student_name,
+            "reg_no": student.reg_no or "—",
+            "class_teacher_remark": remark.class_teacher_remark if remark else "",
+            "head_teacher_remark": remark.head_teacher_remark if remark else "",
+            "submitted": bool(remark and remark.class_teacher_submitted_at),
+            "approved": bool(remark and remark.head_teacher_approved_at),
+            "submitted_at": remark.class_teacher_submitted_at.isoformat() if remark and remark.class_teacher_submitted_at else "",
+            "approved_at": remark.head_teacher_approved_at.isoformat() if remark and remark.head_teacher_approved_at else "",
+        })
+
+    return {
+        "class_id": academic_class.pk,
+        "class": str(academic_class.Class),
+        "year": str(academic_class.academic_year),
+        "term": str(academic_class.term),
+        "scope_key": scope_key,
+        "scope_label": scope_label,
+        "marks_ready": marks_ready,
+        "assessment_count": assessment_count,
+        "verified_count": verified_count,
+        "students": len(rows),
+        "submitted": sum(1 for row in rows if row["submitted"]),
+        "approved": sum(1 for row in rows if row["approved"]),
+        "can_edit_class_remarks": _can_edit_class_remarks(request, academic_class),
+        "can_approve": _can_approve_reports(request),
+        "rows": rows,
     }
 
 
@@ -249,6 +387,13 @@ def _performance(request):
     }
 
 
+def _remarks_payload(request):
+    remarks = request.data.get("remarks") or {}
+    if not isinstance(remarks, dict):
+        return None
+    return {str(key): str(value or "").strip()[: ReportCycleRemark.MAX_REMARK_LENGTH] for key, value in remarks.items()}
+
+
 class ResultsOperationsAPIView(WorkspaceBaseAPIView):
     def get(self, request, screen: str):
         if not _can_read(request):
@@ -260,7 +405,119 @@ class ResultsOperationsAPIView(WorkspaceBaseAPIView):
         if screen == "overview":
             return Response(_overview(request))
         if screen == "report-cards":
+            class_id = request.query_params.get("class_id")
+            if class_id:
+                try:
+                    payload = _report_card_class(request, int(class_id))
+                except (TypeError, ValueError):
+                    payload = None
+                if not payload:
+                    return Response({"detail": "Report-card class not found or not available to your role."}, status=status.HTTP_404_NOT_FOUND)
+                return Response(payload)
             return Response(_report_cards(request))
         if screen == "performance":
             return Response(_performance(request))
         return Response({"detail": "Unknown results operations screen."}, status=status.HTTP_404_NOT_FOUND)
+
+    @transaction.atomic
+    def post(self, request, screen: str):
+        if not _can_read(request):
+            return Response({"detail": "Your current role cannot access results operations."}, status=status.HTTP_403_FORBIDDEN)
+        if screen != "report-cards":
+            return Response({"detail": "This results screen does not accept workflow actions."}, status=status.HTTP_405_METHOD_NOT_ALLOWED)
+
+        try:
+            class_id = int(request.data.get("class_id"))
+            academic_class = _report_classes(request).select_for_update().get(pk=class_id)
+        except (TypeError, ValueError, AcademicClass.DoesNotExist):
+            return Response({"detail": "Choose a valid report-card class."}, status=status.HTTP_400_BAD_REQUEST)
+
+        action = str(request.data.get("action") or "").strip().lower()
+        student_ids = list(_class_student_ids(academic_class))
+        scope_key, scope_label = _report_scope(academic_class)
+        now = timezone.now()
+
+        if action in {"save_class", "submit_class"}:
+            if not _can_edit_class_remarks(request, academic_class):
+                return Response({"detail": "Only the assigned Class Teacher or an administrator can prepare these remarks."}, status=status.HTTP_403_FORBIDDEN)
+            remarks_payload = _remarks_payload(request)
+            if remarks_payload is None:
+                return Response({"detail": "Remarks must be supplied as a student-to-remark map."}, status=status.HTTP_400_BAD_REQUEST)
+
+            missing = []
+            changed = 0
+            for student_id in student_ids:
+                text = remarks_payload.get(str(student_id), "")
+                remark, _ = ReportCycleRemark.objects.select_for_update().get_or_create(
+                    student_id=student_id,
+                    academic_class=academic_class,
+                    scope_key=scope_key,
+                    defaults={"scope_label": scope_label},
+                )
+                if remark.head_teacher_approved_at:
+                    continue
+                remark.scope_label = scope_label
+                remark.class_teacher_remark = text
+                remark.updated_by = request.user
+                if action == "submit_class":
+                    if not text:
+                        missing.append(student_id)
+                        continue
+                    remark.class_teacher_submitted_by = request.user
+                    remark.class_teacher_submitted_at = now
+                else:
+                    remark.class_teacher_submitted_by = None
+                    remark.class_teacher_submitted_at = None
+                remark.head_teacher_approved_by = None
+                remark.head_teacher_approved_at = None
+                remark.save()
+                changed += 1
+
+            if action == "submit_class" and missing:
+                transaction.set_rollback(True)
+                return Response(
+                    {"detail": f"Add a class-teacher remark for all students before submitting. {len(missing)} student(s) are still missing remarks."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            return Response({"detail": "Class remarks submitted for Head Teacher approval." if action == "submit_class" else "Class remark drafts saved.", "updated": changed})
+
+        if action == "approve_class":
+            if not _can_approve_reports(request):
+                return Response({"detail": "Only the Head Teacher or administrator can approve report cards."}, status=status.HTTP_403_FORBIDDEN)
+            remarks = list(ReportCycleRemark.objects.select_for_update().filter(
+                academic_class=academic_class,
+                student_id__in=student_ids,
+                scope_key=scope_key,
+            ))
+            submitted_ids = {row.student_id for row in remarks if row.class_teacher_submitted_at}
+            missing = [student_id for student_id in student_ids if student_id not in submitted_ids]
+            if missing:
+                return Response({"detail": f"The class cannot be approved yet. {len(missing)} student remark(s) have not been submitted by the Class Teacher."}, status=status.HTTP_409_CONFLICT)
+            approved = 0
+            for remark in remarks:
+                if not remark.class_teacher_submitted_at:
+                    continue
+                remark.head_teacher_approved_by = request.user
+                remark.head_teacher_approved_at = now
+                remark.updated_by = request.user
+                remark.save(update_fields=["head_teacher_approved_by", "head_teacher_approved_at", "updated_by", "updated_at"])
+                approved += 1
+            return Response({"detail": "Report cards approved for the class and ready for final reporting.", "approved": approved})
+
+        if action == "return_class":
+            if not _can_approve_reports(request):
+                return Response({"detail": "Only the Head Teacher or administrator can return report cards for revision."}, status=status.HTTP_403_FORBIDDEN)
+            updated = ReportCycleRemark.objects.filter(
+                academic_class=academic_class,
+                student_id__in=student_ids,
+                scope_key=scope_key,
+            ).update(
+                class_teacher_submitted_by=None,
+                class_teacher_submitted_at=None,
+                head_teacher_approved_by=None,
+                head_teacher_approved_at=None,
+                updated_by=request.user,
+            )
+            return Response({"detail": "Report cards returned to the Class Teacher for revision.", "updated": updated})
+
+        return Response({"detail": "Unknown report-card action."}, status=status.HTTP_400_BAD_REQUEST)

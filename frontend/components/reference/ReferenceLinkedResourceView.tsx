@@ -10,6 +10,7 @@ import { ReferenceAdmissionsWorkspace } from './ReferenceAdmissionsWorkspace';
 import { ReferenceAttendanceHub } from './ReferenceAttendanceHub';
 import { ReferenceCommunicationConsoleView } from './ReferenceCommunicationConsoleView';
 import { ReferenceLibraryConsoleView } from './ReferenceLibraryConsoleView';
+import { ReferenceReportCardsWorkspace } from './ReferenceReportCardsWorkspace';
 import { ReferenceResourceView } from './ReferenceResourceView';
 import { ReferenceResultsOperations } from './ReferenceResultsOperations';
 import { ReferenceStudentAccountsView } from './ReferenceStudentAccountsView';
@@ -65,7 +66,9 @@ export function ReferenceLinkedResourceView({ resource, dashboardPath }: { resou
   if (resource === 'communication') return <ReferenceCommunicationConsoleView />;
   if (resource === 'library') return <ReferenceLibraryConsoleView />;
   if (resource === 'results') {
-    const configMode = searchParams.get('view') === 'config';
+    const view = searchParams.get('view');
+    const configMode = view === 'config';
+    const reportCardsMode = view === 'report-cards';
     return (
       <section>
         <div className="mb-3 flex justify-end">
@@ -73,7 +76,7 @@ export function ReferenceLinkedResourceView({ resource, dashboardPath }: { resou
             <Settings2 size={14} />{configMode ? 'Back to Results' : 'Academic Setup'}
           </Link>
         </div>
-        {configMode ? <ReferenceAcademicSetupView /> : <ReferenceResultsOperations dashboardPath={dashboardPath} />}
+        {configMode ? <ReferenceAcademicSetupView /> : reportCardsMode ? <ReferenceReportCardsWorkspace dashboardPath={dashboardPath} /> : <ReferenceResultsOperations dashboardPath={dashboardPath} />}
       </section>
     );
   }
