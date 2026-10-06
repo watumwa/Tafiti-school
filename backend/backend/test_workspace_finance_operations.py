@@ -3,6 +3,7 @@ from decimal import Decimal
 
 from django.contrib.auth import get_user_model
 from django.urls import reverse
+from django.utils.crypto import get_random_string
 from rest_framework import status
 from rest_framework.test import APITestCase
 
@@ -18,6 +19,7 @@ from app.models import (
     ClassRegister,
     Payment,
     Section,
+    Staff,
     Stream,
     Student,
     StudentBill,
@@ -31,7 +33,7 @@ class FinanceOperationsTests(APITestCase):
         self.admin = get_user_model().objects.create_superuser(
             username="finance-ops-admin",
             email="finance-ops@example.test",
-            password="A-strong-test-password-123",
+            password=get_random_string(24),
         )
         self.client.force_authenticate(user=self.admin)
         self.year = AcademicYear.objects.create(academic_year="2026", is_current=True)
@@ -40,10 +42,16 @@ class FinanceOperationsTests(APITestCase):
         section = Section.objects.create(section_name="Finance Ops")
         school_class = Class.objects.create(name="Primary Four", code="P4", section=section)
         stream = Stream.objects.create(stream="Blue")
+        teacher = Staff.objects.create(
+            first_name="Finance", last_name="Teacher", birth_date=date(1990, 1, 1), gender="M", address="Kampala",
+            marital_status="U", contacts="0700009876", email="finance-teacher@example.test", qualification="Degree",
+            nin_no="CMFIN123456789", hire_date=date(2020, 1, 1), department="Academic", salary="1000000.00",
+            is_academic_staff=True, is_administrator_staff=False, is_support_staff=False, staff_status="Active",
+        )
         self.class1 = AcademicClass.objects.create(section=section, Class=school_class, academic_year=self.year, term=self.term1, fees_amount=Decimal("100000"))
         self.class2 = AcademicClass.objects.create(section=section, Class=school_class, academic_year=self.year, term=self.term2, fees_amount=Decimal("120000"))
-        stream1 = AcademicClassStream.objects.create(academic_class=self.class1, stream=stream)
-        AcademicClassStream.objects.create(academic_class=self.class2, stream=stream)
+        stream1 = AcademicClassStream.objects.create(academic_class=self.class1, stream=stream, class_teacher=teacher)
+        AcademicClassStream.objects.create(academic_class=self.class2, stream=stream, class_teacher=teacher)
         self.student = Student.objects.create(
             reg_no="FIN-001", student_name="Finance Student", gender="M", birthdate=date(2016, 1, 1),
             nationality="Ugandan", religion="Muslim", address="Kampala", guardian="Finance Parent",
@@ -65,7 +73,6 @@ class FinanceOperationsTests(APITestCase):
         charge = StudentBillItem.objects.get(bill=bill, bill_item=self.fee_item)
         self.assertEqual(charge.amount, Decimal("45000.00"))
 
-        # Re-running updates the same class template/student charge instead of duplicating it.
         response = self.client.post(self.url("billing"), {
             "class_ids": [self.class1.pk], "bill_item_id": self.fee_item.pk, "amount": "50000",
         }, format="json")
