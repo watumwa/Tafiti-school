@@ -10,7 +10,7 @@ import { ReferenceAttendanceHub } from './ReferenceAttendanceHub';
 import { ReferenceCommunicationConsoleView } from './ReferenceCommunicationConsoleView';
 import { ReferenceLibraryConsoleView } from './ReferenceLibraryConsoleView';
 import { ReferenceResourceView } from './ReferenceResourceView';
-import { ReferenceResultsWorkspace } from './ReferenceResultsWorkspace';
+import { ReferenceResultsOperations } from './ReferenceResultsOperations';
 import { ReferenceStudentAccountsView } from './ReferenceStudentAccountsView';
 
 type Tab = { slug: string; label: string; icon?: 'wallet' | 'finance' | 'book' };
@@ -69,7 +69,7 @@ export function ReferenceLinkedResourceView({ resource, dashboardPath }: { resou
             <Settings2 size={14} />{configMode ? 'Back to Results' : 'Academic Setup'}
           </Link>
         </div>
-        {configMode ? <ReferenceAcademicSetupView /> : <ReferenceResultsWorkspace dashboardPath={dashboardPath} />}
+        {configMode ? <ReferenceAcademicSetupView /> : <ReferenceResultsOperations dashboardPath={dashboardPath} />}
       </section>
     );
   }
