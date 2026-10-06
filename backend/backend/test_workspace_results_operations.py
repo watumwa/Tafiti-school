@@ -17,6 +17,7 @@ from app.models import (
     Result,
     ResultBatch,
     Section,
+    Staff,
     Stream,
     Student,
     Subject,
@@ -51,9 +52,29 @@ class ResultsOperationsWorkspaceTests(APITestCase):
             term=term,
             fees_amount=500000,
         )
+        teacher = Staff.objects.create(
+            first_name="Results",
+            last_name="Teacher",
+            birth_date=date(1990, 1, 1),
+            gender="M",
+            address="Kampala",
+            marital_status="U",
+            contacts="0700999000",
+            email="results-teacher@example.test",
+            qualification="Degree",
+            nin_no="CMOPS123456789",
+            hire_date=date(2020, 1, 1),
+            department="Academic",
+            salary="1000000.00",
+            is_academic_staff=True,
+            is_administrator_staff=False,
+            is_support_staff=False,
+            staff_status="Active",
+        )
         class_stream = AcademicClassStream.objects.create(
             academic_class=academic_class,
             stream=stream,
+            class_teacher=teacher,
         )
         student = Student.objects.create(
             reg_no="RESULTS-OPS-001",
