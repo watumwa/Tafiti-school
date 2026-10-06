@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from datetime import date
-
 from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
@@ -9,11 +7,14 @@ from django.utils.dateparse import parse_date
 from rest_framework import status
 from rest_framework.response import Response
 
+from app.forms.admissions import AdmissionApplicationForm
 from app.models import AdmissionApplication, AdmissionCycle, AdmissionStatusHistory, Class
+from app.models.students import normalize_guardian_contact, normalize_student_name
 from app.services.admissions import EnrollmentError, enroll_application
 
 from .auth import canonical_role_label, resolve_active_role
 from .workspace import WorkspaceBaseAPIView, _token_context
+from .workspace_forms import serialize_form
 
 
 READ_ROLES = {"Admin", "Head Teacher", "Director of Studies", "Admissions Officer"}
@@ -89,6 +90,10 @@ def _date(value) -> str:
     return value.isoformat() if hasattr(value, "isoformat") else str(value)
 
 
+def _form_errors(form) -> dict[str, list[str]]:
+    return {key: [str(item) for item in errors] for key, errors in form.errors.items()}
+
+
 def _base_queryset():
     return AdmissionApplication.objects.select_related(
         "cycle",
@@ -124,6 +129,27 @@ def _filtered_queryset(request):
     if date_to:
         queryset = queryset.filter(created_at__date__lte=date_to)
     return queryset
+
+
+def _duplicate_application(cleaned_data, *, exclude_pk: int | None = None):
+    cycle = cleaned_data.get("cycle")
+    name = normalize_student_name(cleaned_data.get("student_name"))
+    birthdate = cleaned_data.get("birthdate")
+    contact = normalize_guardian_contact(cleaned_data.get("contact"))
+    if not all((cycle, name, birthdate, contact)):
+        return None
+    possible = AdmissionApplication.objects.filter(cycle=cycle, birthdate=birthdate).exclude(
+        status__in=(AdmissionApplication.STATUS_REJECTED, AdmissionApplication.STATUS_WITHDRAWN)
+    )
+    if exclude_pk:
+        possible = possible.exclude(pk=exclude_pk)
+    for application in possible.only("id", "student_name", "contact", "application_number"):
+        if (
+            normalize_student_name(application.student_name) == name
+            and normalize_guardian_contact(application.contact) == contact
+        ):
+            return application
+    return None
 
 
 def _row(application: AdmissionApplication) -> dict:
@@ -281,6 +307,13 @@ def _detail_payload(application: AdmissionApplication, request) -> dict:
     }
 
 
+def _application_form_payload(request, application: AdmissionApplication | None = None):
+    payload = serialize_form(request, "admissions", instance=application)
+    payload["title"] = "Edit application" if application else "New application"
+    payload["submit_label"] = "Save application" if application else "Create application"
+    return payload
+
+
 class AdmissionsWorkspaceAPIView(WorkspaceBaseAPIView):
     def get(self, request, screen: str, pk: int | None = None):
         if not _can_read(request):
@@ -291,6 +324,19 @@ class AdmissionsWorkspaceAPIView(WorkspaceBaseAPIView):
 
         if screen == "applications" and pk is None:
             return Response(_list_payload(request))
+
+        if screen == "form":
+            if not _can_write(request):
+                return Response({"detail": "Your current role cannot edit admissions."}, status=status.HTTP_403_FORBIDDEN)
+            if pk is None:
+                return Response(_application_form_payload(request))
+            try:
+                application = _base_queryset().get(pk=pk)
+            except AdmissionApplication.DoesNotExist:
+                return Response({"detail": "Admission application was not found."}, status=status.HTTP_404_NOT_FOUND)
+            if application.status == AdmissionApplication.STATUS_ENROLLED:
+                return Response({"detail": "An enrolled application is read-only. Edit the student record instead."}, status=status.HTTP_409_CONFLICT)
+            return Response(_application_form_payload(request, application))
 
         if screen == "application" and pk is not None:
             try:
@@ -311,6 +357,49 @@ class AdmissionsWorkspaceAPIView(WorkspaceBaseAPIView):
                 {"detail": "Your current role cannot change admission applications."},
                 status=status.HTTP_403_FORBIDDEN,
             )
+
+        if screen == "applications" and pk is None:
+            action = str(request.data.get("action") or "create").strip().lower()
+            if action != "create":
+                return Response({"detail": "Unknown admissions action."}, status=status.HTTP_400_BAD_REQUEST)
+            values = request.data.get("values") if isinstance(request.data.get("values"), dict) else request.data
+            form = AdmissionApplicationForm(data=values)
+            if not form.is_valid():
+                return Response({"detail": "Please correct the application fields.", "errors": _form_errors(form)}, status=status.HTTP_400_BAD_REQUEST)
+            duplicate = _duplicate_application(form.cleaned_data)
+            if duplicate:
+                return Response(
+                    {
+                        "detail": f"A current application already exists for this learner: {duplicate.application_number}.",
+                        "errors": {"__all__": ["Review the existing application instead of creating a duplicate."]},
+                        "existing_application_id": duplicate.pk,
+                    },
+                    status=status.HTTP_409_CONFLICT,
+                )
+            application = form.save(commit=False)
+            application.created_by = request.user
+            application.source = AdmissionApplication.SOURCE_INTERNAL
+            application.status = (
+                AdmissionApplication.STATUS_DRAFT
+                if str(request.data.get("save_action") or "submitted").lower() == "draft"
+                else AdmissionApplication.STATUS_SUBMITTED
+            )
+            application.save()
+            AdmissionStatusHistory.objects.create(
+                application=application,
+                to_status=application.status,
+                notes="Application created in the admissions workspace.",
+                changed_by=request.user,
+            )
+            return Response(
+                {
+                    "detail": f"Application {application.application_number} created.",
+                    "id": application.pk,
+                    "application_number": application.application_number,
+                },
+                status=status.HTTP_201_CREATED,
+            )
+
         if screen != "application" or pk is None:
             return Response({"detail": "Unknown admissions action."}, status=status.HTTP_404_NOT_FOUND)
 
@@ -323,6 +412,27 @@ class AdmissionsWorkspaceAPIView(WorkspaceBaseAPIView):
             )
 
         action = str(request.data.get("action") or "").strip().lower()
+
+        if action == "edit":
+            if application.status == AdmissionApplication.STATUS_ENROLLED:
+                return Response({"detail": "An enrolled application is read-only. Edit the student record instead."}, status=status.HTTP_409_CONFLICT)
+            values = request.data.get("values") if isinstance(request.data.get("values"), dict) else request.data
+            form = AdmissionApplicationForm(data=values, instance=application)
+            if not form.is_valid():
+                return Response({"detail": "Please correct the application fields.", "errors": _form_errors(form)}, status=status.HTTP_400_BAD_REQUEST)
+            duplicate = _duplicate_application(form.cleaned_data, exclude_pk=application.pk)
+            if duplicate:
+                return Response(
+                    {
+                        "detail": f"Another current application already exists for this learner: {duplicate.application_number}.",
+                        "errors": {"__all__": ["Review the existing application instead of duplicating it."]},
+                        "existing_application_id": duplicate.pk,
+                    },
+                    status=status.HTTP_409_CONFLICT,
+                )
+            form.save()
+            refreshed = _base_queryset().get(pk=application.pk)
+            return Response({"detail": "Application details updated.", "workspace": _detail_payload(refreshed, request)})
 
         if action == "transition":
             target = str(request.data.get("status") or "").strip().lower()
