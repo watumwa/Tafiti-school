@@ -12,6 +12,7 @@ import { ReferenceLibraryConsoleView } from './ReferenceLibraryConsoleView';
 import { ReferenceResourceView } from './ReferenceResourceView';
 import { ReferenceResultsOperations } from './ReferenceResultsOperations';
 import { ReferenceStudentAccountsView } from './ReferenceStudentAccountsView';
+import { ReferenceTimetableWorkspace } from './ReferenceTimetableWorkspace';
 
 type Tab = { slug: string; label: string; icon?: 'wallet' | 'finance' | 'book' };
 
@@ -58,6 +59,7 @@ export function ReferenceLinkedResourceView({ resource, dashboardPath }: { resou
 
   if (resource === 'admissions') return <ReferenceAdmissionsWorkspace dashboardPath={dashboardPath} />;
   if (resource === 'attendance') return <ReferenceAttendanceHub dashboardPath={dashboardPath} />;
+  if (resource === 'timetable') return <ReferenceTimetableWorkspace />;
   if (resource === 'communication') return <ReferenceCommunicationConsoleView />;
   if (resource === 'library') return <ReferenceLibraryConsoleView />;
   if (resource === 'results') {
