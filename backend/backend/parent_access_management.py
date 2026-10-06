@@ -16,8 +16,8 @@ from .auth import canonical_role_label, resolve_active_role
 from .workspace import WorkspaceBaseAPIView, _token_context
 
 
-READ_ROLES = {"Admin", "Head Teacher", "Admissions Officer"}
-WRITE_ROLES = {"Admin", "Admissions Officer"}
+READ_ROLES = {"Admin", "Head Teacher", "Director of Studies"}
+WRITE_ROLES = {"Admin"}
 
 
 def _role(request) -> str:
@@ -58,7 +58,9 @@ def _row(access: ParentAccess) -> dict:
 def _payload(request) -> dict:
     accesses = ParentAccess.objects.select_related("user", "student").order_by("student__student_name", "id")
     linked_student_ids = set(accesses.values_list("student_id", flat=True))
-    candidates = Student.objects.filter(is_active=True).exclude(pk__in=linked_student_ids).order_by("student_name", "reg_no")[:2000]
+    candidate_qs = Student.objects.filter(is_active=True).exclude(pk__in=linked_student_ids).order_by("student_name", "reg_no")
+    students_without_access = candidate_qs.count()
+    candidates = candidate_qs[:2000]
     active_count = accesses.filter(is_active=True, is_verified=True).count()
     unique_accounts = accesses.values("user_id").distinct().count()
     return {
@@ -69,7 +71,7 @@ def _payload(request) -> dict:
             "links": accesses.count(),
             "active_links": active_count,
             "parent_accounts": unique_accounts,
-            "students_without_access": candidates.count(),
+            "students_without_access": students_without_access,
         },
         "rows": [_row(access) for access in accesses[:2500]],
         "candidates": [
@@ -97,7 +99,7 @@ class ParentAccessManagementAPIView(WorkspaceBaseAPIView):
     @transaction.atomic
     def post(self, request):
         if not _can_write(request):
-            return Response({"detail": "Your current role cannot change parent access."}, status=status.HTTP_403_FORBIDDEN)
+            return Response({"detail": "Only an administrator can change parent access."}, status=status.HTTP_403_FORBIDDEN)
 
         action = str(request.data.get("action") or "").strip().lower()
 
