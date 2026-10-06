@@ -5,6 +5,7 @@ import {
   CalendarDays,
   ChartNoAxesColumn,
   Contact,
+  FileText,
   History,
   Landmark,
   LayoutDashboard,
@@ -12,6 +13,7 @@ import {
   MessagesSquare,
   School,
   Settings2,
+  ShieldCheck,
   UserPlus,
   Users,
   WalletCards,
@@ -35,6 +37,8 @@ const icons: Record<string, LucideIcon> = {
   'messages-square': MessagesSquare,
   history: History,
   'settings-2': Settings2,
+  'file-text': FileText,
+  'shield-check': ShieldCheck,
 };
 
 export function WorkspaceIcon({ name, size = 18, className = '' }: { name: string; size?: number; className?: string }) {
