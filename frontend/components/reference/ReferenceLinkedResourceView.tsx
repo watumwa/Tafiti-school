@@ -9,6 +9,7 @@ import { ReferenceClassesWorkspace } from './ReferenceClassesWorkspace';
 import { ReferenceAdmissionsWorkspace } from './ReferenceAdmissionsWorkspace';
 import { ReferenceAttendanceHub } from './ReferenceAttendanceHub';
 import { ReferenceCommunicationConsoleView } from './ReferenceCommunicationConsoleView';
+import { ReferenceFinanceReconciliation } from './ReferenceFinanceReconciliation';
 import { ReferenceLibraryConsoleView } from './ReferenceLibraryConsoleView';
 import { ReferenceReportCardsWorkspace } from './ReferenceReportCardsWorkspace';
 import { ReferenceResourceView } from './ReferenceResourceView';
@@ -16,7 +17,7 @@ import { ReferenceResultsOperations } from './ReferenceResultsOperations';
 import { ReferenceStudentAccountsView } from './ReferenceStudentAccountsView';
 import { ReferenceTimetableWorkspace } from './ReferenceTimetableWorkspace';
 
-type Tab = { slug: string; label: string; icon?: 'wallet' | 'finance' | 'book' };
+type Tab = { slug: string; label: string; icon?: 'wallet' | 'finance' | 'book'; view?: string };
 
 const feesTabs: Tab[] = [
   { slug: 'fees', label: 'Student Accounts', icon: 'wallet' },
@@ -27,6 +28,7 @@ const feesTabs: Tab[] = [
 
 const financeTabs: Tab[] = [
   { slug: 'finance', label: 'Overview', icon: 'finance' },
+  { slug: 'finance', label: 'Bank Reconciliation', icon: 'finance', view: 'reconciliation' },
   { slug: 'finance-budgets', label: 'Budgets', icon: 'finance' },
   { slug: 'finance-budget-items', label: 'Allocations', icon: 'finance' },
   { slug: 'finance-expenditure-items', label: 'Expenditure Items', icon: 'finance' },
@@ -83,23 +85,28 @@ export function ReferenceLinkedResourceView({ resource, dashboardPath }: { resou
 
   const tabs = groups[resource];
   if (!tabs) return <ReferenceResourceView resource={resource} />;
+  const financeReconciliation = resource === 'finance' && searchParams.get('view') === 'reconciliation';
 
   return (
     <section>
       <div className="mb-4 overflow-x-auto rounded-xl border border-slate-200 bg-white p-1.5 shadow-[0_5px_16px_rgba(28,55,97,.035)]">
         <div className="flex min-w-max gap-1">
           {tabs.map((tab) => {
-            const href = `${dashboardPath}/${tab.slug}`;
-            const active = pathname === href || pathname.startsWith(`${href}/`);
+            const baseHref = `${dashboardPath}/${tab.slug}`;
+            const href = tab.view ? `${baseHref}?view=${tab.view}` : baseHref;
+            const currentView = searchParams.get('view');
+            const active = tab.view
+              ? pathname === baseHref && currentView === tab.view
+              : pathname === baseHref && !currentView || pathname.startsWith(`${baseHref}/`);
             return (
-              <Link key={tab.slug} href={href} className={`inline-flex h-9 items-center gap-1.5 rounded-lg px-3 text-[10px] font-extrabold transition ${active ? 'bg-blue-600 text-white shadow-[0_5px_12px_rgba(37,99,235,.18)]' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'}`}>
+              <Link key={`${tab.slug}-${tab.view || 'default'}`} href={href} className={`inline-flex h-9 items-center gap-1.5 rounded-lg px-3 text-[10px] font-extrabold transition ${active ? 'bg-blue-600 text-white shadow-[0_5px_12px_rgba(37,99,235,.18)]' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'}`}>
                 <TabIcon icon={tab.icon} />{tab.label}
               </Link>
             );
           })}
         </div>
       </div>
-      {resource === 'fees' ? <ReferenceStudentAccountsView dashboardPath={dashboardPath} /> : <ReferenceResourceView resource={resource} />}
+      {financeReconciliation ? <ReferenceFinanceReconciliation /> : resource === 'fees' ? <ReferenceStudentAccountsView dashboardPath={dashboardPath} /> : <ReferenceResourceView resource={resource} />}
     </section>
   );
 }
