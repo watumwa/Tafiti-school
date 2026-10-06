@@ -18,13 +18,13 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from app.models import ParentAccess
+from app.models import ParentAccess, StaffAccount
 
 from .auth import (
     find_user,
-    parent_temporary_password_expired,
     resolve_active_role,
     serialize_user_context,
+    temporary_password_expired,
     user_has_portal_access,
 )
 from .models import FeeLedger, GradeMatrix, Student, User
@@ -82,7 +82,7 @@ class LoginAPIView(APIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        if parent_temporary_password_expired(user):
+        if temporary_password_expired(user):
             return Response(
                 {
                     "code": "temporary_password_expired",
@@ -201,6 +201,10 @@ class PasswordResetConfirmAPIView(APIView):
             must_change_password=False,
             temporary_password_expires_at=None,
         )
+        StaffAccount.objects.filter(user=user).update(
+            must_change_password=False,
+            temporary_password_expires_at=None,
+        )
         return Response({"detail": "Your password has been reset. You can now sign in."})
 
 
@@ -220,6 +224,10 @@ class PasswordChangeAPIView(APIView):
         request.user.set_password(password)
         request.user.save(update_fields=["password"])
         ParentAccess.objects.filter(user=request.user).update(
+            must_change_password=False,
+            temporary_password_expires_at=None,
+        )
+        StaffAccount.objects.filter(user=request.user).update(
             must_change_password=False,
             temporary_password_expires_at=None,
         )
