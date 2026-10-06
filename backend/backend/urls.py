@@ -58,6 +58,7 @@ urlpatterns = [
     path("workspace/library-console/<str:screen>/", LibraryConsoleAPIView.as_view(), name="api_workspace_library_console"),
     path("workspace/library-console/<str:screen>/<int:pk>/", LibraryConsoleAPIView.as_view(), name="api_workspace_library_console_record"),
     path("workspace/results/operations/<str:screen>/", ResultsOperationsAPIView.as_view(), name="api_workspace_results_operations"),
+    path("workspace/results/operations/<str:screen>/<int:pk>/", ResultsOperationsAPIView.as_view(), name="api_workspace_results_operations_record"),
     path("workspace/results/marks/", MarksHubAPIView.as_view(), name="api_workspace_marks_hub"),
     path("workspace/results/marks/<int:assessment_id>/", MarksEntryAPIView.as_view(), name="api_workspace_marks_entry"),
     path("workspace/timetable-console/<str:screen>/", TimetableOperationsAPIView.as_view(), name="api_workspace_timetable_console"),
