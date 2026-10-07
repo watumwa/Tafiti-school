@@ -1,6 +1,6 @@
 # Tafiti School Management System — Next.js Migration Status
 
-Date: 5 October 2026
+Date: 7 October 2026
 
 ## Objective
 
@@ -142,7 +142,7 @@ Open `http://localhost:3000`.
 - `npm --prefix frontend run typecheck` passes.
 - `cd backend && ../venv/bin/python manage.py check --settings=core.settings.test` passes.
 - Targeted parent, finance and attendance Django regression tests pass (21 tests).
-- The production Next.js build passes. The full Django test suite has not yet been run.
+- The Next.js TypeScript check passes. A production build was not run in this environment because the installed Node.js is 18.19.1 while Next.js 16 requires Node.js 20.9 or newer. The full Django test suite has not yet been run.
 
 ## Phase 2 checkpoint — CRUD actions + soft-clay UI
 
@@ -192,3 +192,25 @@ This avoids the common claymorphism problem where every element appears raised a
 - Add/Edit forms show the current image and an immediate preview when a replacement is selected.
 - Next.js includes an authenticated `/api/media/...` proxy so Django `/media/...` files resolve correctly when the frontend and backend run on different ports/domains.
 - Existing media files remain in Django's configured `MEDIA_ROOT`; do not delete `backend/media/` when moving an existing installation. The supplied original archive did not contain actual student/staff image files, so any existing deployment media directory must be retained separately when moving environments.
+
+## Phase 3 checkpoint — enterprise workflows and navigation
+
+The October workflow audit closed the highest-risk gaps raised by school administrators:
+
+- **Enterprise sidebar:** navigation is grouped into the permanently visible Control Tower, Administration, Academics, Finance and Communication sections. Academic configuration and administrator-only controls open focused sub-workspaces instead of overloading the main navigation; labels wrap instead of truncating. Finance remains absent from Teacher, Class Teacher and Director of Studies navigation and is also rejected server-side with a security audit entry.
+- **Bulk student registration:** Student Directory now has a permission-controlled CSV gateway for Admin and Admissions Officer roles. It supplies a downloadable template and example, validates every row first, and commits the students, class-register rows and initial bills as one transaction. Any invalid row blocks the entire file and returns row-specific errors.
+- **Searchable choices:** long form selectors now expose an inline search before the dropdown, including class, stream, subject, teacher and student choices.
+- **Subject clarity:** subject labels include their section (for example `English — Lower Primary`) in allocation, assessment and mark-entry workflows.
+- **Marks and verification:** teachers see assessments only where an active class/stream subject allocation names them. Administrators, Head Teacher and Director of Studies can switch Script Verification on or off. On sends submitted batches to verification; Off verifies and releases new submissions directly to reports.
+- **Fees confidentiality:** Teacher, Class Teacher and Director of Studies roles cannot read or write student finance endpoints. Denied attempts are logged in the audit trail.
+- **Overpayments and rollover:** overpayment credit is calculated from the net bill after approved bursaries/waivers and previously applied credit. Term activation no longer duplicates unused credit; it applies genuine available credit once to the new bill.
+- **Term activation:** active students retain their class/stream register, new term bills are created, prior outstanding balances are moved once with source/target ledger entries, and class teachers, active subject allocations and timetable rows are cloned from the prior term. The operation is idempotent when the same term is saved again. End-of-year promotion remains an explicit reviewed class action rather than an unsafe automatic promotion.
+- **Library billing:** overdue, damaged and lost-book fines are posted automatically to the student's current term fee ledger. Waiving a fine zeroes the linked ledger charge while preserving the audit record.
+- **Receipts:** payment receipts use school identity, an immutable payment reference, student and bill identity, method/date/cashier, amount received, balance after payment, available credit and signature lines.
+- **Parent portal:** one verified parent identity can link to multiple children. Each child remains separately permission-scoped for academics, attendance, finance, reports and assigned-teacher conversations.
+
+### Still requiring a separate delivery integration
+
+- Sending published results through external SMS/email providers is not enabled yet. Internal parent/class-teacher conversations and announcements are available, but provider credentials, consent/opt-out handling, message templates, delivery receipts, retry rules and cost controls must be configured before external dispatch can be considered production-safe.
+- Automatic daily accrual of an overdue library fine before return requires a scheduled worker. The current workflow calculates and posts the full overdue charge when the book is returned; lost/damaged charges post immediately when recorded.
+- Final production build/deployment validation requires upgrading the frontend runtime to Node.js 20.9 or newer.

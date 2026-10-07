@@ -37,19 +37,45 @@ class WorkspaceNavigationTests(APITestCase):
         StaffAccount.objects.create(staff=staff, user=user, role=role)
         return user
 
-    def test_bursar_sees_finance_inventory_under_the_task_oriented_sidebar(self):
+    def test_bursar_sees_flat_finance_and_communication_sections(self):
         self.client.force_authenticate(user=self._user_for_role("Bursar"))
 
         response = self.client.get(reverse("api_workspace_bootstrap"))
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         groups = {group["key"]: group for group in response.data["navigation"]}
-        self.assertIn("core_operations", groups)
-        self.assertIn("academic_rosters", groups)
-        self.assertIn("finance_inventory", groups)
+        self.assertIn("control_tower", groups)
+        self.assertIn("administration", groups)
+        self.assertIn("finance", groups)
+        self.assertIn("communication", groups)
         self.assertEqual(
-            [item["slug"] for item in groups["finance_inventory"]["items"][:3]],
-            ["fees", "fees-payments", "finance-budgets"],
+            [item["slug"] for item in groups["finance"]["items"]],
+            ["fees", "finance"],
+        )
+
+    def test_admin_gets_consolidated_enterprise_navigation(self):
+        admin = get_user_model().objects.create_superuser(
+            username="navigation-admin",
+            email="navigation-admin@example.test",
+            password="A-strong-test-password-123",
+        )
+        self.client.force_authenticate(user=admin)
+
+        response = self.client.get(reverse("api_workspace_bootstrap"))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        groups = response.data["navigation"]
+        self.assertEqual(
+            [group["key"] for group in groups],
+            ["control_tower", "administration", "academics", "finance", "communication"],
+        )
+        self.assertEqual(
+            [item["label"] for item in groups[1]["items"]],
+            ["Admissions", "Student Directory", "Staff & Roles", "System Administration"],
+        )
+        self.assertEqual(
+            [item["label"] for item in groups[2]["items"]],
+            ["Academic Setup", "Timetable", "Attendance", "Assessments & Results", "Library"],
         )
 
     def test_teacher_and_dos_are_denied_finance_in_navigation_and_api(self):
@@ -61,7 +87,7 @@ class WorkspaceNavigationTests(APITestCase):
                 bootstrap = self.client.get(reverse("api_workspace_bootstrap"))
                 self.assertEqual(bootstrap.status_code, status.HTTP_200_OK)
                 self.assertNotIn(
-                    "finance_inventory",
+                    "finance",
                     [group["key"] for group in bootstrap.data["navigation"]],
                 )
 

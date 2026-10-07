@@ -256,7 +256,7 @@ def _rows(tool: str) -> tuple[list[list[str]], list[dict[str, Any]]]:
             {
                 "id": row.pk,
                 "class": str(row.academic_class_stream),
-                "subject": row.subject.name,
+                "subject": str(row.subject),
                 "teacher": str(row.subject_teacher or "—"),
                 "status": "Active" if row.is_active else "Inactive",
             }
@@ -270,7 +270,7 @@ def _rows(tool: str) -> tuple[list[list[str]], list[dict[str, Any]]]:
             {
                 "id": row.pk,
                 "class": str(row.academic_class),
-                "subject": row.subject.name,
+                "subject": str(row.subject),
                 "type": row.assessment_type.name,
                 "date": row.date.isoformat(),
                 "out_of": row.out_of,

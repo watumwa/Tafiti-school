@@ -23,6 +23,7 @@ const groups = [
       ['Admissions', 'admissions'],
       ['Class lists', 'classes'],
     ],
+    roles: ['Admin', 'Head Teacher', 'Director of Studies', 'Teacher', 'Class Teacher'],
   },
   {
     title: 'Academics',
@@ -34,6 +35,7 @@ const groups = [
       ['Subjects', 'subjects'],
       ['Classes & streams', 'classes'],
     ],
+    roles: ['Admin', 'Head Teacher', 'Director of Studies', 'Teacher', 'Class Teacher'],
   },
   {
     title: 'Attendance',
@@ -43,6 +45,7 @@ const groups = [
       ['Attendance workspace', 'attendance'],
       ['Class attendance', 'classes'],
     ],
+    roles: ['Admin', 'Head Teacher', 'Director of Studies', 'Teacher', 'Class Teacher'],
   },
   {
     title: 'Finance',
@@ -54,6 +57,7 @@ const groups = [
       ['Finance', 'finance'],
       ['Budgets', 'finance-budgets'],
     ],
+    roles: ['Admin', 'Head Teacher'],
   },
   {
     title: 'Staff',
@@ -64,6 +68,7 @@ const groups = [
       ['Users & roles', 'users-roles'],
       ['Timetable', 'timetable'],
     ],
+    roles: ['Admin', 'Head Teacher', 'Director of Studies'],
   },
   {
     title: 'Library',
@@ -72,10 +77,11 @@ const groups = [
     items: [
       ['Library workspace', 'library'],
     ],
+    roles: ['Admin', 'Head Teacher'],
   },
 ] as const;
 
-export function ReferenceReportsCenter({ dashboardPath }: { dashboardPath: string }) {
+export function ReferenceReportsCenter({ dashboardPath, role }: { dashboardPath: string; role: string }) {
   return (
     <section>
       <div className="mb-5 flex items-start gap-3">
@@ -87,7 +93,7 @@ export function ReferenceReportsCenter({ dashboardPath }: { dashboardPath: strin
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {groups.map((group) => {
+        {groups.filter((group) => (group.roles as readonly string[]).includes(role)).map((group) => {
           const Icon = group.icon;
           return (
             <article key={group.title} className="tafiti-card overflow-hidden">

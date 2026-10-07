@@ -1,12 +1,14 @@
 from django.db.models.signals import post_save, pre_save, post_delete, pre_delete
+from django.db.models import Sum
 from django.dispatch import receiver
 from django.db import transaction
 from django.core.exceptions import ValidationError
 from app.models.students import Student, ClassRegister
 from app.models.fees_payment import StudentBill, StudentBillItem, BillItem, ClassBill, Payment, StudentCredit
-from app.models.classes import AcademicClass, AcademicClassStream, Class, Term
+from app.models.classes import AcademicClass, AcademicClassStream, Class, ClassSubjectAllocation, Term
 from app.models.school_settings import AcademicYear
 from app.models.finance import Transaction, IncomeSource, Expenditure, ExpenditureItem
+from app.models.timetables import Timetable
 
  
 def _get_or_create_student_bill(student, academic_class):
@@ -107,6 +109,42 @@ def _previous_academic_class_for(academic_class):
     )
 
 
+def _copy_stream_teaching_setup(source_class_stream, target_class_stream):
+    """Carry active teaching allocations and the weekly timetable into a new term."""
+    target_allocations = {}
+    for source_allocation in ClassSubjectAllocation.objects.filter(
+        academic_class_stream=source_class_stream,
+        is_active=True,
+    ).select_related("subject", "subject_teacher"):
+        target_allocation, _ = ClassSubjectAllocation.objects.get_or_create(
+            academic_class_stream=target_class_stream,
+            subject=source_allocation.subject,
+            defaults={
+                "subject_teacher": source_allocation.subject_teacher,
+                "is_active": True,
+            },
+        )
+        target_allocations[source_allocation.subject_id] = target_allocation
+
+    for source_entry in Timetable.objects.filter(
+        class_stream=source_class_stream,
+    ).select_related("subject", "teacher", "time_slot", "classroom"):
+        allocation = target_allocations.get(source_entry.subject_id)
+        if not allocation:
+            continue
+        Timetable.objects.get_or_create(
+            class_stream=target_class_stream,
+            weekday=source_entry.weekday,
+            time_slot=source_entry.time_slot,
+            defaults={
+                "subject": allocation.subject,
+                "teacher": allocation.subject_teacher,
+                "classroom": source_entry.classroom,
+                "allocation": allocation,
+            },
+        )
+
+
 def _ensure_class_stream_from_source(target_academic_class, source_class_stream):
     class_stream, created = AcademicClassStream.objects.get_or_create(
         academic_class=target_academic_class,
@@ -119,6 +157,7 @@ def _ensure_class_stream_from_source(target_academic_class, source_class_stream)
     if not created and not class_stream.class_teacher_id:
         class_stream.class_teacher = source_class_stream.class_teacher
         class_stream.save(update_fields=["class_teacher"])
+    _copy_stream_teaching_setup(source_class_stream, class_stream)
     return class_stream, created
 
 
@@ -256,7 +295,10 @@ def move_students_on_term_change(sender, instance, created, **kwargs):
     if instance.is_current:
 
         # Ensure only one term is marked as current
-        other_current_terms = Term.objects.filter(is_current=True).exclude(id=instance.id)
+        other_current_terms = Term.objects.filter(
+            academic_year=instance.academic_year,
+            is_current=True,
+        ).exclude(id=instance.id)
         if other_current_terms.exists():
             other_current_terms.update(is_current=False)
 
@@ -342,43 +384,26 @@ def move_students_on_term_change(sender, instance, created, **kwargs):
                             if bill_changed:
                                 bills_created_count += 1
 
-                            previous_term_bills = StudentBill.objects.filter(
-                                student=student,
-                                academic_class__academic_year=instance.academic_year
-                            ).exclude(academic_class__term=instance)
-
-                            for prev_bill in previous_term_bills:
-                                unused_credits = StudentCredit.objects.filter(
-                                    student=student,
-                                    original_bill=prev_bill,
-                                    is_applied=False
-                                )
-
-                                for credit in unused_credits:
-                                    existing_carry_forward = StudentCredit.objects.filter(
-                                        student=student,
-                                        description__icontains=f'Carried forward from {previous_term.term}',
-                                        original_bill=credit.original_bill,
-                                        is_applied=False
-                                    ).exists()
-
-                                    if not existing_carry_forward:
-                                        StudentCredit.objects.create(
-                                            student=student,
-                                            amount=credit.amount,
-                                            description=f'Carried forward from {previous_term.term}: {credit.description}',
-                                            original_bill=credit.original_bill,
-                                            applied_to_bill=None,
-                                            is_applied=False
-                                        )
-
                         except Exception as e:
                             # Log error but continue with other students
                             errors_count += 1
                             continue
 
-                # Summary message
-                pass
+                # Move prior outstanding balances exactly once, then consume
+                # any genuine overpayment credit against the new term bill.
+                from app.services.fees_carry_forward import post_carry_forward
+
+                post_carry_forward(source_term=previous_term, target_term=instance)
+                target_bills = StudentBill.objects.filter(
+                    academic_class__academic_year=instance.academic_year,
+                    academic_class__term=instance,
+                    student__is_active=True,
+                ).select_related("student")
+                for target_bill in target_bills:
+                    if target_bill.available_credits > 0 and target_bill.balance > 0:
+                        target_bill.apply_credit(target_bill.balance)
+                    target_bill.status = "Paid" if target_bill.balance <= 0 else "Unpaid"
+                    target_bill.save(update_fields=["status"])
             else:
                 pass
         else:
@@ -472,32 +497,45 @@ def handle_overpayment_credit(sender, instance, **kwargs):
     # Refresh the bill from database to get updated payment calculations
     bill.refresh_from_db()
 
-    # Check if there's an overpayment (amount paid > total amount)
-    if bill.amount_paid > bill.total_amount:
-        overpayment_amount = bill.amount_paid - bill.total_amount
+    # Base credit on the net amount after approved bursaries/waivers and after
+    # credit already consumed by this bill, not on the original gross invoice.
+    applied_credit_total = bill.applied_credits.filter(amount__lt=0).aggregate(
+        total=Sum("amount")
+    )["total"] or 0
+    cash_due = max(bill.net_amount_due - abs(applied_credit_total), 0)
+    total_overpayment = max(bill.amount_paid - cash_due, 0)
+    consumed_from_this_bill = StudentCredit.objects.filter(
+        student=bill.student,
+        original_bill=bill,
+        amount__lt=0,
+        is_applied=True,
+    ).aggregate(total=Sum("amount"))["total"] or 0
+    overpayment_amount = max(total_overpayment - abs(consumed_from_this_bill), 0)
 
-        # Check if credit already exists for this overpayment
-        existing_credit = StudentCredit.objects.filter(
-            student=bill.student,
-            original_bill=bill,
-            description__icontains='overpayment',
-            is_applied=False
-        ).first()
-
-        if not existing_credit:
-            # Create credit for overpayment
+    unused = StudentCredit.objects.filter(
+        student=bill.student,
+        original_bill=bill,
+        amount__gt=0,
+        description__icontains="overpayment credit",
+        is_applied=False,
+    ).order_by("id")
+    existing_credit = unused.first()
+    if overpayment_amount > 0:
+        if existing_credit:
+            existing_credit.amount = overpayment_amount
+            existing_credit.description = f"Overpayment credit from bill #{bill.id}"
+            existing_credit.save(update_fields=["amount", "description"])
+            unused.exclude(pk=existing_credit.pk).delete()
+        else:
             StudentCredit.objects.create(
                 student=bill.student,
                 amount=overpayment_amount,
-                description=f'Overpayment credit from bill #{bill.id}',
+                description=f"Overpayment credit from bill #{bill.id}",
                 original_bill=bill,
-                is_applied=False
+                is_applied=False,
             )
-        else:
-            # Update existing credit if amount changed
-            if existing_credit.amount != overpayment_amount:
-                existing_credit.amount = overpayment_amount
-                existing_credit.save()
+    else:
+        unused.delete()
 
 
 @receiver(post_save, sender=StudentBill)

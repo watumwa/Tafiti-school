@@ -65,34 +65,29 @@ from .auth import assigned_role_labels, canonical_role_label, resolve_active_rol
 # staff use every day. The role/resource checks below remain the security
 # boundary; this registry only decides how permitted work is presented.
 NAVIGATION = {
-    "core_operations": [
-        {"slug": "overview", "label": "Overview dashboard", "icon": "layout-dashboard", "resource": None},
-        {"slug": "communication", "label": "Communications hub", "icon": "messages-square", "resource": "communication"},
-        {"slug": "audit", "label": "System audit trail", "icon": "history", "resource": "audit"},
-        {"slug": "settings", "label": "School settings", "icon": "settings-2", "resource": "settings"},
+    "control_tower": [
+        {"slug": "overview", "label": "Dashboard", "icon": "layout-dashboard", "resource": None},
+        {"slug": "analytics", "path": "reports", "label": "Analytics", "icon": "chart-no-axes-column", "resource": "results"},
     ],
-    "academic_rosters": [
-        {"slug": "students", "label": "Student directory", "icon": "users", "resource": "students"},
+    "administration": [
         {"slug": "admissions", "label": "Admissions", "icon": "user-plus", "resource": "admissions"},
-        {"slug": "staff", "label": "Staff", "icon": "badge-check", "resource": "staff"},
-        {"slug": "parents", "label": "Parent access", "icon": "contact", "resource": "parents"},
+        {"slug": "students", "label": "Student Directory", "icon": "users", "resource": "students"},
+        {"slug": "staff", "label": "Staff & Roles", "icon": "badge-check", "resource": "staff"},
+        {"slug": "system-administration", "label": "System Administration", "icon": "settings-2", "resource": None, "roles": ["Admin"]},
     ],
-    "instructional_tracking": [
-        {"slug": "classes", "label": "Classes & timetable", "icon": "school", "resource": "classes"},
-        {"slug": "attendance", "label": "Attendance center", "icon": "calendar-check", "resource": "attendance"},
-        {"slug": "subjects", "label": "Subjects & allocations", "icon": "book-open", "resource": "subjects"},
-        {"slug": "timetable", "label": "Timetable builder", "icon": "calendar-days", "resource": "timetable"},
+    "academics": [
+        {"slug": "academic-setup", "label": "Academic Setup", "icon": "school", "resource": None, "roles": ["Admin", "Head Teacher", "Director of Studies", "Teacher", "Class Teacher"]},
+        {"slug": "timetable", "label": "Timetable", "icon": "calendar-days", "resource": "timetable"},
+        {"slug": "attendance", "label": "Attendance", "icon": "calendar-check", "resource": "attendance"},
+        {"slug": "results", "label": "Assessments & Results", "icon": "clipboard-pen-line", "resource": "results"},
+        {"slug": "library", "label": "Library", "icon": "library", "resource": "library"},
     ],
-    "assessments_grading": [
-        {"slug": "marks-entry", "path": "results?view=marks", "label": "Mark entry terminal", "icon": "clipboard-pen-line", "resource": "results"},
-        {"slug": "verification-queue", "path": "results?view=verification", "label": "Script verification", "icon": "shield-check", "resource": "results", "roles": ["Admin", "Head Teacher", "Director of Studies"]},
-        {"slug": "reports", "label": "Reports & analytics", "icon": "file-text", "resource": "results"},
+    "finance": [
+        {"slug": "fees", "label": "Fees & Payments", "icon": "wallet-cards", "resource": "fees"},
+        {"slug": "finance", "label": "Finance Management", "icon": "landmark", "resource": "finance"},
     ],
-    "finance_inventory": [
-        {"slug": "fees", "label": "Student fee ledgers", "icon": "wallet-cards", "resource": "fees"},
-        {"slug": "fees-payments", "label": "Receipt terminal", "icon": "receipt-text", "resource": "fees-payments"},
-        {"slug": "finance-budgets", "label": "Procurement & budgets", "icon": "landmark", "resource": "finance-budgets"},
-        {"slug": "library", "label": "Library resource center", "icon": "library", "resource": "library"},
+    "communication": [
+        {"slug": "communication", "label": "Messages & Notices", "icon": "messages-square", "resource": "communication"},
     ],
 }
 
@@ -125,11 +120,11 @@ ROLE_RESOURCES = {
 }
 
 GROUP_LABELS = {
-    "core_operations": "Core operations",
-    "academic_rosters": "Academic rosters",
-    "instructional_tracking": "Instructional & tracking",
-    "assessments_grading": "Assessments & grading",
-    "finance_inventory": "Finance & inventory",
+    "control_tower": "Control Tower",
+    "administration": "Administration",
+    "academics": "Academics",
+    "finance": "Finance",
+    "communication": "Communication",
 }
 
 

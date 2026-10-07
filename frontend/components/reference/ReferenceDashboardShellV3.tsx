@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import {
   Bell,
+  CalendarDays,
   ChevronDown,
   ChevronRight,
   KeyRound,
@@ -18,6 +19,7 @@ import {
 } from 'lucide-react';
 
 import { Logo } from '@/components/brand/Logo';
+import { LoadingEmblem } from '@/components/brand/LoadingEmblem';
 import { useToast } from '@/components/ui/ToastProvider';
 import { CommandPalette } from '@/components/workspace/CommandPalette';
 import { EntityWorkspace } from '@/components/workspace/EntityWorkspace';
@@ -33,13 +35,15 @@ import { ReferenceFeeAccountWorkspace } from './ReferenceFeeAccountWorkspace';
 import { ReferenceLinkedResourceView } from './ReferenceLinkedResourceView';
 import { ReferenceParentPortalFrame } from './ReferenceParentPortalFrame';
 import { ReferenceReportsCenter } from './ReferenceReportsCenter';
+import { ReferenceAcademicOperationsView } from './ReferenceAcademicOperationsView';
+import { ReferenceSystemAdministrationView } from './ReferenceSystemAdministrationView';
 import { ReferenceUsersRolesView } from './ReferenceUsersRolesView';
 
 function LoadingWorkspace() {
   return (
     <main className="grid min-h-dvh place-items-center bg-[#F3F7FC]">
       <div className="text-center">
-        <Logo accent="blue" />
+        <LoadingEmblem className="mx-auto" />
         <div className="mt-5 inline-flex items-center gap-2 rounded-xl border border-blue-100 bg-white px-4 py-3 text-xs font-bold text-slate-500 shadow-sm">
           <LoaderCircle className="animate-spin text-blue-600" size={17} />Opening Tafiti workspace…
         </div>
@@ -54,6 +58,29 @@ function initials(name: string) {
 
 type SearchParamReader = { get(name: string): string | null };
 
+const NAV_ROUTE_ALIASES: Record<string, string[]> = {
+  'academic-setup': ['classes', 'subjects'],
+  fees: ['fees-payments', 'fees-class-bills', 'fees-bill-items'],
+  finance: ['finance-budgets', 'finance-budget-items', 'finance-expenditure-items', 'finance-expenses', 'finance-vendors', 'finance-income'],
+  'system-administration': ['settings', 'audit', 'users-roles'],
+};
+
+const ROUTE_RESOURCES: Record<string, string> = {
+  classes: 'classes',
+  subjects: 'subjects',
+  'fees-payments': 'fees-payments',
+  'fees-class-bills': 'fees-class-bills',
+  'fees-bill-items': 'fees-bill-items',
+  'finance-budgets': 'finance-budgets',
+  'finance-budget-items': 'finance-budget-items',
+  'finance-expenditure-items': 'finance-expenditure-items',
+  'finance-expenses': 'finance-expenses',
+  'finance-vendors': 'finance-vendors',
+  'finance-income': 'finance-income',
+  settings: 'settings',
+  audit: 'audit',
+};
+
 function navigationHref(dashboardPath: string, item: WorkspaceNavItem) {
   if (item.path) return `${dashboardPath}/${item.path}`;
   return item.slug === 'overview' ? dashboardPath : `${dashboardPath}/${item.slug}`;
@@ -63,7 +90,10 @@ function navigationItemIsActive(item: WorkspaceNavItem, pathname: string, search
   const target = item.path ?? item.slug;
   const [targetPath, targetQuery = ''] = target.split('?');
   const expectedPath = targetPath === 'overview' ? dashboardPath : `${dashboardPath}/${targetPath}`;
-  if (pathname !== expectedPath) return false;
+  if (pathname !== expectedPath) {
+    const module = pathname.startsWith(`${dashboardPath}/`) ? pathname.slice(dashboardPath.length + 1).split('/')[0] : '';
+    return Boolean(module && NAV_ROUTE_ALIASES[item.slug]?.includes(module));
+  }
 
   return Array.from(new URLSearchParams(targetQuery).entries()).every(
     ([key, value]) => searchParams.get(key) === value,
@@ -71,18 +101,7 @@ function navigationItemIsActive(item: WorkspaceNavItem, pathname: string, search
 }
 
 function buildNavigation(bootstrap: WorkspaceBootstrap): WorkspaceNavGroup[] {
-  if (bootstrap.user.role.label === 'Parent') return bootstrap.navigation;
-
-  const groups = bootstrap.navigation.map((group) => ({ ...group, items: [...group.items] }));
-
-  if (['Admin', 'Head Teacher'].includes(bootstrap.user.role.label)) {
-    const coreGroup = groups.find((group) => group.key === 'core_operations');
-    if (coreGroup && !coreGroup.items.some((item) => item.slug === 'users-roles')) {
-      coreGroup.items.push({ slug: 'users-roles', label: 'Users & roles', icon: 'shield-check', resource: null });
-    }
-  }
-
-  return groups;
+  return bootstrap.navigation.map((group) => ({ ...group, items: [...group.items] }));
 }
 
 export function ReferenceDashboardShellV3() {
@@ -97,7 +116,6 @@ export function ReferenceDashboardShellV3() {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [commandOpen, setCommandOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
-  const [collapsedGroupKeys, setCollapsedGroupKeys] = useState<string[]>([]);
   const [entityTitle, setEntityTitle] = useState('');
   const [retryKey, setRetryKey] = useState(0);
 
@@ -179,10 +197,6 @@ export function ReferenceDashboardShellV3() {
 
   const navigation = useMemo<WorkspaceNavGroup[]>(() => bootstrap ? buildNavigation(bootstrap) : [], [bootstrap]);
 
-  useEffect(() => {
-    if (bootstrap) setCollapsedGroupKeys(navigation.map((group) => group.key));
-  }, [bootstrap, navigation]);
-
   const selectedItem = useMemo<WorkspaceNavItem | null>(() => {
     if (!bootstrap) return null;
     const sidebarItem = navigation.flatMap((group) => group.items).find(
@@ -213,7 +227,8 @@ export function ReferenceDashboardShellV3() {
   if (!bootstrap) return null;
 
   const userInitials = initials(bootstrap.user.name) || 'U';
-  const verificationEntity = Boolean(entityId && selectedItem?.resource === 'results');
+  const effectiveResource = ROUTE_RESOURCES[moduleSlug] ?? selectedItem?.resource;
+  const verificationEntity = Boolean(entityId && effectiveResource === 'results');
   const historyLabel = entityId
     ? (entityTitle || selectedItem?.label || 'Record')
     : (selectedItem?.label ?? (moduleSlug === 'reports' ? 'Reports' : 'Dashboard'));
@@ -222,39 +237,27 @@ export function ReferenceDashboardShellV3() {
     <main className="min-h-dvh bg-[#F3F7FC] text-slate-900 lg:flex">
       <button type="button" onClick={() => setMobileNavOpen(false)} aria-label="Close navigation" className={`fixed inset-0 z-40 bg-slate-950/35 backdrop-blur-[1px] transition-opacity lg:hidden ${mobileNavOpen ? 'opacity-100' : 'pointer-events-none opacity-0'}`} />
 
-      <aside className={`fixed inset-y-0 left-0 z-50 flex w-[256px] flex-col overflow-hidden bg-[#071F46] text-white shadow-[12px_0_35px_rgba(7,31,70,.14)] transition-transform duration-300 lg:sticky lg:top-0 lg:h-dvh lg:translate-x-0 ${mobileNavOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-        <div className="relative flex h-[72px] items-center justify-between border-b border-white/[.08] px-4"><div className="absolute -bottom-24 -left-20 h-56 w-56 rounded-full border-[34px] border-blue-400/[.06]" /><Logo inverted /><button type="button" onClick={() => setMobileNavOpen(false)} className="grid h-8 w-8 place-items-center rounded-lg text-slate-300 hover:bg-white/10 lg:hidden"><X size={17} /></button></div>
-        <nav className="relative z-10 flex-1 overflow-y-auto px-2.5 py-3" aria-label="Main navigation">
+      <aside className={`fixed inset-y-0 left-0 z-50 flex w-[272px] flex-col overflow-hidden bg-[linear-gradient(155deg,#082653_0%,#061D42_48%,#071F46_100%)] text-white shadow-[12px_0_35px_rgba(7,31,70,.16)] transition-transform duration-300 lg:sticky lg:top-0 lg:h-dvh lg:translate-x-0 ${mobileNavOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+        <div className="relative flex h-20 shrink-0 items-center justify-between overflow-hidden border-b border-blue-300/[.13] px-4"><div className="absolute -bottom-24 -left-20 h-64 w-64 rounded-full border-[40px] border-blue-400/[.055]" /><div className="absolute -right-16 -top-20 h-44 w-44 rounded-full bg-blue-500/[.04] blur-2xl" /><Logo inverted sidebar /><button type="button" onClick={() => setMobileNavOpen(false)} className="relative grid h-9 w-9 place-items-center rounded-lg text-slate-300 hover:bg-white/10 lg:hidden"><X size={18} /></button></div>
+        <nav className="relative z-10 flex-1 overflow-y-auto px-3 py-3 [scrollbar-color:rgba(147,197,253,.5)_transparent] [scrollbar-width:thin]" aria-label="Main navigation">
           {navigation.map((group) => {
             const containsActiveItem = group.items.some((item) => navigationItemIsActive(item, pathname, searchParams, bootstrap.user.dashboard_path));
-            const collapsed = collapsedGroupKeys.includes(group.key) && !containsActiveItem;
 
             return (
-              <section key={group.key} className="mb-2">
-                <div className="flex h-7 items-center gap-2 px-2.5">
-                  <span className="h-px w-3 shrink-0 bg-blue-200/25" aria-hidden="true" />
-                  <p className="whitespace-nowrap text-[8px] font-extrabold uppercase tracking-[.13em] text-blue-100/45">{group.label}</p>
-                  <span className="h-px min-w-0 flex-1 bg-blue-200/15" aria-hidden="true" />
-                  <button
-                    type="button"
-                    onClick={() => setCollapsedGroupKeys((keys) => keys.includes(group.key) ? keys.filter((key) => key !== group.key) : [...keys, group.key])}
-                    aria-expanded={!collapsed}
-                    aria-label={`${collapsed ? 'Expand' : 'Collapse'} ${group.label}`}
-                    className="grid h-6 w-6 shrink-0 place-items-center rounded-md text-blue-100/45 transition hover:bg-white/[.07] hover:text-blue-50"
-                  >
-                    <ChevronDown size={12} className={`transition-transform ${collapsed ? '-rotate-90' : ''}`} />
-                  </button>
+              <section key={group.key} className="mb-2.5 last:mb-0">
+                <div className="flex h-5 items-center px-2.5">
+                  <p className={`whitespace-nowrap text-[8px] font-extrabold uppercase tracking-[.17em] ${containsActiveItem ? 'text-blue-100/85' : 'text-blue-100/48'}`}>{group.label}</p>
                 </div>
-                {!collapsed && <div className="space-y-0.5">{group.items.map((item) => {
+                <div className="mt-0.5 space-y-0.5">{group.items.map((item) => {
                   const active = navigationItemIsActive(item, pathname, searchParams, bootstrap.user.dashboard_path);
                   const href = navigationHref(bootstrap.user.dashboard_path, item);
-                  return <Link key={item.slug} href={href} onClick={() => setMobileNavOpen(false)} className={`group flex h-9 items-center gap-2.5 rounded-lg px-2.5 text-[11px] font-bold transition ${active ? 'bg-[#1E64F0] text-white shadow-[0_8px_16px_rgba(30,100,240,.24)]' : 'text-blue-50/75 hover:bg-white/[.07] hover:text-white'}`}><WorkspaceIcon name={item.icon} size={15} className={active ? 'text-white' : 'text-blue-100/55 group-hover:text-white'} /><span className="min-w-0 flex-1 truncate">{item.label}</span>{active && <ChevronRight size={12} className="text-white/70" />}</Link>;
-                })}</div>}
+                  return <Link key={item.slug} href={href} onClick={() => setMobileNavOpen(false)} className={`group flex min-h-[34px] items-center gap-2.5 rounded-lg px-2.5 text-[11px] font-bold transition ${active ? 'bg-gradient-to-r from-[#1E67F2] to-[#2476F4] text-white shadow-[0_8px_18px_rgba(30,100,240,.28),inset_0_1px_0_rgba(255,255,255,.14)]' : 'text-blue-50/75 hover:bg-white/[.075] hover:text-white'}`}><WorkspaceIcon name={item.icon} size={16} className={active ? 'text-white' : 'text-blue-100/60 group-hover:text-white'} /><span className="min-w-0 flex-1 whitespace-normal leading-4">{item.label}</span>{active && <ChevronRight size={13} className="shrink-0 text-white/80" />}</Link>;
+                })}</div>
               </section>
             );
           })}
         </nav>
-        <div className="relative z-10 border-t border-white/[.08] p-3"><div className="rounded-xl border border-white/[.08] bg-white/[.05] p-3"><p className="text-[8px] font-bold uppercase tracking-[.1em] text-blue-100/45">Academic year</p><p className="mt-1 text-[11px] font-bold text-white">{bootstrap.academic_context.year || 'Not set'}</p><div className="my-2 h-px bg-white/[.07]" /><p className="text-[8px] font-bold uppercase tracking-[.1em] text-blue-100/45">Current term</p><p className="mt-1 text-[11px] font-bold text-white">{bootstrap.academic_context.term || 'Not set'}</p></div></div>
+        <div className="relative z-10 shrink-0 border-t border-blue-300/[.13] p-3"><div className="flex items-center gap-2.5 rounded-xl border border-blue-300/[.18] bg-white/[.055] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,.04)]"><span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-blue-400/[.1] text-blue-200"><CalendarDays size={18} /></span><div className="min-w-0 flex-1"><p className="text-[8px] font-extrabold uppercase tracking-[.15em] text-blue-100/55">Academic year</p><p className="mt-0.5 text-sm font-extrabold text-white">{bootstrap.academic_context.year || 'Not set'}</p></div><div className="border-l border-white/[.1] pl-2.5 text-right"><p className="text-[7px] font-bold uppercase tracking-[.12em] text-blue-100/45">Term</p><p className="mt-0.5 max-w-16 truncate text-[9px] font-bold text-blue-50">{bootstrap.academic_context.term || 'Not set'}</p></div></div></div>
       </aside>
 
       <div className="min-w-0 flex-1">
@@ -266,17 +269,19 @@ export function ReferenceDashboardShellV3() {
 
         <div className="border-b border-[#E9EEF5] bg-[#F8FAFD] px-4 py-2 sm:px-6"><div className="flex items-center gap-1.5 text-[9px] text-slate-400"><Link href={bootstrap.user.dashboard_path} className="hover:text-blue-600">Home</Link><ChevronRight size={10} />{entityId && selectedItem ? <><Link href={navigationHref(bootstrap.user.dashboard_path, selectedItem)} className="font-semibold hover:text-blue-600">{selectedItem.label}</Link><ChevronRight size={10} /><span className="font-bold text-slate-600">{entityTitle || 'Record'}</span></> : <span className="font-bold text-slate-600">{selectedItem?.label ?? (moduleSlug === 'reports' ? 'Reports' : 'Dashboard')}</span>}</div></div>
 
-        <WorkspaceFlowBar currentResource={selectedItem?.resource} currentSlug={moduleSlug} dashboardPath={bootstrap.user.dashboard_path} navigation={bootstrap.navigation} />
+        <WorkspaceFlowBar currentResource={effectiveResource} currentSlug={moduleSlug} dashboardPath={bootstrap.user.dashboard_path} navigation={bootstrap.navigation} />
 
         <div className="mx-auto w-full max-w-[1600px] p-4 sm:p-5 lg:p-6">
           {moduleSlug === 'overview' ? <ReferenceDashboardOverview bootstrap={bootstrap} />
-            : moduleSlug === 'reports' ? <ReferenceReportsCenter dashboardPath={bootstrap.user.dashboard_path} />
+            : moduleSlug === 'reports' ? <ReferenceReportsCenter dashboardPath={bootstrap.user.dashboard_path} role={bootstrap.user.role.label} />
+            : moduleSlug === 'academic-setup' && selectedItem?.slug === 'academic-setup' ? <ReferenceAcademicOperationsView dashboardPath={bootstrap.user.dashboard_path} />
+            : moduleSlug === 'system-administration' && selectedItem?.slug === 'system-administration' ? <ReferenceSystemAdministrationView dashboardPath={bootstrap.user.dashboard_path} />
             : moduleSlug === 'users-roles' ? <ReferenceUsersRolesView dashboardPath={bootstrap.user.dashboard_path} />
-            : bootstrap.user.role.label === 'Parent' && selectedItem?.resource?.startsWith('parent-') ? <ReferenceParentPortalFrame screen={selectedItem.resource} dashboardPath={bootstrap.user.dashboard_path} />
-            : entityId && selectedItem?.resource === 'fees' ? <ReferenceFeeAccountWorkspace id={entityId} dashboardPath={bootstrap.user.dashboard_path} onTitleChange={handleEntityTitle} />
-            : entityId && selectedItem?.resource && (selectedItem.resource === 'attendance' || verificationEntity) ? <EntityWorkspace resource={selectedItem.resource} id={entityId} dashboardPath={bootstrap.user.dashboard_path} onTitleChange={handleEntityTitle} />
-            : entityId && selectedItem?.resource ? <ReferenceEntityWorkspace resource={selectedItem.resource} id={entityId} dashboardPath={bootstrap.user.dashboard_path} onTitleChange={handleEntityTitle} />
-            : selectedItem?.resource ? <ReferenceLinkedResourceView resource={selectedItem.resource} dashboardPath={bootstrap.user.dashboard_path} />
+            : bootstrap.user.role.label === 'Parent' && effectiveResource?.startsWith('parent-') ? <ReferenceParentPortalFrame screen={effectiveResource} dashboardPath={bootstrap.user.dashboard_path} />
+            : entityId && effectiveResource === 'fees' ? <ReferenceFeeAccountWorkspace id={entityId} dashboardPath={bootstrap.user.dashboard_path} onTitleChange={handleEntityTitle} />
+            : entityId && effectiveResource && (effectiveResource === 'attendance' || verificationEntity) ? <EntityWorkspace resource={effectiveResource} id={entityId} dashboardPath={bootstrap.user.dashboard_path} onTitleChange={handleEntityTitle} />
+            : entityId && effectiveResource ? <ReferenceEntityWorkspace resource={effectiveResource} id={entityId} dashboardPath={bootstrap.user.dashboard_path} onTitleChange={handleEntityTitle} />
+            : effectiveResource ? <ReferenceLinkedResourceView resource={effectiveResource} dashboardPath={bootstrap.user.dashboard_path} />
             : <div className="tafiti-card grid min-h-[420px] place-items-center p-6 text-center"><div><ShieldCheck className="mx-auto text-blue-400" size={28} /><p className="mt-3 text-sm font-extrabold text-slate-800">This workspace is not available</p><p className="mt-1 text-xs text-slate-400">The route is not assigned to your active role.</p></div></div>}
         </div>
       </div>

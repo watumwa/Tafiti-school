@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 
 import { Logo } from '@/components/brand/Logo';
+import { LoadingEmblem } from '@/components/brand/LoadingEmblem';
 import type { AuthFailure, AuthRole, AuthSuccess, AuthUser } from '@/lib/auth';
 
 const roleMeta: Record<string, { description: string; icon: typeof ShieldCheck }> = {
@@ -115,7 +116,7 @@ export function ReferenceRoleChooser() {
   if (loading || !user) {
     return (
       <main className="grid min-h-dvh place-items-center bg-[#F2F6FC]">
-        <div className="text-center"><Logo accent="blue" /><div className="mt-5 inline-flex items-center gap-2 rounded-xl border border-blue-100 bg-white px-4 py-3 text-xs font-bold text-slate-500 shadow-sm"><LoaderCircle size={16} className="animate-spin text-blue-600" />Loading your workspaces…</div></div>
+        <div className="text-center"><LoadingEmblem className="mx-auto" /><div className="mt-5 inline-flex items-center gap-2 rounded-xl border border-blue-100 bg-white px-4 py-3 text-xs font-bold text-slate-500 shadow-sm"><LoaderCircle size={16} className="animate-spin text-blue-600" />Loading your workspaces…</div></div>
       </main>
     );
   }

@@ -2,7 +2,7 @@ from django.db import models
 from django.urls import reverse
 
 class Subject(models.Model):
-    
+
     code = models.CharField(max_length=10)
     name = models.CharField(max_length=50)
     description = models.TextField(null=True, blank=True)
@@ -15,10 +15,9 @@ class Subject(models.Model):
         verbose_name_plural = ("Subjects")
 
     def __str__(self):
-        return self.name
+        # Section context is essential where the same curriculum subject exists
+        # at different school levels (for example lower- and upper-primary English).
+        return f"{self.name} — {self.section}"
 
     def get_absolute_url(self):
         return reverse("Subject_detail", kwargs={"pk": self.pk})
-
-
-    
