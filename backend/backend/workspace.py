@@ -61,43 +61,38 @@ from .auth import assigned_role_labels, canonical_role_label, resolve_active_rol
 
 # The navigation is deliberately generated server-side.  Hiding a link in the
 # browser is not authorization; the same registry is used to reject API calls.
+# Navigation is organised around the small number of operational workspaces
+# staff use every day. The role/resource checks below remain the security
+# boundary; this registry only decides how permitted work is presented.
 NAVIGATION = {
-    "overview": [
-        {"slug": "overview", "label": "Overview", "icon": "layout-dashboard", "resource": None},
+    "core_operations": [
+        {"slug": "overview", "label": "Overview dashboard", "icon": "layout-dashboard", "resource": None},
+        {"slug": "communication", "label": "Communications hub", "icon": "messages-square", "resource": "communication"},
+        {"slug": "audit", "label": "System audit trail", "icon": "history", "resource": "audit"},
+        {"slug": "settings", "label": "School settings", "icon": "settings-2", "resource": "settings"},
     ],
-    "people": [
-        {"slug": "students", "label": "Students", "icon": "users", "resource": "students"},
-        {"slug": "staff", "label": "Staff", "icon": "badge-check", "resource": "staff"},
+    "academic_rosters": [
+        {"slug": "students", "label": "Student directory", "icon": "users", "resource": "students"},
         {"slug": "admissions", "label": "Admissions", "icon": "user-plus", "resource": "admissions"},
+        {"slug": "staff", "label": "Staff", "icon": "badge-check", "resource": "staff"},
         {"slug": "parents", "label": "Parent access", "icon": "contact", "resource": "parents"},
     ],
-    "academics": [
-        {"slug": "classes", "label": "Classes & streams", "icon": "school", "resource": "classes"},
-        {"slug": "subjects", "label": "Subjects", "icon": "book-open", "resource": "subjects"},
-        {"slug": "results", "label": "Results", "icon": "chart-no-axes-column", "resource": "results"},
-        {"slug": "attendance", "label": "Attendance", "icon": "calendar-check", "resource": "attendance"},
-        {"slug": "timetable", "label": "Timetable", "icon": "calendar-days", "resource": "timetable"},
+    "instructional_tracking": [
+        {"slug": "classes", "label": "Classes & timetable", "icon": "school", "resource": "classes"},
+        {"slug": "attendance", "label": "Attendance center", "icon": "calendar-check", "resource": "attendance"},
+        {"slug": "subjects", "label": "Subjects & allocations", "icon": "book-open", "resource": "subjects"},
+        {"slug": "timetable", "label": "Timetable builder", "icon": "calendar-days", "resource": "timetable"},
     ],
-    "finance": [
-        {"slug": "fees", "label": "Fees & payments", "icon": "wallet-cards", "resource": "fees"},
-        {"slug": "fees-payments", "label": "Record & review payments", "icon": "wallet-cards", "resource": "fees-payments"},
-        {"slug": "fees-class-bills", "label": "Class bills", "icon": "book-open", "resource": "fees-class-bills"},
-        {"slug": "fees-bill-items", "label": "Fee categories", "icon": "book-open", "resource": "fees-bill-items"},
-        {"slug": "finance", "label": "Finance", "icon": "landmark", "resource": "finance"},
-        {"slug": "finance-budgets", "label": "Budgets", "icon": "chart-no-axes-column", "resource": "finance-budgets"},
-        {"slug": "finance-budget-items", "label": "Budget allocations", "icon": "chart-no-axes-column", "resource": "finance-budget-items"},
-        {"slug": "finance-expenditure-items", "label": "Expenditure items", "icon": "landmark", "resource": "finance-expenditure-items"},
-        {"slug": "finance-expenses", "label": "Expense categories", "icon": "landmark", "resource": "finance-expenses"},
-        {"slug": "finance-vendors", "label": "Vendors", "icon": "badge-check", "resource": "finance-vendors"},
-        {"slug": "finance-income", "label": "Income sources", "icon": "landmark", "resource": "finance-income"},
+    "assessments_grading": [
+        {"slug": "marks-entry", "path": "results?view=marks", "label": "Mark entry terminal", "icon": "clipboard-pen-line", "resource": "results"},
+        {"slug": "verification-queue", "path": "results?view=verification", "label": "Script verification", "icon": "shield-check", "resource": "results", "roles": ["Admin", "Head Teacher", "Director of Studies"]},
+        {"slug": "reports", "label": "Reports & analytics", "icon": "file-text", "resource": "results"},
     ],
-    "operations": [
-        {"slug": "library", "label": "Library", "icon": "library", "resource": "library"},
-        {"slug": "communication", "label": "Communication", "icon": "messages-square", "resource": "communication"},
-    ],
-    "administration": [
-        {"slug": "audit", "label": "Audit trail", "icon": "history", "resource": "audit"},
-        {"slug": "settings", "label": "School settings", "icon": "settings-2", "resource": "settings"},
+    "finance_inventory": [
+        {"slug": "fees", "label": "Student fee ledgers", "icon": "wallet-cards", "resource": "fees"},
+        {"slug": "fees-payments", "label": "Receipt terminal", "icon": "receipt-text", "resource": "fees-payments"},
+        {"slug": "finance-budgets", "label": "Procurement & budgets", "icon": "landmark", "resource": "finance-budgets"},
+        {"slug": "library", "label": "Library resource center", "icon": "library", "resource": "library"},
     ],
 }
 
@@ -130,13 +125,21 @@ ROLE_RESOURCES = {
 }
 
 GROUP_LABELS = {
-    "overview": "Overview",
-    "people": "People",
-    "academics": "Academics",
-    "finance": "Finance",
-    "operations": "Operations",
-    "administration": "Administration",
+    "core_operations": "Core operations",
+    "academic_rosters": "Academic rosters",
+    "instructional_tracking": "Instructional & tracking",
+    "assessments_grading": "Assessments & grading",
+    "finance_inventory": "Finance & inventory",
 }
+
+
+FINANCIAL_RESOURCES = frozenset({
+    "fees", "fees-payments", "fees-class-bills", "fees-bill-items",
+    "finance", "finance-budgets", "finance-budget-items",
+    "finance-expenditure-items", "finance-expenses", "finance-vendors",
+    "finance-income",
+})
+FINANCE_BLIND_SPOT_ROLES = frozenset({"Teacher", "Class Teacher", "Director of Studies"})
 
 
 def _str(value: Any) -> str:
@@ -201,6 +204,43 @@ def _allowed_resources(request) -> set[str]:
 def _can_access(request, resource: str) -> bool:
     allowed = _allowed_resources(request)
     return "*" in allowed or resource in allowed
+
+
+def record_finance_access_denial(request, resource: str, *, operation: str) -> None:
+    """Record intentional finance access attempts from academic-only roles.
+
+    Financial resources are denied by ``_can_access`` before this helper runs;
+    the audit entry preserves that security signal without returning audit
+    implementation details to the requester.
+    """
+    role = canonical_role_label(_active_role(request))
+    if resource not in FINANCIAL_RESOURCES or role not in FINANCE_BLIND_SPOT_ROLES:
+        return
+
+    forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR", "")
+    client_ip = forwarded_for.split(",")[0].strip() or request.META.get("REMOTE_ADDR") or None
+    try:
+        AuditLog.objects.create(
+            user=request.user,
+            username=request.user.get_username(),
+            ip_address=client_ip,
+            user_agent=request.META.get("HTTP_USER_AGENT", "")[:4000],
+            method=request.method,
+            path=request.get_full_path()[:512],
+            action=AuditLog.ACTION_UPDATE,
+            object_repr="Denied finance access",
+            changes=None,
+            extra={
+                "security_event": "finance_access_denied",
+                "resource": resource,
+                "operation": operation,
+                "role": role,
+            },
+        )
+    except Exception:
+        # An audit-write issue must never turn a protected finance endpoint
+        # into an available one or disclose logging internals to the requester.
+        return
 
 
 def _staff_for_user(user):
@@ -269,7 +309,8 @@ def _school_context() -> dict[str, Any]:
 
 def _navigation_for(request) -> list[dict[str, Any]]:
     allowed = _allowed_resources(request)
-    if canonical_role_label(_active_role(request)) == "Parent":
+    role = canonical_role_label(_active_role(request))
+    if role == "Parent":
         family_items = [
             {"slug": "parent-children", "label": "My children", "icon": "users", "resource": "parent-children"},
         ]
@@ -299,6 +340,9 @@ def _navigation_for(request) -> list[dict[str, Any]]:
         visible = []
         for item in items:
             resource = item["resource"]
+            required_roles = item.get("roles")
+            if required_roles and role not in required_roles:
+                continue
             if resource is None or "*" in allowed or resource in allowed:
                 visible.append(item)
         if visible:
@@ -1516,6 +1560,7 @@ class WorkspaceResourceAPIView(WorkspaceBaseAPIView):
         if not builder:
             return Response({"detail": "Unknown workspace resource."}, status=status.HTTP_404_NOT_FOUND)
         if not _can_access(request, resource):
+            record_finance_access_denial(request, resource, operation="list")
             return Response(
                 {"code": "resource_forbidden", "detail": "Your current role does not have access to this workspace module."},
                 status=status.HTTP_403_FORBIDDEN,
@@ -1544,6 +1589,7 @@ class WorkspaceEntityAPIView(WorkspaceBaseAPIView):
         from .workspace_context import build_entity_workspace
 
         if not _can_access(request, resource):
+            record_finance_access_denial(request, resource, operation="view")
             return Response(
                 {"detail": "Your current role does not have access to this workspace module."},
                 status=status.HTTP_403_FORBIDDEN,
@@ -1564,6 +1610,7 @@ class WorkspaceEntityActionAPIView(WorkspaceBaseAPIView):
         from .workspace_context import perform_entity_action
 
         if not _can_access(request, resource):
+            record_finance_access_denial(request, resource, operation="action")
             return Response(
                 {"detail": "Your current role does not have access to this workspace module."},
                 status=status.HTTP_403_FORBIDDEN,
@@ -1579,6 +1626,7 @@ class WorkspaceResourceFormAPIView(WorkspaceBaseAPIView):
         if resource not in RESOURCE_FORMS:
             return Response({"detail": "This module does not use the standard workspace form yet."}, status=status.HTTP_404_NOT_FOUND)
         if not _can_access(request, resource):
+            record_finance_access_denial(request, resource, operation=action)
             return Response({"detail": "Your current role cannot access this module."}, status=status.HTTP_403_FORBIDDEN)
         policy = resource_action_policy(request, resource)
         if not policy.get(action, False):

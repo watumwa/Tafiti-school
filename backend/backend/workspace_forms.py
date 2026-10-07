@@ -344,6 +344,7 @@ def resource_action_policy(request, resource: str) -> dict[str, Any]:
             "create": False,
             "edit": False,
             "delete": False,
+            "bulk_import": False,
             "create_label": "Add record",
             "edit_label": "Edit",
             "delete_label": "Delete",
@@ -359,6 +360,9 @@ def resource_action_policy(request, resource: str) -> dict[str, Any]:
         "create": can_create,
         "edit": can_edit,
         "delete": can_delete,
+        "bulk_import": resource == "students" and (
+            superuser or role in {"Admin", "Admissions Officer"}
+        ),
         "create_label": config.create_label,
         "edit_label": config.edit_label,
         "delete_label": config.delete_label,

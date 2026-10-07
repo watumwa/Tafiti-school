@@ -51,6 +51,7 @@ function flattenNavigation(navigation: WorkspaceNavGroup[]): WorkspaceNavItem[] 
 }
 
 function moduleHref(dashboardPath: string, item: WorkspaceNavItem) {
+  if (item.path) return `${dashboardPath}/${item.path}`;
   return item.slug === 'overview' ? dashboardPath : `${dashboardPath}/${item.slug}`;
 }
 

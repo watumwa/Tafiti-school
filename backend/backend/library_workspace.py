@@ -9,7 +9,7 @@ from rest_framework import status
 from rest_framework.response import Response
 
 from app.forms.library import LibraryBookForm, LibraryIssueForm, LibraryLostForm, LibraryReturnForm
-from app.models import LibraryBook, LibraryCopy, LibraryFine, LibraryLoan, Staff, Student
+from app.models import LibraryBook, LibraryCopy, LibraryFine, LibraryLoan, Staff, Student, StudentBillItem
 from app.services.library import (
     CirculationError,
     issue_copy,
@@ -124,6 +124,10 @@ def _fine_rows():
     queryset = LibraryFine.objects.select_related(
         "loan__copy__book", "loan__student", "loan__staff"
     ).order_by("-assessed_at")[:1500]
+    fines = list(queryset)
+    ledger_keys = set(StudentBillItem.objects.filter(
+        notes__in=[f"library-fine:{fine.pk}" for fine in fines],
+    ).values_list("notes", flat=True))
     return [
         {
             "id": fine.pk,
@@ -134,8 +138,9 @@ def _fine_rows():
             "status": fine.get_status_display(),
             "assessed": fine.assessed_at.isoformat(),
             "notes": fine.notes or "—",
+            "billed": f"library-fine:{fine.pk}" in ledger_keys,
         }
-        for fine in queryset
+        for fine in fines
     ]
 
 
@@ -278,7 +283,15 @@ class LibraryConsoleAPIView(WorkspaceBaseAPIView):
                 )
             except (CirculationError, LibraryLoan.DoesNotExist) as exc:
                 return Response({"detail": str(exc)}, status=status.HTTP_409_CONFLICT)
-            return Response({"detail": "Book returned successfully.", "returned": loan.returned_at.isoformat() if loan.returned_at else ""})
+            fine_count = loan.fines.count()
+            return Response({
+                "detail": (
+                    f"Book returned successfully. {fine_count} library charge(s) were added to the student fee ledger."
+                    if loan.student_id and fine_count
+                    else "Book returned successfully."
+                ),
+                "returned": loan.returned_at.isoformat() if loan.returned_at else "",
+            })
 
         if screen == "lost":
             if pk is None:
@@ -296,7 +309,13 @@ class LibraryConsoleAPIView(WorkspaceBaseAPIView):
                 )
             except (CirculationError, LibraryLoan.DoesNotExist) as exc:
                 return Response({"detail": str(exc)}, status=status.HTTP_409_CONFLICT)
-            return Response({"detail": "The item was marked lost and the replacement charge was assessed."})
+            return Response({
+                "detail": (
+                    "The item was marked lost and its replacement charge was added to the student fee ledger."
+                    if LibraryLoan.objects.filter(pk=pk, student__isnull=False).exists()
+                    else "The item was marked lost and the replacement charge was assessed."
+                )
+            })
 
         if screen == "fine":
             if pk is None:

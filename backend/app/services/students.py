@@ -1,4 +1,5 @@
 import csv
+import io
 import re
 from datetime import datetime
 from django.db import transaction
@@ -56,6 +57,17 @@ HEADER_ALIASES = {
     "stream": {"stream"},
     "term": {"term", "term id", "term number"},
 }
+
+
+class BulkStudentRegistrationError(ValueError):
+    """Validation failure that keeps the entire CSV import uncommitted."""
+
+    def __init__(self, errors):
+        self.errors = [str(error) for error in errors if str(error).strip()]
+        preview = "; ".join(self.errors[:3])
+        if len(self.errors) > 3:
+            preview = f"{preview}; and {len(self.errors) - 3} more issue(s)"
+        super().__init__(preview or "The student import could not be completed.")
 
 
 def _normalize_header(header):
@@ -186,22 +198,51 @@ def _normalize_choice(raw_value, row_number, field_name, allowed_choices):
     )
 
 
-def bulk_student_registration(csv_obj):
-    created_count = 0
-    skipped_count = 0
+def _read_registration_csv(csv_source):
+    file_field = getattr(csv_source, "file_name", None)
+    source = file_field or csv_source
+    if not hasattr(source, "read"):
+        raise BulkStudentRegistrationError(["The uploaded CSV file could not be read."])
+
+    try:
+        if file_field and hasattr(file_field, "open"):
+            file_field.open("rb")
+        if hasattr(source, "seek"):
+            source.seek(0)
+        content = source.read()
+    finally:
+        if file_field and hasattr(file_field, "close"):
+            file_field.close()
+
+    if isinstance(content, bytes):
+        try:
+            content = content.decode("utf-8-sig")
+        except UnicodeDecodeError as exc:
+            raise BulkStudentRegistrationError([
+                "The CSV must use UTF-8 encoding. Download a fresh template and save it as CSV UTF-8."
+            ]) from exc
+
+    return [
+        row for row in csv.reader(io.StringIO(str(content)))
+        if any(str(cell).strip() for cell in row)
+    ]
+
+
+def bulk_student_registration(csv_source):
+    """Validate a student CSV completely, then register every row atomically."""
     errors = []
+    prepared_rows = []
     seen_reg_numbers = set()
     seen_identities = set()
 
-    with open(csv_obj.file_name.path, "r", encoding="utf-8-sig", newline="") as f:
-        rows = [row for row in csv.reader(f) if any(str(cell).strip() for cell in row)]
+    rows = _read_registration_csv(csv_source)
 
     if not rows:
-        raise ValueError("Uploaded CSV is empty.")
+        raise BulkStudentRegistrationError(["Uploaded CSV is empty."])
 
     header_index = _find_header_row(rows)
     if header_index is None:
-        raise ValueError("CSV header row not found. Use the provided template.")
+        raise BulkStudentRegistrationError(["CSV header row not found. Use the provided template."])
 
     header_row = rows[header_index]
     field_positions = _build_field_positions(header_row)
@@ -222,9 +263,17 @@ def bulk_student_registration(csv_obj):
 
     missing_fields = [field for field in required_fields if field not in field_positions]
     if missing_fields:
-        raise ValueError(f"CSV is missing required columns: {', '.join(missing_fields)}.")
+        raise BulkStudentRegistrationError([
+            f"CSV is missing required columns: {', '.join(missing_fields)}."
+        ])
 
-    for row_number, row in enumerate(rows[header_index + 1 :], start=header_index + 2):
+    data_rows = rows[header_index + 1 :]
+    if len(data_rows) > 2000:
+        raise BulkStudentRegistrationError([
+            "A single upload can contain at most 2,000 students. Split this file into smaller batches."
+        ])
+
+    for row_number, row in enumerate(data_rows, start=header_index + 2):
         try:
             def get_value(field_name):
                 if field_name not in field_positions:
@@ -291,61 +340,86 @@ def bulk_student_registration(csv_obj):
                     f"Row {row_number}: no class stream found for class '{current_class.code}' and stream '{stream.stream}'."
                 )
 
-            with transaction.atomic():
-                # Serialize imports for the same year and repeat the duplicate
-                # check after acquiring the lock to close concurrent-upload races.
-                AcademicYear.objects.select_for_update().get(pk=academic_year.pk)
-                duplicate = find_duplicate_student(
-                    student_name=student_name,
-                    birthdate=birthdate,
-                    contact=contact,
-                )
-                if duplicate:
-                    raise ValueError(
-                        f"Row {row_number}: this student already exists as {duplicate.reg_no}."
-                    )
-
-                student_data = {
-                    "student_name": student_name,
-                    "gender": gender,
-                    "birthdate": birthdate,
-                    "nationality": nationality,
-                    "religion": religion,
-                    "address": get_value("address"),
-                    "guardian": get_value("guardian"),
-                    "relationship": get_value("relationship"),
-                    "contact": contact,
-                    "academic_year": academic_year,
-                    "current_class": current_class,
-                    "stream": stream,
-                    "term": term,
-                }
-
-                if reg_no:
-                    student_data["reg_no"] = reg_no
-
-                student = Student.objects.create(**student_data)
-                ClassRegister.objects.get_or_create(
-                    academic_class_stream=class_stream,
-                    student=student,
-                )
-                create_student_bill(student, academic_class)
-
-            created_count += 1
+            student_data = {
+                "student_name": student_name,
+                "gender": gender,
+                "birthdate": birthdate,
+                "nationality": nationality,
+                "religion": religion,
+                "address": get_value("address"),
+                "guardian": get_value("guardian"),
+                "relationship": get_value("relationship"),
+                "contact": contact,
+                "academic_year": academic_year,
+                "current_class": current_class,
+                "stream": stream,
+                "term": term,
+            }
+            if reg_no:
+                student_data["reg_no"] = reg_no
+            prepared_rows.append({
+                "row_number": row_number,
+                "student_data": student_data,
+                "academic_class": academic_class,
+                "class_stream": class_stream,
+            })
         except ValueError as exc:
-            skipped_count += 1
             errors.append(str(exc))
         except Exception as exc:
-            skipped_count += 1
             errors.append(f"Row {row_number}: unexpected error: {exc}")
 
-    if created_count == 0 and errors:
-        raise ValueError(errors[0])
+    if errors:
+        raise BulkStudentRegistrationError(errors)
+
+    if not prepared_rows:
+        raise BulkStudentRegistrationError(["The CSV does not contain any student rows."])
+
+    created_count = 0
+    try:
+        with transaction.atomic():
+            year_ids = sorted({row["student_data"]["academic_year"].pk for row in prepared_rows})
+            # Imports touching the same year serialize on these rows. This also
+            # makes auto-generated registration numbers safe within a batch.
+            list(AcademicYear.objects.select_for_update().filter(pk__in=year_ids).order_by("pk"))
+
+            for prepared in prepared_rows:
+                row_number = prepared["row_number"]
+                student_data = prepared["student_data"]
+                explicit_reg_no = student_data.get("reg_no")
+                if explicit_reg_no and Student.objects.filter(reg_no=explicit_reg_no).exists():
+                    raise BulkStudentRegistrationError([
+                        f"Row {row_number}: student with Reg No '{explicit_reg_no}' already exists."
+                    ])
+
+                duplicate = find_duplicate_student(
+                    student_name=student_data["student_name"],
+                    birthdate=student_data["birthdate"],
+                    contact=student_data["contact"],
+                )
+                if duplicate:
+                    raise BulkStudentRegistrationError([
+                        f"Row {row_number}: this student already exists as {duplicate.reg_no}."
+                    ])
+
+                student = Student.objects.create(**student_data)
+                ClassRegister.objects.create(
+                    academic_class_stream=prepared["class_stream"],
+                    student=student,
+                )
+                create_student_bill(student, prepared["academic_class"])
+                created_count += 1
+    except BulkStudentRegistrationError:
+        raise
+    except Exception as exc:
+        raise BulkStudentRegistrationError([
+            "No students were imported because the batch could not be committed. "
+            f"Technical detail: {exc}"
+        ]) from exc
 
     return {
         "created_count": created_count,
-        "skipped_count": skipped_count,
-        "errors": errors,
+        "skipped_count": 0,
+        "errors": [],
     }
 
 

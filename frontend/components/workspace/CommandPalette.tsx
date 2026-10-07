@@ -117,7 +117,7 @@ export function CommandPalette({
               type="button"
               onClick={() => {
                 onClose();
-                router.push(item.slug === 'overview' ? dashboardPath : `${dashboardPath}/${item.slug}`);
+                router.push(item.path ? `${dashboardPath}/${item.path}` : item.slug === 'overview' ? dashboardPath : `${dashboardPath}/${item.slug}`);
               }}
               className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left hover:bg-slate-50"
             >

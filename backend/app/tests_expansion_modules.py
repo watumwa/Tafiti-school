@@ -196,10 +196,21 @@ class ExpansionModuleFoundationTests(TestCase):
         return_loan(loan_id=loan.pk, actor=self.admin, condition="damaged", damage_amount=750, notes="Torn cover")
         reasons = set(loan.fines.values_list("reason", flat=True))
         self.assertEqual(reasons, {LibraryFine.REASON_OVERDUE, LibraryFine.REASON_DAMAGED})
+        bill = StudentBill.objects.get(student=student, academic_class=self.academic_class)
+        library_charges = bill.items.filter(notes__startswith="library-fine:")
+        self.assertEqual(library_charges.count(), 2)
+        self.assertEqual(
+            sum(item.amount for item in library_charges),
+            sum(fine.amount for fine in loan.fines.all()),
+        )
         outstanding = loan.fines.get(reason=LibraryFine.REASON_DAMAGED)
         resolve_fine(fine_id=outstanding.pk, actor=self.admin, resolution=LibraryFine.STATUS_WAIVED)
         outstanding.refresh_from_db()
         self.assertEqual(outstanding.status, LibraryFine.STATUS_WAIVED)
+        self.assertEqual(
+            bill.items.get(notes=f"library-fine:{outstanding.pk}").amount,
+            0,
+        )
 
         lost_copy = LibraryCopy.objects.create(book=book, accession_number="SCI-2", barcode="SCI-2", acquisition_cost=5000)
         with self.assertRaises(CirculationError):
@@ -211,6 +222,11 @@ class ExpansionModuleFoundationTests(TestCase):
         lost_copy.refresh_from_db()
         self.assertEqual(lost_copy.status, LibraryCopy.STATUS_LOST)
         self.assertEqual(lost_loan.fines.get(reason=LibraryFine.REASON_LOST).amount, 5000)
+        lost_fine = lost_loan.fines.get(reason=LibraryFine.REASON_LOST)
+        self.assertEqual(
+            bill.items.get(notes=f"library-fine:{lost_fine.pk}").amount,
+            5000,
+        )
 
     def test_librarian_workspace_dashboard_issue_search_and_members(self):
         student = self.make_student(name="Library Member", contact="0700666000")

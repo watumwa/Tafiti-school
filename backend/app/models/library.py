@@ -127,7 +127,7 @@ class LibraryAudit(models.Model):
 
 
 class LibraryFine(models.Model):
-    """A library-managed penalty; it never posts silently into student fees."""
+    """A library penalty posted to a student's term ledger when applicable."""
 
     REASON_OVERDUE = "overdue"
     REASON_LOST = "lost"

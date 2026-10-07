@@ -4,11 +4,68 @@ from decimal import Decimal, ROUND_UP
 from django.db import transaction
 from django.utils import timezone
 
-from app.models import LibraryAudit, LibraryCopy, LibraryFine, LibraryLoan, LibraryPolicy, Staff, Student
+from app.models import (
+    AcademicClass,
+    BillItem,
+    LibraryAudit,
+    LibraryCopy,
+    LibraryFine,
+    LibraryLoan,
+    LibraryPolicy,
+    Staff,
+    Student,
+    StudentBillItem,
+)
 
 
 class CirculationError(ValueError):
     pass
+
+
+def _fine_ledger_key(fine):
+    return f"library-fine:{fine.pk}"
+
+
+def _post_student_fine_to_ledger(fine):
+    """Create or update the matching student fee charge for a library fine."""
+    student = fine.loan.student
+    if not student:
+        return None
+
+    academic_class = AcademicClass.objects.filter(
+        academic_year=student.academic_year,
+        term=student.term,
+        Class=student.current_class,
+    ).first()
+    if not academic_class:
+        return None
+
+    # Reuse the normal billing service so the learner always has one complete
+    # bill for the term before the library penalty is attached.
+    from app.services.students import create_student_bill
+
+    bill = create_student_bill(student, academic_class)
+    bill_item = BillItem.objects.filter(item_name__iexact="Library Fine").order_by("pk").first()
+    if not bill_item:
+        bill_item = BillItem.objects.create(
+            item_name="Library Fine",
+            category="One Off",
+            bill_duration="None",
+            description="Library late, damage and replacement charges",
+        )
+    reason = fine.get_reason_display()
+    book = fine.loan.copy.book.title
+    charge, _ = StudentBillItem.objects.update_or_create(
+        bill=bill,
+        notes=_fine_ledger_key(fine),
+        defaults={
+            "bill_item": bill_item,
+            "description": f"Library {reason.lower()} charge — {book}",
+            "amount": fine.amount,
+            "fee_category": "Other",
+        },
+    )
+    return charge
 
 
 @transaction.atomic
@@ -51,9 +108,15 @@ def _assess_fine(*, loan, reason, amount, actor, notes=""):
         defaults={"amount": amount, "status": LibraryFine.STATUS_OUTSTANDING, "notes": notes, "assessed_by": actor,
                   "resolved_by": None, "resolved_at": None},
     )
+    charge = _post_student_fine_to_ledger(fine)
     LibraryAudit.objects.create(
         loan=loan, copy=loan.copy, action="fine_assessed", actor=actor,
-        details={"fine_id": fine.pk, "reason": reason, "amount": str(amount)},
+        details={
+            "fine_id": fine.pk,
+            "reason": reason,
+            "amount": str(amount),
+            "student_bill_item_id": getattr(charge, "pk", None),
+        },
     )
     return fine
 
@@ -118,6 +181,11 @@ def resolve_fine(*, fine_id, actor, resolution):
     fine.resolved_by = actor
     fine.resolved_at = timezone.now()
     fine.save(update_fields=("status", "resolved_by", "resolved_at"))
+    if resolution == LibraryFine.STATUS_WAIVED:
+        StudentBillItem.objects.filter(notes=_fine_ledger_key(fine)).update(
+            amount=Decimal("0.00"),
+            description=f"WAIVED — library {fine.get_reason_display().lower()} charge",
+        )
     LibraryAudit.objects.create(
         loan=fine.loan, copy=fine.loan.copy, action=f"fine_{resolution}", actor=actor,
         details={"fine_id": fine.pk, "amount": str(fine.amount)},

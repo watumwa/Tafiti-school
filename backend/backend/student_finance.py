@@ -20,7 +20,7 @@ from app.models import (
 )
 
 from .auth import canonical_role_label, resolve_active_role
-from .workspace import WorkspaceBaseAPIView, _token_context
+from .workspace import WorkspaceBaseAPIView, _token_context, record_finance_access_denial
 
 
 READ_ROLES = {"Admin", "Head Teacher", "Bursar"}
@@ -318,6 +318,7 @@ def _list_accounts(request):
 class StudentFinanceAPIView(WorkspaceBaseAPIView):
     def get(self, request, screen: str, pk: int | None = None):
         if not _can_read(request):
+            record_finance_access_denial(request, "fees", operation="student_finance_read")
             return Response({"detail": "Your current role cannot access student finance."}, status=status.HTTP_403_FORBIDDEN)
         if screen == "accounts" and pk is None:
             return Response(_list_accounts(request))
@@ -335,6 +336,7 @@ class StudentFinanceAPIView(WorkspaceBaseAPIView):
     @transaction.atomic
     def post(self, request, screen: str, pk: int | None = None):
         if not _can_write(request):
+            record_finance_access_denial(request, "fees", operation="student_finance_write")
             return Response({"detail": "Your current role cannot change student finance records."}, status=status.HTTP_403_FORBIDDEN)
         if screen != "account" or pk is None:
             return Response({"detail": "Unknown student finance action."}, status=status.HTTP_404_NOT_FOUND)

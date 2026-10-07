@@ -5,6 +5,7 @@ export type WorkspaceNavItem = {
   label: string;
   icon: string;
   resource: string | null;
+  path?: string;
 };
 
 export type WorkspaceNavGroup = {
@@ -112,6 +113,7 @@ export type WorkspaceActions = {
   create: boolean;
   edit: boolean;
   delete: boolean;
+  bulk_import?: boolean;
   create_label: string;
   edit_label: string;
   delete_label: string;

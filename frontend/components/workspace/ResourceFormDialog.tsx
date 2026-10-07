@@ -1,11 +1,45 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { AlertCircle, LoaderCircle, Save, X } from 'lucide-react';
+import { AlertCircle, LoaderCircle, Save, Search, X } from 'lucide-react';
 
 import { ImageUploadControl } from './ImageUploadControl';
 
 import type { WorkspaceFormField, WorkspaceFormSchema } from '@/lib/workspace';
+
+function SearchableSelect({
+  field,
+  value,
+  loading,
+  className,
+  onChange,
+}: {
+  field: WorkspaceFormField;
+  value: string;
+  loading: boolean;
+  className: string;
+  onChange: (value: string) => void;
+}) {
+  const [query, setQuery] = useState('');
+  const filtered = useMemo(() => {
+    const term = query.trim().toLocaleLowerCase();
+    if (!term) return field.options;
+    const matches = field.options.filter((option) => option.label.toLocaleLowerCase().includes(term));
+    const selected = field.options.find((option) => option.value === value);
+    return selected && !matches.some((option) => option.value === selected.value) ? [selected, ...matches] : matches;
+  }, [field.options, query, value]);
+
+  return (
+    <div className="space-y-2">
+      {field.options.length > 6 && <div className="relative"><Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" /><input type="search" value={query} disabled={field.disabled || loading} onChange={(event) => setQuery(event.target.value)} placeholder={`Search ${field.label.toLowerCase()}…`} className="h-9 w-full rounded-xl border border-slate-200 bg-[#F8FAFD] pl-9 pr-3 text-xs text-slate-800 outline-none focus:border-[#2C5D8A] focus:ring-4 focus:ring-[#2C5D8A]/10" /></div>}
+      <select value={value} disabled={field.disabled || loading} onChange={(event) => onChange(event.target.value)} className={className}>
+        <option value="">Select {field.label.toLowerCase()}</option>
+        {filtered.map((option) => <option key={`${field.name}-${option.value}`} value={option.value}>{option.label}</option>)}
+      </select>
+      {query && filtered.length === 0 && <span className="block text-[10px] text-amber-600">No matching options.</span>}
+    </div>
+  );
+}
 
 function initialValue(field: WorkspaceFormField) {
   if (field.type === 'checkbox') return Boolean(field.initial);
@@ -107,15 +141,7 @@ export function ResourceFormDialog({
                         className={`${common} h-auto min-h-[108px] py-3`}
                       />
                     ) : field.type === 'select' ? (
-                      <select
-                        value={String(values[field.name] ?? '')}
-                        disabled={field.disabled || loading}
-                        onChange={(event) => setValues((current) => ({ ...current, [field.name]: event.target.value }))}
-                        className={common}
-                      >
-                        <option value="">Select {field.label.toLowerCase()}</option>
-                        {field.options.map((option) => <option key={`${field.name}-${option.value}`} value={option.value}>{option.label}</option>)}
-                      </select>
+                      <SearchableSelect field={field} value={String(values[field.name] ?? '')} loading={loading} className={common} onChange={(value) => setValues((current) => ({ ...current, [field.name]: value }))} />
                     ) : field.type === 'multiselect' ? (
                       <select
                         multiple
