@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation';
 import {
   AlertCircle,
   ArrowRight,
+  BookOpen,
   Eye,
   EyeOff,
   LoaderCircle,
@@ -83,7 +84,10 @@ export function ReferenceLoginPage({ notice }: { notice?: string }) {
       <div className="absolute inset-0 bg-white/[.08] backdrop-blur-[1px]" aria-hidden="true" />
 
       <section className="relative isolate w-full max-w-[610px] overflow-hidden rounded-[28px] border border-white/80 bg-[linear-gradient(142deg,rgba(255,255,255,.93),rgba(247,250,255,.89))] px-6 py-9 shadow-[0_28px_80px_rgba(28,65,116,.24),0_2px_6px_rgba(39,70,114,.12)] backdrop-blur-[18px] sm:px-10 sm:py-12">
-        <div className="pointer-events-none absolute -right-24 -top-24 h-64 w-64 rounded-full border-[48px] border-blue-100/55" aria-hidden="true" />
+        <div className="pointer-events-none absolute -right-11 -top-9 rotate-[10deg] text-[#8db8f6]/[.18] blur-[1px]" aria-hidden="true">
+          <BookOpen size={205} strokeWidth={1.15} />
+          <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 text-[10px] font-extrabold tracking-[.28em]">TAFITI</span>
+        </div>
         <div className="pointer-events-none absolute -bottom-36 -left-28 h-60 w-60 rounded-full bg-blue-100/25 blur-2xl" aria-hidden="true" />
 
         <div className="relative mx-auto w-full max-w-[486px]">
