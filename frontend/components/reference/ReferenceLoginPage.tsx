@@ -1,6 +1,7 @@
 'use client';
 
 import { FormEvent, useState } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
@@ -8,13 +9,10 @@ import {
   ArrowRight,
   Eye,
   EyeOff,
-  GraduationCap,
   LoaderCircle,
   LockKeyhole,
-  School,
   ShieldCheck,
   UserRound,
-  UsersRound,
 } from 'lucide-react';
 
 import { Logo } from '@/components/brand/Logo';
@@ -33,7 +31,7 @@ export function ReferenceLoginPage({ notice }: { notice?: string }) {
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState(notice ? 'Your session has ended. Sign in again to continue.' : '');
 
@@ -72,46 +70,115 @@ export function ReferenceLoginPage({ notice }: { notice?: string }) {
   }
 
   return (
-    <main className="relative min-h-dvh overflow-hidden bg-[#EFF5FD] text-[#10224A]">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_18%,rgba(70,143,255,.12),transparent_32rem),radial-gradient(circle_at_88%_82%,rgba(37,99,235,.08),transparent_28rem)]" aria-hidden="true" />
-      <div className="relative mx-auto grid min-h-dvh max-w-[1500px] lg:grid-cols-[1.05fr_.95fr]">
-        <section className="relative hidden overflow-hidden bg-[#081F49] px-12 py-12 text-white lg:flex lg:flex-col lg:justify-between xl:px-16">
-          <div className="absolute -left-28 bottom-[-120px] h-[430px] w-[430px] rounded-full border-[52px] border-blue-400/[.08]" aria-hidden="true" />
-          <div className="absolute -right-32 top-[-130px] h-[390px] w-[390px] rounded-full border border-white/[.08]" aria-hidden="true" />
-          <div className="relative"><Logo inverted /></div>
-          <div className="relative max-w-xl">
-            <span className="inline-flex items-center gap-2 rounded-full border border-blue-300/20 bg-blue-400/10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[.12em] text-blue-100"><ShieldCheck size={13} /> Secure school workspace</span>
-            <h1 className="mt-6 text-5xl font-extrabold leading-[1.04] tracking-[-.045em] xl:text-6xl">One place to run your school with clarity.</h1>
-            <p className="mt-5 max-w-lg text-sm leading-7 text-blue-100/70">Students, academics, attendance, results, finance, staff, library and parent communication stay connected to the same Django business rules.</p>
-            <div className="mt-8 grid max-w-lg grid-cols-2 gap-3"><div className="rounded-2xl border border-white/[.09] bg-white/[.06] p-4"><GraduationCap size={20} className="text-blue-300" /><p className="mt-3 text-sm font-bold">Academics</p><p className="mt-1 text-[10px] text-blue-100/55">Classes, results and attendance</p></div><div className="rounded-2xl border border-white/[.09] bg-white/[.06] p-4"><School size={20} className="text-blue-300" /><p className="mt-3 text-sm font-bold">Administration</p><p className="mt-1 text-[10px] text-blue-100/55">People, finance and operations</p></div></div>
+    <main className="relative grid min-h-dvh place-items-center overflow-hidden bg-[#dcecff] px-4 py-7 text-[#102754] sm:px-6 sm:py-10">
+      <Image
+        src="/images/tafiti-campus-login.png"
+        alt=""
+        fill
+        priority
+        sizes="100vw"
+        className="object-cover object-center"
+      />
+      <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(230,243,255,.14),rgba(224,238,255,.24))]" aria-hidden="true" />
+      <div className="absolute inset-0 bg-white/[.08] backdrop-blur-[1px]" aria-hidden="true" />
+
+      <section className="relative isolate w-full max-w-[610px] overflow-hidden rounded-[28px] border border-white/80 bg-[linear-gradient(142deg,rgba(255,255,255,.93),rgba(247,250,255,.89))] px-6 py-9 shadow-[0_28px_80px_rgba(28,65,116,.24),0_2px_6px_rgba(39,70,114,.12)] backdrop-blur-[18px] sm:px-10 sm:py-12">
+        <div className="pointer-events-none absolute -right-24 -top-24 h-64 w-64 rounded-full border-[48px] border-blue-100/55" aria-hidden="true" />
+        <div className="pointer-events-none absolute -bottom-36 -left-28 h-60 w-60 rounded-full bg-blue-100/25 blur-2xl" aria-hidden="true" />
+
+        <div className="relative mx-auto w-full max-w-[486px]">
+          <div className="flex justify-center">
+            <Logo accent="blue" />
           </div>
-          <p className="relative text-[10px] font-semibold text-blue-100/45">Tafiti School Management System</p>
-        </section>
 
-        <section className="grid place-items-center px-4 py-8 sm:px-8 lg:px-12">
-          <div className="w-full max-w-[470px]">
-            <div className="mb-6 flex justify-center lg:hidden"><Logo accent="blue" /></div>
-            <div className="rounded-[24px] border border-white bg-white/95 p-6 shadow-[0_28px_80px_rgba(31,76,139,.14)] backdrop-blur-xl sm:p-8">
-              <div className="flex items-start gap-3"><span className="grid h-11 w-11 place-items-center rounded-xl bg-blue-50 text-blue-600"><ShieldCheck size={20} /></span><div><h2 className="text-[1.85rem] font-extrabold tracking-[-.04em] text-[#10224A]">Welcome back</h2><p className="mt-1 text-xs text-slate-500">Sign in with your school account to continue.</p></div></div>
+          <header className="mt-9 text-center sm:mt-10">
+            <h1 className="text-[2.2rem] font-extrabold leading-none tracking-[-.055em] text-[#102754] sm:text-[2.65rem]">Welcome back</h1>
+            <p className="mt-3 text-base font-medium tracking-[-.02em] text-[#6e82a6] sm:text-[1.05rem]">Sign in to your account</p>
+          </header>
 
-              <form onSubmit={submit} className="mt-6 space-y-4">
-                <label className="block"><span className="mb-1.5 block text-[11px] font-extrabold text-slate-700">Username or email</span><span className="relative block"><UserRound className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={16} /><input value={identifier} onChange={(event) => setIdentifier(event.target.value)} disabled={submitting} autoComplete="username" placeholder="Enter your username or email" className="tafiti-input h-11 w-full pl-10 pr-3 text-sm" required /></span></label>
+          <form onSubmit={submit} className="mt-9 space-y-4 sm:mt-10 sm:space-y-[18px]">
+            <label className="block">
+              <span className="sr-only">Username or email</span>
+              <span className="relative block">
+                <UserRound className="pointer-events-none absolute left-5 top-1/2 -translate-y-1/2 text-[#7990b7]" size={21} strokeWidth={1.85} aria-hidden="true" />
+                <input
+                  value={identifier}
+                  onChange={(event) => setIdentifier(event.target.value)}
+                  disabled={submitting}
+                  autoComplete="username"
+                  placeholder="Username or email"
+                  className="h-[65px] w-full rounded-2xl border border-[#d7e1f0] bg-white/72 pl-[66px] pr-5 text-[1.02rem] font-medium text-[#142957] outline-none transition placeholder:text-[#8ba0c1] hover:border-[#aec5e7] focus:border-[#4d8dff] focus:bg-white focus:ring-4 focus:ring-blue-500/10 disabled:cursor-not-allowed disabled:opacity-70"
+                  required
+                />
+              </span>
+            </label>
 
-                <label className="block"><div className="mb-1.5 flex items-center justify-between"><span className="text-[11px] font-extrabold text-slate-700">Password</span><Link href="/forgot-password" className="text-[10px] font-bold text-blue-600 hover:underline">Forgot password?</Link></div><span className="relative block"><LockKeyhole className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={16} /><input value={password} onChange={(event) => setPassword(event.target.value)} disabled={submitting} type={showPassword ? 'text' : 'password'} autoComplete="current-password" placeholder="Enter your password" className="tafiti-input h-11 w-full pl-10 pr-11 text-sm" required /><button type="button" onClick={() => setShowPassword((value) => !value)} className="absolute right-2.5 top-1/2 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-lg text-slate-400 hover:bg-blue-50 hover:text-blue-600">{showPassword ? <EyeOff size={16} /> : <Eye size={16} />}</button></span></label>
+            <label className="block">
+              <span className="sr-only">Password</span>
+              <span className="relative block">
+                <LockKeyhole className="pointer-events-none absolute left-5 top-1/2 -translate-y-1/2 text-[#7990b7]" size={21} strokeWidth={1.85} aria-hidden="true" />
+                <input
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  disabled={submitting}
+                  type={showPassword ? 'text' : 'password'}
+                  autoComplete="current-password"
+                  placeholder="Password"
+                  className="h-[65px] w-full rounded-2xl border border-[#d7e1f0] bg-white/72 pl-[66px] pr-16 text-[1.02rem] font-medium text-[#142957] outline-none transition placeholder:text-[#8ba0c1] hover:border-[#aec5e7] focus:border-[#4d8dff] focus:bg-white focus:ring-4 focus:ring-blue-500/10 disabled:cursor-not-allowed disabled:opacity-70"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((value) => !value)}
+                  className="absolute right-3 top-1/2 grid h-10 w-10 -translate-y-1/2 place-items-center rounded-xl text-[#7990b7] transition hover:bg-blue-50 hover:text-[#276dea] focus:outline-none focus:ring-4 focus:ring-blue-500/10"
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                >
+                  {showPassword ? <EyeOff size={21} strokeWidth={1.8} /> : <Eye size={21} strokeWidth={1.8} />}
+                </button>
+              </span>
+            </label>
 
-                <div className="rounded-xl border border-blue-100 bg-blue-50/70 p-3.5"><div className="flex items-start gap-2.5"><span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-white text-blue-600 shadow-sm"><UsersRound size={15} /></span><div><p className="text-[10px] font-extrabold text-blue-900">Your role is detected after sign in</p><p className="mt-1 text-[9px] leading-4 text-blue-700/75">If your account has one role, Tafiti opens it directly. If you have several roles, you will choose from only the workspaces assigned to you.</p></div></div></div>
-
-                <div className="flex items-center justify-between"><label className="inline-flex items-center gap-2 text-[10px] font-semibold text-slate-500"><input type="checkbox" checked={rememberMe} onChange={(event) => setRememberMe(event.target.checked)} className="h-4 w-4 accent-blue-600" />Remember me</label><span className="text-[9px] text-slate-400">Secure access</span></div>
-
-                {formError && <div className="error-enter flex items-start gap-2 rounded-xl border border-red-100 bg-red-50 px-3.5 py-3 text-xs leading-5 text-red-700"><AlertCircle size={16} className="mt-0.5 shrink-0" />{formError}</div>}
-
-                <button type="submit" disabled={submitting} className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#2F7DF4] to-[#1E64F0] text-sm font-extrabold text-white shadow-[0_10px_24px_rgba(37,99,235,.24)] transition hover:brightness-105 disabled:opacity-60">{submitting ? <><LoaderCircle className="animate-spin" size={17} />Signing in…</> : <>Sign in <ArrowRight size={16} /></>}</button>
-              </form>
+            <div className="flex items-center justify-between gap-4 pt-1">
+              <label className="inline-flex cursor-pointer items-center gap-2.5 text-sm font-semibold text-[#5d7298]">
+                <input
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={(event) => setRememberMe(event.target.checked)}
+                  className="h-5 w-5 cursor-pointer rounded-[5px] border-[#aebfd8] accent-[#2472ef]"
+                />
+                Remember me
+              </label>
+              <Link href="/forgot-password" className="text-sm font-bold text-[#1265ed] transition hover:text-[#0b4bb8] hover:underline">
+                Forgot password?
+              </Link>
             </div>
-            <p className="mt-5 text-center text-[9px] font-semibold text-slate-400">Access is limited to authorised members of your school community.</p>
+
+            {formError && (
+              <div className="error-enter flex items-start gap-2.5 rounded-2xl border border-red-200 bg-red-50/95 px-4 py-3.5 text-sm leading-5 text-red-700" role="alert">
+                <AlertCircle size={18} className="mt-0.5 shrink-0" aria-hidden="true" />
+                <span>{formError}</span>
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={submitting}
+              className="flex h-[65px] w-full items-center justify-center gap-3 rounded-2xl bg-[linear-gradient(110deg,#2d7af3,#1459ee)] text-lg font-extrabold tracking-[-.025em] text-white shadow-[0_16px_28px_rgba(30,99,234,.27)] transition hover:-translate-y-0.5 hover:shadow-[0_20px_32px_rgba(30,99,234,.35)] focus:outline-none focus:ring-4 focus:ring-blue-500/25 disabled:cursor-not-allowed disabled:translate-y-0 disabled:opacity-60"
+            >
+              {submitting ? <><LoaderCircle className="animate-spin" size={21} aria-hidden="true" />Signing in…</> : <>Sign in <ArrowRight size={21} strokeWidth={2.2} aria-hidden="true" /></>}
+            </button>
+          </form>
+
+          <div className="mt-9 flex items-center gap-4 text-[#8195b6] sm:mt-10">
+            <span className="h-px flex-1 bg-[#dbe4f1]" />
+            <span className="inline-flex items-center gap-2 whitespace-nowrap text-[.82rem] font-medium">
+              <ShieldCheck size={18} strokeWidth={1.9} aria-hidden="true" />
+              Secure access
+            </span>
+            <span className="h-px flex-1 bg-[#dbe4f1]" />
           </div>
-        </section>
-      </div>
+        </div>
+      </section>
     </main>
   );
 }
