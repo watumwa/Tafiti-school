@@ -73,7 +73,16 @@ CSRF_COOKIE_SECURE = True
 #     }
 # }
 
-database_url = os.environ.get('DATABASE_URL')
+# ``DATABASE_URL`` is the explicit application setting.  When the database is
+# attached through Vercel's Neon integration, Vercel instead provides one of
+# the managed Postgres URLs below.  Prefer a direct/non-pooling URL for Django
+# migrations and fall back to the pooled URL for normal requests.
+database_url = (
+    os.environ.get('DATABASE_URL')
+    or os.environ.get('POSTGRES_URL_NON_POOLING')
+    or os.environ.get('DATABASE_URL_UNPOOLED')
+    or os.environ.get('POSTGRES_URL')
+)
 if database_url:
     parsed_database_url = urlparse(database_url)
     database_engine = {
