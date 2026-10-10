@@ -324,7 +324,10 @@ def _staff_workspace(request, pk: int):
     sessions = list(AttendanceSession.objects.filter(teacher=staff).select_related(
         "subject", "class_stream",
     ).order_by("-date")[:100])
-    documents = list(staff.staffdocument_set.order_by("-id")[:50])
+    # StaffDocument exposes its reverse relation as ``documents``.  Using the
+    # default Django accessor here caused every staff record workspace to fail
+    # before it could render, including records with no documents.
+    documents = list(staff.documents.order_by("-id")[:50])
     account = StaffAccount.objects.filter(staff=staff).select_related("user", "role").first()
     tabs = [
         _tab("overview", "Overview", [("field", "Profile"), ("value", "Details")], _detail_rows([

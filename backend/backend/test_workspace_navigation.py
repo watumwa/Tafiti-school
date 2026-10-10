@@ -78,6 +78,39 @@ class WorkspaceNavigationTests(APITestCase):
             ["Academic Setup", "Timetable", "Attendance", "Assessments & Results", "Library"],
         )
 
+    def test_admin_can_open_a_staff_workspace_without_documents(self):
+        admin = get_user_model().objects.create_superuser(
+            username="staff-workspace-admin",
+            email="staff-workspace-admin@example.test",
+            password="A-strong-test-password-123",
+        )
+        staff = Staff.objects.create(
+            first_name="Record",
+            last_name="Workspace",
+            birth_date=date(1990, 1, 1),
+            gender="F",
+            address="Kampala",
+            marital_status="U",
+            contacts="0700000000",
+            email="record-workspace@example.test",
+            qualification="Degree",
+            nin_no="NAV00000000001",
+            hire_date=date(2020, 1, 1),
+            department="Academic",
+            salary="1.00",
+            staff_status="Active",
+        )
+        self.client.force_authenticate(user=admin)
+
+        response = self.client.get(
+            reverse("api_workspace_entity", kwargs={"resource": "staff", "pk": staff.pk}),
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["resource"], "staff")
+        self.assertEqual(response.data["metrics"][2]["label"], "Documents")
+        self.assertEqual(response.data["metrics"][2]["value"], 0)
+
     def test_class_teacher_gets_a_focused_classroom_navigation(self):
         self.client.force_authenticate(user=self._user_for_role("Class Teacher"))
 
