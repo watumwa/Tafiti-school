@@ -14,7 +14,10 @@ def validate_nin(value):
 
 
 class Role(models.Model):
-    name = models.CharField(max_length=50, choices=ROLE_CHOICES, unique=True)
+    name = models.CharField(max_length=50, unique=True)
+    description = models.CharField(max_length=180, blank=True)
+    is_system = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=True)
 
     class Meta:
         verbose_name = "Role"
@@ -22,6 +25,25 @@ class Role(models.Model):
 
     def __str__(self):
         return self.name
+
+
+class RolePermission(models.Model):
+    """A role's persisted access to one server-defined workspace module."""
+
+    role = models.ForeignKey(Role, on_delete=models.CASCADE, related_name="module_permissions")
+    module = models.CharField(max_length=40)
+    allowed = models.BooleanField(default=False)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["role", "module"], name="role_permission_once_per_module"),
+        ]
+        ordering = ("role_id", "module")
+        verbose_name = "Role permission"
+        verbose_name_plural = "Role permissions"
+
+    def __str__(self):
+        return f"{self.role}: {self.module} ({'allowed' if self.allowed else 'denied'})"
 
 
 class Staff(models.Model):

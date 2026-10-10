@@ -30,7 +30,7 @@ from .staff_workspace import StaffWorkspaceAPIView
 from .student_finance import StudentFinanceAPIView
 from .student_import_workspace import StudentBulkImportAPIView
 from .timetable_operations import TimetableOperationsAPIView
-from .user_management import UserRolesWorkspaceAPIView
+from .user_management import RoleManagementAPIView, UserRolesWorkspaceAPIView
 
 from .views import (
     CurrentUserAPIView,
@@ -57,6 +57,8 @@ urlpatterns = [
     path("workspace/reports/report-cards/<int:class_id>/bulk-pdf/", ReportCardBulkExportAPIView.as_view(), name="api_workspace_report_cards_bulk_pdf"),
     path("workspace/users-roles/", UserRolesWorkspaceAPIView.as_view(), name="api_workspace_users_roles"),
     path("workspace/users-roles/<int:user_id>/", UserRolesWorkspaceAPIView.as_view(), name="api_workspace_users_roles_record"),
+    path("workspace/users-roles/roles/", RoleManagementAPIView.as_view(), name="api_workspace_roles"),
+    path("workspace/users-roles/roles/<int:role_id>/", RoleManagementAPIView.as_view(), name="api_workspace_role_record"),
     path("workspace/academics/<str:tool>/", AcademicToolAPIView.as_view(), name="api_workspace_academic_tool"),
     path("workspace/academics/<str:tool>/<int:pk>/", AcademicToolAPIView.as_view(), name="api_workspace_academic_tool_record"),
     path("workspace/classes/<int:pk>/<str:action>/", ClassesWorkspaceAPIView.as_view(), name="api_workspace_classes_action"),

@@ -7,6 +7,7 @@ import {
   BadgeCheck,
   Check,
   ChevronRight,
+  CirclePlus,
   Clock3,
   LoaderCircle,
   LockKeyhole,
@@ -14,8 +15,10 @@ import {
   Plus,
   Power,
   PowerOff,
+  Save,
   Search,
   ShieldCheck,
+  Trash2,
   UserCog,
   UserRound,
   Users,
@@ -38,29 +41,32 @@ type ManagedUser = {
   active: boolean;
   superuser: boolean;
   last_login: string;
-  date_joined: string;
-  parent_links: number;
   can_edit_roles: boolean;
 };
 
 type RoleMatrixRow = {
+  id: number | null;
   label: string;
+  description: string;
   assignable: boolean;
+  active: boolean;
+  system: boolean;
+  can_edit_access: boolean;
+  can_edit_details: boolean;
+  can_delete: boolean;
   access: Record<string, boolean>;
 };
 
+type Module = { key: string; label: string };
 type UserRolesPayload = {
   users: ManagedUser[];
   roles: RoleMatrixRow[];
-  modules: { key: string; label: string }[];
-  summary: {
-    total_users: number;
-    active_users: number;
-    role_types: number;
-    staff_without_accounts: number;
-  };
+  modules: Module[];
+  summary: { total_users: number; active_users: number; role_types: number; staff_without_accounts: number };
   can_manage: boolean;
 };
+
+type RoleDialog = { mode: 'new' } | { mode: 'edit'; role: RoleMatrixRow };
 
 function dateLabel(value: string) {
   if (!value) return 'Never';
@@ -79,6 +85,10 @@ function roleTone(role: string) {
   return 'border-slate-200 bg-slate-50 text-slate-600';
 }
 
+function accessChanged(role: RoleMatrixRow, draft: Record<string, boolean> | undefined, modules: Module[]) {
+  return Boolean(draft && modules.some((module) => Boolean(draft[module.key]) !== Boolean(role.access[module.key])));
+}
+
 export function ReferenceUsersRolesView({ dashboardPath }: { dashboardPath: string }) {
   const toast = useToast();
   const [data, setData] = useState<UserRolesPayload | null>(null);
@@ -92,6 +102,13 @@ export function ReferenceUsersRolesView({ dashboardPath }: { dashboardPath: stri
   const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
+  const [accessDrafts, setAccessDrafts] = useState<Record<number, Record<string, boolean>>>({});
+  const [savingPermissions, setSavingPermissions] = useState(false);
+  const [roleDialog, setRoleDialog] = useState<RoleDialog | null>(null);
+  const [roleName, setRoleName] = useState('');
+  const [roleDescription, setRoleDescription] = useState('');
+  const [templateRoleId, setTemplateRoleId] = useState('');
+  const [savingRole, setSavingRole] = useState(false);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -103,7 +120,12 @@ export function ReferenceUsersRolesView({ dashboardPath }: { dashboardPath: stri
         if (!response.ok) throw new Error(payload.detail || 'Users and roles could not be loaded.');
         return payload as UserRolesPayload;
       })
-      .then(setData)
+      .then((payload) => {
+        setData(payload);
+        setAccessDrafts(Object.fromEntries(
+          payload.roles.filter((role) => role.id !== null).map((role) => [role.id as number, { ...role.access }]),
+        ));
+      })
       .catch((reason: unknown) => {
         if (!controller.signal.aborted) setError(reason instanceof Error ? reason.message : 'Users and roles could not be loaded.');
       })
@@ -124,11 +146,31 @@ export function ReferenceUsersRolesView({ dashboardPath }: { dashboardPath: stri
     });
   }, [data, query, roleFilter, statusFilter]);
 
-  const assignableRoles = useMemo(() => data?.roles.filter((role) => role.assignable) ?? [], [data]);
+  const assignableRoles = useMemo(
+    () => data?.roles.filter((role) => role.assignable) ?? [],
+    [data],
+  );
+  const dirtyRoles = useMemo(
+    () => data?.roles.filter((role) => role.id !== null && accessChanged(role, accessDrafts[role.id], data.modules)) ?? [],
+    [accessDrafts, data],
+  );
 
   function openRoleEditor(user: ManagedUser) {
     setEditing(user);
     setSelectedRoles(user.roles.filter((role) => assignableRoles.some((item) => item.label === role)));
+  }
+
+  function openRoleDialog(dialog: RoleDialog) {
+    setRoleDialog(dialog);
+    if (dialog.mode === 'edit') {
+      setRoleName(dialog.role.label);
+      setRoleDescription(dialog.role.description);
+      setTemplateRoleId('');
+    } else {
+      setRoleName('');
+      setRoleDescription('');
+      setTemplateRoleId(String(assignableRoles.find((role) => role.label === 'Teacher')?.id ?? assignableRoles[0]?.id ?? ''));
+    }
   }
 
   async function updateStatus(user: ManagedUser) {
@@ -136,8 +178,7 @@ export function ReferenceUsersRolesView({ dashboardPath }: { dashboardPath: stri
     setSaving(true);
     try {
       const response = await fetch(`/api/workspace/users-roles/${user.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'status', active: !user.active }),
       });
       const payload = await response.json();
@@ -156,8 +197,7 @@ export function ReferenceUsersRolesView({ dashboardPath }: { dashboardPath: stri
     setSaving(true);
     try {
       const response = await fetch(`/api/workspace/users-roles/${editing.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'roles', roles: selectedRoles }),
       });
       const payload = await response.json();
@@ -172,14 +212,84 @@ export function ReferenceUsersRolesView({ dashboardPath }: { dashboardPath: stri
     }
   }
 
+  async function savePermissionChanges() {
+    if (!data || !dirtyRoles.length || savingPermissions) return;
+    setSavingPermissions(true);
+    try {
+      for (const role of dirtyRoles) {
+        const response = await fetch(`/api/workspace/users-roles/roles/${role.id}`, {
+          method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'permissions', access: accessDrafts[role.id as number] }),
+        });
+        const payload = await response.json();
+        if (!response.ok) throw new Error(payload.detail || `Permissions could not be saved for ${role.label}.`);
+      }
+      toast.success('Permissions saved', `${dirtyRoles.length} role ${dirtyRoles.length === 1 ? 'was' : 'were'} updated and audited.`);
+      setReloadKey((value) => value + 1);
+    } catch (reason: unknown) {
+      toast.error('Permissions not saved', reason instanceof Error ? reason.message : 'Please try again.');
+    } finally {
+      setSavingPermissions(false);
+    }
+  }
+
+  function cancelPermissionChanges() {
+    if (!data) return;
+    setAccessDrafts(Object.fromEntries(
+      data.roles.filter((role) => role.id !== null).map((role) => [role.id as number, { ...role.access }]),
+    ));
+  }
+
+  async function saveRoleDetails() {
+    if (!data?.can_manage || !roleDialog || savingRole) return;
+    setSavingRole(true);
+    try {
+      const isNew = roleDialog.mode === 'new';
+      const response = await fetch(
+        isNew ? '/api/workspace/users-roles/roles' : `/api/workspace/users-roles/roles/${roleDialog.role.id}`,
+        {
+          method: isNew ? 'POST' : 'PATCH', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(isNew
+            ? { name: roleName, description: roleDescription, template_id: templateRoleId ? Number(templateRoleId) : null }
+            : { action: 'details', name: roleName, description: roleDescription }),
+        },
+      );
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.detail || 'Role could not be saved.');
+      toast.success(isNew ? 'Role created' : 'Role updated', payload.detail);
+      setRoleDialog(null);
+      setReloadKey((value) => value + 1);
+    } catch (reason: unknown) {
+      toast.error('Role not saved', reason instanceof Error ? reason.message : 'Please try again.');
+    } finally {
+      setSavingRole(false);
+    }
+  }
+
+  async function deleteRole(role: RoleMatrixRow) {
+    if (!role.id || !role.can_delete || !window.confirm(`Delete the ${role.label} role? This cannot be undone.`)) return;
+    try {
+      const response = await fetch(`/api/workspace/users-roles/roles/${role.id}`, { method: 'DELETE' });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.detail || 'Role could not be deleted.');
+      toast.success('Role deleted', payload.detail);
+      setReloadKey((value) => value + 1);
+    } catch (reason: unknown) {
+      toast.error('Role not deleted', reason instanceof Error ? reason.message : 'Please try again.');
+    }
+  }
+
+  function showRoleUsers(role: RoleMatrixRow) {
+    setTab('users');
+    setRoleFilter(role.label);
+  }
+
   if (loading && !data) {
     return <div className="tafiti-card grid min-h-[460px] place-items-center"><div className="text-center text-xs font-semibold text-slate-500"><LoaderCircle className="mx-auto mb-3 animate-spin text-blue-600" size={24} />Loading users and roles…</div></div>;
   }
-
   if (error && !data) {
     return <div className="tafiti-card grid min-h-[420px] place-items-center p-6 text-center"><div><AlertCircle className="mx-auto text-red-500" size={25} /><h2 className="mt-3 text-sm font-bold text-slate-900">Users &amp; Roles unavailable</h2><p className="mt-2 text-xs text-slate-500">{error}</p><button type="button" onClick={() => setReloadKey((value) => value + 1)} className="clay-button-primary mt-4">Try again</button></div></div>;
   }
-
   if (!data) return null;
 
   return (
@@ -187,15 +297,19 @@ export function ReferenceUsersRolesView({ dashboardPath }: { dashboardPath: stri
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div className="flex items-start gap-3">
           <span className="grid h-11 w-11 place-items-center rounded-xl bg-blue-50 text-blue-600"><ShieldCheck size={21} /></span>
+<<<<<<< HEAD
           <div><h1 className="text-[1.65rem] font-extrabold tracking-[-0.035em] text-[#10224A]">Users &amp; Roles</h1><p className="mt-1 max-w-3xl text-xs leading-5 text-slate-500">Manage account access and staff role assignments. Staff with at least two assigned roles automatically get <strong className="font-extrabold text-slate-700">Switch workspace</strong> in their profile menu.</p></div>
+=======
+          <div><h1 className="text-[1.65rem] font-extrabold tracking-[-0.035em] text-[#10224A]">Users &amp; Roles</h1><p className="mt-1 max-w-3xl text-xs leading-5 text-slate-500">Manage account access, staff role assignments and the workspace modules each role can open.</p></div>
+>>>>>>> d44a4cfe6 (latest)
         </div>
-        <Link href={`${dashboardPath}/staff`} className="clay-button-secondary"><UserRound size={14} /> Staff directory</Link>
+        <div className="flex flex-wrap gap-2"><Link href={`${dashboardPath}/staff`} className="clay-button-secondary"><UserRound size={14} /> Staff directory</Link>{data.can_manage && <button type="button" onClick={() => openRoleDialog({ mode: 'new' })} className="clay-button-primary"><CirclePlus size={14} /> Add new role</button>}</div>
       </div>
 
       <div className="mb-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <div className="tafiti-kpi"><div className="flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-blue-50 text-blue-600"><Users size={18} /></span><div><p className="text-[9px] font-bold text-slate-400">TOTAL USERS</p><p className="mt-1 text-xl font-extrabold text-[#10224A]">{data.summary.total_users}</p><p className="mt-0.5 text-[9px] text-slate-400">Staff and parent accounts</p></div></div></div>
         <div className="tafiti-kpi"><div className="flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-emerald-50 text-emerald-600"><BadgeCheck size={18} /></span><div><p className="text-[9px] font-bold text-slate-400">ACTIVE ACCOUNTS</p><p className="mt-1 text-xl font-extrabold text-[#10224A]">{data.summary.active_users}</p><p className="mt-0.5 text-[9px] text-slate-400">Can authenticate now</p></div></div></div>
-        <div className="tafiti-kpi"><div className="flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-violet-50 text-violet-600"><UserCog size={18} /></span><div><p className="text-[9px] font-bold text-slate-400">ROLE TYPES</p><p className="mt-1 text-xl font-extrabold text-[#10224A]">{data.summary.role_types}</p><p className="mt-0.5 text-[9px] text-slate-400">Server-defined access profiles</p></div></div></div>
+        <div className="tafiti-kpi"><div className="flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-violet-50 text-violet-600"><UserCog size={18} /></span><div><p className="text-[9px] font-bold text-slate-400">ROLE TYPES</p><p className="mt-1 text-xl font-extrabold text-[#10224A]">{data.summary.role_types}</p><p className="mt-0.5 text-[9px] text-slate-400">Configurable access profiles</p></div></div></div>
         <div className="tafiti-kpi"><div className="flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-amber-50 text-amber-600"><LockKeyhole size={18} /></span><div><p className="text-[9px] font-bold text-slate-400">NO LOGIN ACCOUNT</p><p className="mt-1 text-xl font-extrabold text-[#10224A]">{data.summary.staff_without_accounts}</p><p className="mt-0.5 text-[9px] text-slate-400">Staff records without portal accounts</p></div></div></div>
       </div>
 
@@ -208,11 +322,9 @@ export function ReferenceUsersRolesView({ dashboardPath }: { dashboardPath: stri
         <section className="tafiti-card overflow-hidden">
           <div className="flex flex-col gap-3 border-b border-slate-100 px-4 py-3.5 lg:flex-row lg:items-center lg:justify-between sm:px-5">
             <div className="relative w-full lg:max-w-[360px]"><Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={15} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search name, email, department or role…" className="tafiti-input h-9 w-full pl-9 pr-3 text-xs" /></div>
-            <div className="flex flex-wrap gap-2">
-              <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as 'all' | 'active' | 'inactive')} className="tafiti-input h-9 px-3 text-[10px] font-bold"><option value="all">All statuses</option><option value="active">Active</option><option value="inactive">Inactive</option></select>
-              <select value={roleFilter} onChange={(event) => setRoleFilter(event.target.value)} className="tafiti-input h-9 px-3 text-[10px] font-bold"><option value="all">All roles</option>{data.roles.map((role) => <option key={role.label} value={role.label}>{role.label}</option>)}</select>
-            </div>
+            <div className="flex flex-wrap gap-2"><select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as 'all' | 'active' | 'inactive')} className="tafiti-input h-9 px-3 text-[10px] font-bold"><option value="all">All statuses</option><option value="active">Active</option><option value="inactive">Inactive</option></select><select value={roleFilter} onChange={(event) => setRoleFilter(event.target.value)} className="tafiti-input h-9 px-3 text-[10px] font-bold"><option value="all">All roles</option>{data.roles.map((role) => <option key={role.label} value={role.label}>{role.label}</option>)}</select></div>
           </div>
+<<<<<<< HEAD
 
           <div className="hidden overflow-x-auto md:block">
             <table className="w-full min-w-[1040px] border-collapse text-left">
@@ -223,15 +335,21 @@ export function ReferenceUsersRolesView({ dashboardPath }: { dashboardPath: stri
 
           <div className="space-y-3 p-3 md:hidden">{rows.map((row) => <article key={row.id} className="rounded-2xl border border-slate-100 bg-[#FBFCFE] p-4"><div className="flex items-start gap-3"><ProfileAvatar src={row.photo} name={row.name} size="md" /><div className="min-w-0 flex-1"><div className="flex items-center justify-between gap-2"><h3 className="truncate text-sm font-extrabold text-slate-900">{row.name}</h3><span className={`rounded-full px-2 py-1 text-[8px] font-bold ${row.active ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>{row.active ? 'Active' : 'Inactive'}</span></div><p className="mt-1 truncate text-[10px] text-slate-500">{row.email || row.username}</p><p className="mt-1 text-[9px] text-slate-400">{row.department || row.account_type} · Last login {dateLabel(row.last_login)}</p></div></div><div className="mt-3 flex flex-wrap gap-1">{row.roles.map((role) => <span key={role} className={`rounded-full border px-2 py-1 text-[8px] font-bold ${roleTone(role)}`}>{role}</span>)}</div><div className="mt-3 flex gap-2">{row.staff_id && <Link href={`${dashboardPath}/staff/${row.staff_id}`} className="clay-button-secondary flex-1">Open profile</Link>}{data.can_manage && row.can_edit_roles && <button type="button" onClick={() => openRoleEditor(row)} className="clay-button-primary flex-1"><Plus size={13} /> Add another role</button>}</div></article>)}</div>
           {!rows.length && <div className="px-5 py-12 text-center text-xs text-slate-400">No user accounts match these filters.</div>}
+=======
+          <div className="hidden overflow-x-auto md:block"><table className="w-full min-w-[1040px] border-collapse text-left"><thead><tr className="border-b border-slate-100 bg-[#F8FAFD]"><th className="px-4 py-3 text-[9px] font-extrabold text-slate-400">USER</th><th className="px-4 py-3 text-[9px] font-extrabold text-slate-400">ROLES</th><th className="px-4 py-3 text-[9px] font-extrabold text-slate-400">DEPARTMENT</th><th className="px-4 py-3 text-[9px] font-extrabold text-slate-400">LAST LOGIN</th><th className="px-4 py-3 text-[9px] font-extrabold text-slate-400">STATUS</th><th className="px-4 py-3 text-right text-[9px] font-extrabold text-slate-400">ACTIONS</th></tr></thead><tbody className="divide-y divide-slate-100">{rows.map((row) => <tr key={row.id} className="hover:bg-blue-50/20"><td className="px-4 py-3"><div className="flex items-center gap-2.5"><ProfileAvatar src={row.photo} name={row.name} size="sm" /><div className="min-w-0"><p className="truncate text-xs font-bold text-slate-800">{row.name}</p><p className="mt-0.5 truncate text-[9px] text-slate-400">{row.email || row.username} · {row.account_type}</p></div></div></td><td className="px-4 py-3"><div className="flex max-w-[280px] flex-wrap gap-1">{row.roles.map((role) => <span key={role} className={`rounded-full border px-2 py-1 text-[8px] font-bold ${roleTone(role)}`}>{role}</span>)}</div></td><td className="px-4 py-3 text-xs text-slate-600">{row.department || '—'}</td><td className="px-4 py-3"><div className="flex items-center gap-1.5 text-[10px] text-slate-500"><Clock3 size={12} />{dateLabel(row.last_login)}</div></td><td className="px-4 py-3"><span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[9px] font-bold ${row.active ? 'border-emerald-100 bg-emerald-50 text-emerald-700' : 'border-slate-200 bg-slate-50 text-slate-500'}`}><span className={`h-1.5 w-1.5 rounded-full ${row.active ? 'bg-emerald-500' : 'bg-slate-400'}`} />{row.active ? 'Active' : 'Inactive'}</span></td><td className="px-4 py-3"><div className="flex justify-end gap-1.5">{row.staff_id && <Link href={`${dashboardPath}/staff/${row.staff_id}`} className="clay-row-action" title="Open staff profile"><ChevronRight size={13} /></Link>}{data.can_manage && row.can_edit_roles && <button type="button" onClick={() => openRoleEditor(row)} className="clay-row-action" title="Edit roles"><Pencil size={13} /></button>}{data.can_manage && !row.superuser && <button type="button" disabled={saving} onClick={() => void updateStatus(row)} className={`clay-row-action ${row.active ? 'clay-row-action-danger' : ''}`} title={row.active ? 'Deactivate account' : 'Activate account'}>{row.active ? <PowerOff size={13} /> : <Power size={13} />}</button>}</div></td></tr>)}</tbody></table></div>
+          <div className="space-y-3 p-3 md:hidden">{rows.map((row) => <article key={row.id} className="rounded-2xl border border-slate-100 bg-[#FBFCFE] p-4"><div className="flex items-start gap-3"><ProfileAvatar src={row.photo} name={row.name} size="md" /><div className="min-w-0 flex-1"><div className="flex items-center justify-between gap-2"><h3 className="truncate text-sm font-extrabold text-slate-900">{row.name}</h3><span className={`rounded-full px-2 py-1 text-[8px] font-bold ${row.active ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>{row.active ? 'Active' : 'Inactive'}</span></div><p className="mt-1 truncate text-[10px] text-slate-500">{row.email || row.username}</p><p className="mt-1 text-[9px] text-slate-400">{row.department || row.account_type} · Last login {dateLabel(row.last_login)}</p></div></div><div className="mt-3 flex flex-wrap gap-1">{row.roles.map((role) => <span key={role} className={`rounded-full border px-2 py-1 text-[8px] font-bold ${roleTone(role)}`}>{role}</span>)}</div><div className="mt-3 flex gap-2">{row.staff_id && <Link href={`${dashboardPath}/staff/${row.staff_id}`} className="clay-button-secondary flex-1">Open profile</Link>}{data.can_manage && row.can_edit_roles && <button type="button" onClick={() => openRoleEditor(row)} className="clay-button-primary flex-1"><Pencil size={13} /> Roles</button>}</div></article>)}</div>
+          {!rows.length && <div className="px-5 py-12 text-center text-xs text-slate-400">{roleFilter === 'all' ? 'No user accounts match these filters.' : <><p>No users are assigned to <strong className="text-slate-700">{roleFilter}</strong> yet.</p><Link href={`${dashboardPath}/staff`} className="mt-3 inline-flex font-bold text-blue-600 hover:text-blue-700">Assign a staff member →</Link></>}</div>}
+>>>>>>> d44a4cfe6 (latest)
         </section>
       ) : (
         <section className="tafiti-card overflow-hidden">
-          <div className="border-b border-slate-100 px-4 py-4 sm:px-5"><div className="flex items-start gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-violet-50 text-violet-600"><ShieldCheck size={18} /></span><div><h2 className="text-sm font-extrabold text-[#10224A]">Role access matrix</h2><p className="mt-1 max-w-3xl text-[10px] leading-4 text-slate-500">This matrix reflects the server-side module registry. Assigning a role changes which existing Django workspaces the user can enter; it does not create new permissions in the browser.</p></div></div></div>
-          <div className="overflow-x-auto"><table className="w-full min-w-[1320px] border-collapse text-center"><thead><tr className="border-b border-slate-100 bg-[#F8FAFD]"><th className="sticky left-0 z-10 min-w-[190px] bg-[#F8FAFD] px-4 py-3 text-left text-[9px] font-extrabold text-slate-400">ROLE</th><th className="px-3 py-3 text-[9px] font-extrabold text-slate-400">USERS</th>{data.modules.map((module) => <th key={module.key} className="min-w-[92px] px-2 py-3 text-[8px] font-extrabold uppercase tracking-[.04em] text-slate-400">{module.label}</th>)}</tr></thead><tbody className="divide-y divide-slate-100">{data.roles.map((role) => { const assigned = data.users.filter((user) => user.roles.includes(role.label)).length; return <tr key={role.label} className="hover:bg-blue-50/15"><td className="sticky left-0 z-10 bg-white px-4 py-3 text-left"><div className="flex items-center gap-2"><span className={`grid h-8 w-8 place-items-center rounded-lg border ${roleTone(role.label)}`}><ShieldCheck size={14} /></span><div><p className="text-xs font-extrabold text-slate-800">{role.label}</p><p className="mt-0.5 text-[8px] text-slate-400">{role.assignable ? 'Staff role' : 'Managed separately'}</p></div></div></td><td className="px-3 py-3 text-xs font-extrabold text-slate-700">{assigned}</td>{data.modules.map((module) => <td key={module.key} className="px-2 py-3">{role.access[module.key] ? <span className="mx-auto grid h-6 w-6 place-items-center rounded-full bg-emerald-50 text-emerald-600"><Check size={13} /></span> : <span className="mx-auto block h-1.5 w-1.5 rounded-full bg-slate-200" />}</td>)}</tr>; })}</tbody></table></div>
-          <div className="border-t border-slate-100 bg-[#FBFCFE] px-4 py-3 text-[10px] text-slate-500 sm:px-5"><LockKeyhole size={12} className="mr-1.5 inline text-blue-600" />Only an active <strong className="text-slate-700">Admin</strong> can change account status or staff role assignments. Head Teacher access is read-only.</div>
+          <div className="flex flex-col gap-3 border-b border-slate-100 px-4 py-4 sm:flex-row sm:items-start sm:justify-between sm:px-5"><div className="flex items-start gap-3"><span className="grid h-10 w-10 place-items-center rounded-xl bg-violet-50 text-violet-600"><ShieldCheck size={18} /></span><div><h2 className="text-sm font-extrabold text-[#10224A]">Role access matrix</h2><p className="mt-1 max-w-3xl text-[10px] leading-4 text-slate-500">Toggle module access for a role, then save. Changes are persisted, audited, and enforced when a user opens a workspace. Admin access stays protected.</p></div></div><span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-blue-100 bg-blue-50 px-3 py-1.5 text-[9px] font-bold text-blue-700">Scroll sideways <span aria-hidden="true">→</span></span></div>
+          <div className="relative"><div className="pointer-events-none absolute bottom-3 right-0 top-0 z-20 w-10 bg-gradient-to-l from-white to-transparent" aria-hidden="true" /><div className="overflow-x-scroll overscroll-x-contain pb-3"><table className="w-full min-w-[1660px] border-collapse text-center"><thead><tr className="border-b border-slate-100 bg-[#F8FAFD]"><th className="sticky left-0 z-20 min-w-[220px] bg-[#F8FAFD] px-4 py-3 text-left text-[9px] font-extrabold text-slate-400">ROLE</th><th className="sticky z-20 min-w-[74px] bg-[#F8FAFD] px-3 py-3 text-[9px] font-extrabold text-slate-400" style={{ left: 220 }}>USERS</th>{data.modules.map((module) => <th key={module.key} className="min-w-[94px] px-2 py-3 text-[8px] font-extrabold uppercase tracking-[.04em] text-slate-400">{module.label}</th>)}</tr></thead><tbody className="divide-y divide-slate-100">{data.roles.map((role) => { const assigned = data.users.filter((user) => user.roles.includes(role.label)).length; const draft = role.id === null ? role.access : accessDrafts[role.id] ?? role.access; return <tr key={role.label} className="hover:bg-blue-50/15"><td className="sticky left-0 z-10 bg-white px-4 py-3 text-left"><div className="flex items-center gap-2"><span className={`grid h-8 w-8 shrink-0 place-items-center rounded-lg border ${roleTone(role.label)}`}><ShieldCheck size={14} /></span><div className="min-w-0 flex-1"><div className="flex items-center gap-1.5"><p className="truncate text-xs font-extrabold text-slate-800">{role.label}</p>{role.system && <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[7px] font-bold uppercase tracking-wide text-slate-500">Built-in</span>}</div><p className="mt-0.5 truncate text-[8px] text-slate-400">{role.description || (role.assignable ? 'Staff role' : 'Managed separately')}</p></div>{data.can_manage && role.can_edit_details && <div className="flex gap-1"><button type="button" onClick={() => openRoleDialog({ mode: 'edit', role })} className="clay-row-action" title="Edit role details"><Pencil size={12} /></button>{role.can_delete && <button type="button" onClick={() => void deleteRole(role)} className="clay-row-action clay-row-action-danger" title="Delete role"><Trash2 size={12} /></button>}</div>}</div></td><td className="sticky z-10 bg-white px-3 py-3" style={{ left: 220 }}><button type="button" onClick={() => showRoleUsers(role)} className="rounded-md px-2 py-1 text-xs font-extrabold text-slate-700 transition hover:bg-blue-50 hover:text-blue-700" title={`Show users assigned to ${role.label}`}>{assigned}</button></td>{data.modules.map((module) => { const enabled = Boolean(draft[module.key]); const editable = data.can_manage && role.can_edit_access && role.id !== null; return <td key={module.key} className="px-2 py-3"><button type="button" role="switch" aria-checked={enabled} disabled={!editable} onClick={() => { if (role.id !== null && editable) setAccessDrafts((current) => ({ ...current, [role.id as number]: { ...(current[role.id as number] ?? role.access), [module.key]: !enabled } })); }} className={`relative mx-auto inline-flex h-6 w-10 items-center rounded-full p-0.5 transition ${enabled ? 'bg-emerald-500' : 'bg-slate-200'} ${editable ? 'cursor-pointer hover:ring-2 hover:ring-blue-200' : 'cursor-not-allowed opacity-70'}`} title={editable ? `${enabled ? 'Remove' : 'Grant'} ${module.label} access` : enabled ? 'Granted access' : 'No access'}><span className={`grid h-5 w-5 place-items-center rounded-full bg-white shadow-sm transition-transform ${enabled ? 'translate-x-4 text-emerald-600' : 'translate-x-0 text-slate-300'}`}>{enabled && <Check size={12} strokeWidth={3} />}</span></button></td>; })}</tr>; })}</tbody></table></div></div>
+          <div className="border-t border-slate-100 bg-[#FBFCFE] px-4 py-3 text-[10px] text-slate-500 sm:px-5"><LockKeyhole size={12} className="mr-1.5 inline text-blue-600" />Only an active <strong className="text-slate-700">Admin</strong> can save role access. Built-in roles cannot be deleted; parent access remains managed separately.</div>
         </section>
       )}
 
+<<<<<<< HEAD
       {editing && (
         <div className="fixed inset-0 z-[80] grid place-items-center bg-slate-950/35 p-4 backdrop-blur-[2px]" role="dialog" aria-modal="true">
           <div className="w-full max-w-lg overflow-hidden rounded-[22px] border border-slate-200 bg-white shadow-[0_30px_90px_rgba(7,22,51,.25)]">
@@ -241,6 +359,13 @@ export function ReferenceUsersRolesView({ dashboardPath }: { dashboardPath: stri
           </div>
         </div>
       )}
+=======
+      {dirtyRoles.length > 0 && <div className="fixed inset-x-4 bottom-5 z-[70] mx-auto flex max-w-xl items-center justify-between gap-3 rounded-2xl border border-blue-200 bg-white px-4 py-3 shadow-[0_18px_45px_rgba(37,99,235,.2)] sm:px-5"><p className="text-xs font-bold text-slate-700"><span className="mr-1.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-blue-600 px-1 text-[9px] text-white">{dirtyRoles.length}</span>role {dirtyRoles.length === 1 ? 'has' : 'have'} unsaved permission changes</p><div className="flex gap-2"><button type="button" disabled={savingPermissions} onClick={cancelPermissionChanges} className="clay-button-secondary">Cancel</button><button type="button" disabled={savingPermissions} onClick={() => void savePermissionChanges()} className="clay-button-primary">{savingPermissions ? <LoaderCircle size={14} className="animate-spin" /> : <Save size={14} />} Save changes</button></div></div>}
+
+      {editing && <div className="fixed inset-0 z-[80] grid place-items-center bg-slate-950/35 p-4 backdrop-blur-[2px]" role="dialog" aria-modal="true"><div className="w-full max-w-lg overflow-hidden rounded-[22px] border border-slate-200 bg-white shadow-[0_30px_90px_rgba(7,22,51,.25)]"><div className="flex items-start justify-between gap-3 border-b border-slate-100 px-5 py-4"><div><p className="text-[9px] font-extrabold uppercase tracking-[.1em] text-blue-600">Role assignment</p><h2 className="mt-1 text-lg font-extrabold text-[#10224A]">{editing.name}</h2><p className="mt-1 text-[10px] text-slate-500">Choose one or more active roles. Multiple roles enable workspace switching.</p></div><button type="button" onClick={() => setEditing(null)} className="clay-icon-button"><X size={15} /></button></div><div className="max-h-[55vh] space-y-2 overflow-y-auto p-5">{assignableRoles.map((role) => { const checked = selectedRoles.includes(role.label); return <label key={role.label} className={`flex cursor-pointer items-center gap-3 rounded-xl border p-3.5 transition ${checked ? 'border-blue-200 bg-blue-50/60' : 'border-slate-100 bg-[#FBFCFE] hover:border-slate-200'}`}><input type="checkbox" checked={checked} onChange={() => setSelectedRoles((current) => checked ? current.filter((value) => value !== role.label) : [...current, role.label])} className="h-4 w-4 accent-blue-600" /><span className={`grid h-9 w-9 place-items-center rounded-xl border ${roleTone(role.label)}`}><ShieldCheck size={15} /></span><div className="min-w-0 flex-1"><p className="text-xs font-extrabold text-slate-800">{role.label}</p><p className="mt-0.5 text-[9px] text-slate-400">{Object.values(role.access).filter(Boolean).length} module groups available</p></div>{checked && <Check size={16} className="text-blue-600" />}</label>; })}</div><div className="flex items-center justify-between gap-3 border-t border-slate-100 bg-[#FBFCFE] px-5 py-4"><p className="text-[9px] leading-4 text-slate-400">Parent access is managed separately from staff roles.</p><div className="flex gap-2"><button type="button" onClick={() => setEditing(null)} className="clay-button-secondary">Cancel</button><button type="button" disabled={saving || !selectedRoles.length} onClick={() => void saveRoles()} className="clay-button-primary">{saving ? <LoaderCircle size={14} className="animate-spin" /> : <UserCog size={14} />} Save roles</button></div></div></div></div>}
+
+      {roleDialog && <div className="fixed inset-0 z-[80] grid place-items-center bg-slate-950/35 p-4 backdrop-blur-[2px]" role="dialog" aria-modal="true"><div className="w-full max-w-lg overflow-hidden rounded-[22px] border border-slate-200 bg-white shadow-[0_30px_90px_rgba(7,22,51,.25)]"><div className="flex items-start justify-between gap-3 border-b border-slate-100 px-5 py-4"><div><p className="text-[9px] font-extrabold uppercase tracking-[.1em] text-blue-600">{roleDialog.mode === 'new' ? 'Role setup' : 'Role details'}</p><h2 className="mt-1 text-lg font-extrabold text-[#10224A]">{roleDialog.mode === 'new' ? 'Add a new role' : `Edit ${roleDialog.role.label}`}</h2><p className="mt-1 text-[10px] text-slate-500">{roleDialog.mode === 'new' ? 'Start from a role template, then fine-tune its module access in the matrix.' : 'Rename or describe this custom role.'}</p></div><button type="button" onClick={() => setRoleDialog(null)} className="clay-icon-button"><X size={15} /></button></div><div className="space-y-4 p-5"><label className="block"><span className="mb-1.5 block text-[10px] font-extrabold text-slate-600">Role name</span><input value={roleName} onChange={(event) => setRoleName(event.target.value)} maxLength={50} placeholder="e.g. Transport Coordinator" className="tafiti-input h-10 w-full px-3 text-xs" autoFocus /></label><label className="block"><span className="mb-1.5 block text-[10px] font-extrabold text-slate-600">Description <span className="font-normal text-slate-400">(optional)</span></span><textarea value={roleDescription} onChange={(event) => setRoleDescription(event.target.value)} maxLength={180} rows={3} placeholder="Explain this role's school responsibility" className="tafiti-input w-full resize-none px-3 py-2.5 text-xs" /></label>{roleDialog.mode === 'new' && <label className="block"><span className="mb-1.5 block text-[10px] font-extrabold text-slate-600">Start from a template</span><select value={templateRoleId} onChange={(event) => setTemplateRoleId(event.target.value)} className="tafiti-input h-10 w-full px-3 text-xs"><option value="">No access yet</option>{assignableRoles.map((role) => <option key={role.id} value={role.id ?? ''}>{role.label}</option>)}</select></label>}</div><div className="flex justify-end gap-2 border-t border-slate-100 bg-[#FBFCFE] px-5 py-4"><button type="button" onClick={() => setRoleDialog(null)} className="clay-button-secondary">Cancel</button><button type="button" disabled={savingRole || !roleName.trim()} onClick={() => void saveRoleDetails()} className="clay-button-primary">{savingRole ? <LoaderCircle size={14} className="animate-spin" /> : <Save size={14} />}{roleDialog.mode === 'new' ? 'Create role' : 'Save details'}</button></div></div></div>}
+>>>>>>> d44a4cfe6 (latest)
     </section>
   );
 }

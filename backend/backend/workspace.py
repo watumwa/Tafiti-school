@@ -45,6 +45,7 @@ from app.models import (
     Result,
     ResultBatch,
     ResultVerificationNotification,
+    RolePermission,
     SchoolSetting,
     Staff,
     Student,
@@ -57,6 +58,7 @@ from app.models import (
 )
 
 from .auth import assigned_role_labels, canonical_role_label, resolve_active_role, serialize_user_context
+from .role_access import ROLE_RESOURCES, resources_for_modules
 
 
 # The navigation is deliberately generated server-side.  Hiding a link in the
@@ -89,34 +91,6 @@ NAVIGATION = {
     "communication": [
         {"slug": "communication", "label": "Messages & Notices", "icon": "messages-square", "resource": "communication"},
     ],
-}
-
-ROLE_RESOURCES = {
-    "Admin": {"*"},
-    "Head Teacher": {"*"},
-    "Director of Studies": {
-        "students", "staff", "admissions", "parents", "classes", "subjects", "results",
-        "attendance", "timetable", "communication", "audit",
-    },
-    "Bursar": {
-        "students", "fees", "fees-payments", "fees-class-bills", "fees-bill-items",
-        "finance", "finance-budgets", "finance-expenses", "finance-vendors",
-        "finance-income", "finance-budget-items", "finance-expenditure-items",
-        "communication", "audit",
-    },
-    "Class Teacher": {"students", "classes", "subjects", "results", "attendance", "timetable", "communication", "my-class"},
-    "Teacher": {"students", "classes", "subjects", "results", "attendance", "timetable", "communication"},
-    "Admissions Officer": {"students", "admissions", "communication"},
-    "Librarian": {"students", "library", "communication"},
-    "Library Assistant": {"students", "library", "communication"},
-    "Support Staff": {"communication"},
-    "Parent": {
-        "students", "results", "attendance", "fees", "communication",
-        "parent-profile", "parent-children", "parent-results", "parent-attendance",
-        "parent-finance", "parent-communication", "parent-calendar",
-        "parent-notifications", "parent-reports",
-    },
-    "Staff": {"communication"},
 }
 
 GROUP_LABELS = {
@@ -193,6 +167,27 @@ def _allowed_resources(request) -> set[str]:
         if accesses.filter(can_view_finance=True).exists():
             allowed.add("fees")
         return allowed
+
+    # Admin is deliberately non-editable and always retains complete access.
+    if role == "Admin":
+        return {"*"}
+
+    try:
+        account = request.user.staff_account
+        candidate_roles = list(account.staff.roles.all())
+        if account.role_id and all(candidate.pk != account.role_id for candidate in candidate_roles):
+            candidate_roles.append(account.role)
+        matching_ids = [
+            candidate.pk for candidate in candidate_roles
+            if canonical_role_label(candidate.name) == role
+        ]
+        permission_rows = RolePermission.objects.filter(role_id__in=matching_ids)
+        if permission_rows.exists():
+            return resources_for_modules(
+                permission_rows.filter(allowed=True).values_list("module", flat=True),
+            )
+    except AttributeError:
+        pass
     return ROLE_RESOURCES.get(role, set())
 
 

@@ -108,8 +108,8 @@ def assigned_role_labels(user) -> list[str]:
     roles: list[str] = []
     try:
         account = user.staff_account
-        roles.extend(account.staff.roles.values_list("name", flat=True))
-        if account.role_id:
+        roles.extend(account.staff.roles.filter(is_active=True).values_list("name", flat=True))
+        if account.role_id and account.role.is_active:
             roles.append(account.role.name)
     except (AttributeError, User.staff_account.RelatedObjectDoesNotExist):
         pass
