@@ -3,7 +3,7 @@ from crispy_forms.helper import FormHelper
 
 from django import forms
 from django.core.exceptions import ValidationError
-from app.models import  AcademicClassStream
+from app.models import AcademicClassStream
 
 from app.models.students import (
     Student,
@@ -11,8 +11,24 @@ from app.models.students import (
     StudentRegistrationCSV,
     find_duplicate_student,
 )
+from app.validators import normalize_uganda_lin
 
-class StudentForm(ModelForm):
+
+class UgandaLinFormMixin:
+    def clean_lin_number(self):
+        value = normalize_uganda_lin(self.cleaned_data.get("lin_number"))
+        if not value:
+            return None
+
+        existing = Student.objects.filter(lin_number__iexact=value)
+        if self.instance.pk:
+            existing = existing.exclude(pk=self.instance.pk)
+        if existing.exists():
+            raise forms.ValidationError("This LIN is already assigned to another student.")
+        return value
+
+
+class StudentForm(UgandaLinFormMixin, ModelForm):
     
     class Meta:
         model = Student
@@ -45,7 +61,7 @@ class StudentForm(ModelForm):
         return cleaned_data
 
 
-class ClassScopedStudentForm(ModelForm):
+class ClassScopedStudentForm(UgandaLinFormMixin, ModelForm):
     academic_class_stream = forms.ModelChoiceField(
         queryset=AcademicClassStream.objects.none(),
         label="Stream",
@@ -97,6 +113,7 @@ class ClassScopedStudentForm(ModelForm):
             )
         return cleaned_data
 
+
 class StudentRegistrationCSVForm(ModelForm):
     class Meta:
         model = StudentRegistrationCSV
@@ -106,11 +123,13 @@ class StudentRegistrationCSVForm(ModelForm):
         super().__init__(*args, **kwargs)
         self.Helper = FormHelper()
 
+
 class ClassRegisterForm(ModelForm):
     
     class Meta:
         model = ClassRegister
         fields = ("__all__")
+
 
 class BulkStudentRegistrationForm(forms.Form):
     academic_class_stream = forms.ModelChoiceField(
