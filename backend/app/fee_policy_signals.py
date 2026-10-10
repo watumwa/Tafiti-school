@@ -7,13 +7,16 @@ from app.models import AcademicClass, ClassBill, StudentBill, StudentBillItem, T
 
 
 def _selected_class_bill(academic_class, bill_item, student):
-    policy = ClassBill.objects.filter(
+    """Prefer the student's exact Day/Boarding policy, then fall back to All."""
+    residency = getattr(student, "residency_status", ClassBill.APPLIES_DAY)
+    policies = ClassBill.objects.filter(
         academic_class=academic_class,
         bill_item=bill_item,
-    ).first()
-    if not policy:
-        return None
-    return policy if policy.applies_to_student(student) else None
+    )
+    return (
+        policies.filter(applies_to=residency).first()
+        or policies.filter(applies_to=ClassBill.APPLIES_ALL).first()
+    )
 
 
 def _sync_bill_item(instance):
@@ -101,10 +104,8 @@ def copy_residency_fee_policy_to_new_term(sender, instance, **kwargs):
             ClassBill.objects.update_or_create(
                 academic_class=target,
                 bill_item=source_policy.bill_item,
-                defaults={
-                    "amount": source_policy.amount,
-                    "applies_to": source_policy.applies_to,
-                },
+                applies_to=source_policy.applies_to,
+                defaults={"amount": source_policy.amount},
             )
 
         for bill in StudentBill.objects.filter(academic_class=target).select_related("student"):
