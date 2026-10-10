@@ -1,6 +1,7 @@
 from django.apps import AppConfig
 import sys
 
+
 class AppConfig(AppConfig):
     name = 'app'
 
@@ -8,3 +9,4 @@ class AppConfig(AppConfig):
         if 'migrate' not in sys.argv:
             import app.signals
             import app.signals_audit
+            import app.security_patches
