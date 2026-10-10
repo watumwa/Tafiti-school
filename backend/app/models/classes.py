@@ -77,7 +77,17 @@ class AcademicClass(models.Model):
     Class = models.ForeignKey("app.Class", on_delete=models.CASCADE)
     academic_year = models.ForeignKey("app.AcademicYear", on_delete=models.CASCADE)
     term = models.ForeignKey(Term, on_delete=models.CASCADE)
-    fees_amount = models.IntegerField()
+    fees_amount = models.IntegerField(help_text="Fallback school-fee amount when a day/boarding amount is not configured.")
+    day_fees_amount = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="Optional school-fee amount for Day students in this class and term.",
+    )
+    boarding_fees_amount = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="Optional school-fee amount for Boarding students in this class and term.",
+    )
 
     class Meta:
         verbose_name = ("AcademicClass")
@@ -97,6 +107,14 @@ class AcademicClass(models.Model):
             raise ValidationError(
                 {"term": "The selected term does not belong to the selected academic year."}
             )
+
+    def fee_amount_for_student(self, student):
+        residency = getattr(student, "residency_status", "Day")
+        if residency == "Boarding" and self.boarding_fees_amount is not None:
+            return self.boarding_fees_amount
+        if residency == "Day" and self.day_fees_amount is not None:
+            return self.day_fees_amount
+        return self.fees_amount
 
     def get_absolute_url(self):
         return reverse("AcademicClass_detail", kwargs={"pk": self.pk})
