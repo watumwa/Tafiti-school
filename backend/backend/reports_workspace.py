@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from collections import defaultdict
+from datetime import timedelta
 from decimal import Decimal
 
-from django.db.models import Avg, Count, Sum
+from django.db.models import Avg, Count, Q, Sum
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.response import Response
@@ -12,7 +12,6 @@ from app.models import (
     AdmissionApplication,
     AttendanceRecord,
     Budget,
-    Expenditure,
     FeeRefund,
     LibraryFine,
     LibraryLoan,
@@ -48,6 +47,10 @@ def _role(request):
 
 def _money(value):
     return f"{Decimal(value or 0):.2f}"
+
+
+def _borrower_name(loan):
+    return str(loan.student or loan.staff or "Unknown borrower")
 
 
 def _rank_rows(rows, score_key="score"):
@@ -108,14 +111,14 @@ def _attendance(report):
         ]
     elif report == "class":
         rows = []
-        for row in records.values("session__class_stream__academic_class__Class__name").annotate(total=Count("id"), present=Count("id", filter=models.Q(status__in=("present", "late")))):
+        for row in records.values("session__class_stream__academic_class__Class__name").annotate(total=Count("id"), present=Count("id", filter=Q(status__in=("present", "late")))):
             total = row["total"] or 0
             rows.append({"class": row["session__class_stream__academic_class__Class__name"], "marked": total, "present": row["present"], "attendance_percent": round((row["present"] / total) * 100, 1) if total else 0})
     else:
         period = report if report in {"daily", "weekly", "monthly"} else "daily"
         today = timezone.localdate()
         if period == "weekly":
-            start = today - timezone.timedelta(days=6)
+            start = today - timedelta(days=6)
         elif period == "monthly":
             start = today.replace(day=1)
         else:
@@ -176,14 +179,14 @@ def _library(report):
     now = timezone.now()
     if report == "overdue":
         qs = loans.filter(returned_at__isnull=True, due_at__lt=now)
-        rows = [{"book": row.copy.book.title, "borrower": row.borrower_name, "due_at": row.due_at.isoformat(), "days_overdue": max((now-row.due_at).days, 0)} for row in qs]
+        rows = [{"book": row.copy.book.title, "borrower": _borrower_name(row), "due_at": row.due_at.isoformat(), "days_overdue": max((now-row.due_at).days, 0)} for row in qs]
     elif report == "fines":
-        rows = [{"book": row.loan.copy.book.title, "borrower": row.loan.borrower_name, "reason": row.get_reason_display(), "amount": _money(row.amount), "status": row.get_status_display()} for row in LibraryFine.objects.select_related("loan__copy__book", "loan__student", "loan__staff")]
+        rows = [{"book": row.loan.copy.book.title, "borrower": _borrower_name(row.loan), "reason": row.get_reason_display(), "amount": _money(row.amount), "status": row.get_status_display()} for row in LibraryFine.objects.select_related("loan__copy__book", "loan__student", "loan__staff")]
     elif report == "popular":
         rows = [{"book": row["copy__book__title"], "borrows": row["borrows"]} for row in loans.values("copy__book__title").annotate(borrows=Count("id")).order_by("-borrows")[:100]]
     else:
         qs = loans.filter(returned_at__isnull=True)
-        rows = [{"book": row.copy.book.title, "borrower": row.borrower_name, "issued_at": row.issued_at.isoformat(), "due_at": row.due_at.isoformat()} for row in qs]
+        rows = [{"book": row.copy.book.title, "borrower": _borrower_name(row), "issued_at": row.issued_at.isoformat(), "due_at": row.due_at.isoformat()} for row in qs]
     return {"category": "Library", "report": report, "rows": rows, "count": len(rows)}
 
 
