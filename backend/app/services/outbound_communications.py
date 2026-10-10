@@ -7,7 +7,7 @@ from django.conf import settings
 from django.core.mail import send_mail
 from django.utils import timezone
 
-from app.models import CommunicationPreference, OutboundMessage
+from app.models import CommunicationPreference, OutboundNotification
 
 
 def _normalize_phone(value: str) -> str:
@@ -33,19 +33,19 @@ def _preference(student):
 def queue_message(student, channel, body, *, subject="", template_key="", recipient=""):
     preference = _preference(student)
     enabled = {
-        OutboundMessage.CHANNEL_SMS: preference.sms_enabled,
-        OutboundMessage.CHANNEL_EMAIL: preference.email_enabled,
-        OutboundMessage.CHANNEL_WHATSAPP: preference.whatsapp_enabled,
+        OutboundNotification.CHANNEL_SMS: preference.sms_enabled,
+        OutboundNotification.CHANNEL_EMAIL: preference.email_enabled,
+        OutboundNotification.CHANNEL_WHATSAPP: preference.whatsapp_enabled,
     }.get(channel, False)
 
-    if channel == OutboundMessage.CHANNEL_EMAIL:
+    if channel == OutboundNotification.CHANNEL_EMAIL:
         recipient = recipient or preference.guardian_email
-    elif channel == OutboundMessage.CHANNEL_WHATSAPP:
+    elif channel == OutboundNotification.CHANNEL_WHATSAPP:
         recipient = recipient or preference.whatsapp_number or preference.guardian_phone or student.contact
     else:
         recipient = recipient or preference.guardian_phone or student.contact
 
-    message = OutboundMessage.objects.create(
+    message = OutboundNotification.objects.create(
         student=student,
         channel=channel,
         recipient=recipient,
@@ -54,7 +54,7 @@ def queue_message(student, channel, body, *, subject="", template_key="", recipi
         template_key=template_key,
     )
     if not preference.can_contact or not enabled or not recipient:
-        message.status = OutboundMessage.STATUS_SKIPPED
+        message.status = OutboundNotification.STATUS_SKIPPED
         message.provider_response = "Recipient opted out, channel disabled, or no destination is configured."
         message.save(update_fields=["status", "provider_response"])
     return message
@@ -71,8 +71,8 @@ def _post_json(url, payload, headers=None, timeout=20):
         return response.status, response.read().decode("utf-8", errors="replace")
 
 
-def deliver_message(message: OutboundMessage):
-    if message.status == OutboundMessage.STATUS_SKIPPED:
+def deliver_message(message: OutboundNotification):
+    if message.status == OutboundNotification.STATUS_SKIPPED:
         return message
 
     message.attempts += 1
@@ -80,7 +80,7 @@ def deliver_message(message: OutboundMessage):
     update_fields = ["attempts", "last_attempt_at"]
 
     try:
-        if message.channel == OutboundMessage.CHANNEL_EMAIL:
+        if message.channel == OutboundNotification.CHANNEL_EMAIL:
             sent = send_mail(
                 message.subject or "Tafiti School Notification",
                 message.body,
@@ -92,7 +92,7 @@ def deliver_message(message: OutboundMessage):
                 raise RuntimeError("Email backend did not confirm delivery submission.")
             response_text = "Email accepted by configured Django email backend."
 
-        elif message.channel == OutboundMessage.CHANNEL_SMS:
+        elif message.channel == OutboundNotification.CHANNEL_SMS:
             endpoint = (
                 os.environ.get("SMS_PROVIDER_URL", "").strip()
                 or os.environ.get("TAFITI_SMS_WEBHOOK_URL", "").strip()
@@ -116,7 +116,7 @@ def deliver_message(message: OutboundMessage):
             if status_code >= 300:
                 raise RuntimeError(f"SMS provider returned HTTP {status_code}: {response_text}")
 
-        elif message.channel == OutboundMessage.CHANNEL_WHATSAPP:
+        elif message.channel == OutboundNotification.CHANNEL_WHATSAPP:
             phone_number_id = os.environ.get("WHATSAPP_PHONE_NUMBER_ID", "").strip()
             access_token = os.environ.get("WHATSAPP_ACCESS_TOKEN", "").strip()
             graph_version = os.environ.get("WHATSAPP_GRAPH_VERSION", "v20.0").strip() or "v20.0"
@@ -138,12 +138,12 @@ def deliver_message(message: OutboundMessage):
         else:
             raise RuntimeError("Unsupported communication channel.")
 
-        message.status = OutboundMessage.STATUS_SENT
+        message.status = OutboundNotification.STATUS_SENT
         message.sent_at = timezone.now()
         message.provider_response = response_text[:4000]
         update_fields.extend(["status", "sent_at", "provider_response"])
     except (HTTPError, URLError, RuntimeError, OSError, ValueError) as exc:
-        message.status = OutboundMessage.STATUS_FAILED
+        message.status = OutboundNotification.STATUS_FAILED
         message.provider_response = str(exc)[:4000]
         update_fields.extend(["status", "provider_response"])
 
@@ -151,7 +151,7 @@ def deliver_message(message: OutboundMessage):
     return message
 
 
-def send_fee_balance_reminder(student, *, channel=OutboundMessage.CHANNEL_SMS):
+def send_fee_balance_reminder(student, *, channel=OutboundNotification.CHANNEL_SMS):
     bills = student.bills.select_related("academic_class__term").order_by("-bill_date", "-id")
     outstanding = sum((max(bill.balance, 0) for bill in bills), 0)
     if outstanding <= 0:
@@ -165,7 +165,7 @@ def send_fee_balance_reminder(student, *, channel=OutboundMessage.CHANNEL_SMS):
     return deliver_message(queue_message(student, channel, body, template_key="fee_balance_reminder"))
 
 
-def send_report_ready_notice(student, *, channel=OutboundMessage.CHANNEL_SMS, portal_url=""):
+def send_report_ready_notice(student, *, channel=OutboundNotification.CHANNEL_SMS, portal_url=""):
     body = f"Dear Parent/Guardian, {student.student_name}'s academic report is now available in the Tafiti Parent Portal."
     if portal_url:
         body += f" Open: {portal_url}"
