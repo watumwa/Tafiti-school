@@ -7,6 +7,18 @@ import { ImageUploadControl } from './ImageUploadControl';
 
 import type { WorkspaceFormField, WorkspaceFormSchema } from '@/lib/workspace';
 
+const UGANDA_LIN_PATTERN = /^U\d{2}[MF]\d{4}A\d{5}$/;
+
+function normalizeUgandaLinInput(value: string) {
+  return value.replace(/\s+/g, '').toUpperCase().slice(0, 14);
+}
+
+function genderLabel(value: string) {
+  if (value === 'M') return 'Male';
+  if (value === 'F') return 'Female';
+  return value;
+}
+
 function SearchableSelect({
   field,
   value,
@@ -153,6 +165,20 @@ export function ResourceFormDialog({
   }, [loading, onClose, open]);
 
   const globalErrors = useMemo(() => errors.__all__ ?? [], [errors]);
+  const hasLinField = Boolean(schema?.fields.some((field) => field.name === 'lin_number'));
+  const linValue = String(values.lin_number ?? '').trim().toUpperCase();
+  const linValid = !linValue || UGANDA_LIN_PATTERN.test(linValue);
+  const linInvalid = hasLinField && Boolean(linValue) && !linValid;
+  const recordedGender = String(values.gender ?? '').trim().toUpperCase();
+  const linGenderMarker = linValid && linValue ? linValue[3] ?? '' : '';
+  const linGenderMismatch = Boolean(
+    hasLinField
+      && linValue
+      && (recordedGender === 'M' || recordedGender === 'F')
+      && (linGenderMarker === 'M' || linGenderMarker === 'F')
+      && recordedGender !== linGenderMarker,
+  );
+
   if (!open) return null;
 
   return (
@@ -178,6 +204,7 @@ export function ResourceFormDialog({
               className="grid grid-cols-1 gap-4 sm:grid-cols-2"
               onSubmit={(event) => {
                 event.preventDefault();
+                if (linInvalid) return;
                 void onSubmit(values);
               }}
             >
@@ -190,6 +217,7 @@ export function ResourceFormDialog({
               {schema.fields.map((field) => {
                 const fieldErrors = errors[field.name] ?? [];
                 const common = 'h-11 w-full rounded-xl border bg-white/90 px-3 text-sm text-slate-900 outline-none transition focus:border-[#2C5D8A] focus:ring-4 focus:ring-[#2C5D8A]/10 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400';
+                const isLinField = field.name === 'lin_number';
                 return (
                   <label key={field.name} className={field.type === 'textarea' || field.type === 'file' || field.type === 'image' ? 'sm:col-span-2' : ''}>
                     <span className="mb-1.5 flex items-center gap-1 text-xs font-semibold text-slate-700">
@@ -252,12 +280,24 @@ export function ResourceFormDialog({
                         required={field.required}
                         min={field.min_value ?? undefined}
                         max={field.max_value ?? undefined}
-                        onChange={(event) => setValues((current) => ({ ...current, [field.name]: event.target.value }))}
-                        className={common}
+                        maxLength={isLinField ? 14 : undefined}
+                        autoCapitalize={isLinField ? 'characters' : undefined}
+                        autoComplete={isLinField ? 'off' : undefined}
+                        spellCheck={isLinField ? false : undefined}
+                        aria-invalid={isLinField && linInvalid ? true : undefined}
+                        onChange={(event) => {
+                          const nextValue = isLinField
+                            ? normalizeUgandaLinInput(event.target.value)
+                            : event.target.value;
+                          setValues((current) => ({ ...current, [field.name]: nextValue }));
+                        }}
+                        className={`${common} ${isLinField && linInvalid ? 'border-red-300 focus:border-red-400 focus:ring-red-100' : ''}`}
                       />
                     )}
 
                     {field.type !== 'file' && field.type !== 'image' && field.help_text && <span className="mt-1 block text-[11px] leading-4 text-slate-400">{field.help_text}</span>}
+                    {isLinField && linInvalid && <span className="mt-1 block text-xs font-medium text-red-600">LIN must follow the 14-character format U00M0000A00000 or U00F0000A00000, for example U13F0921A44760.</span>}
+                    {isLinField && linGenderMismatch && <span className="mt-1 block rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-2 text-[11px] leading-4 text-amber-800">The LIN gender marker is <strong>{linGenderMarker} ({genderLabel(linGenderMarker)})</strong>, while the student gender is <strong>{genderLabel(recordedGender)}</strong>. Verify the official LIN against EMIS. This warning does not block saving.</span>}
                     {fieldErrors.map((item) => <span key={item} className="mt-1 block text-xs font-medium text-red-600">{item}</span>)}
                   </label>
                 );
@@ -268,7 +308,7 @@ export function ResourceFormDialog({
 
         <div className="flex items-center justify-end gap-2 border-t border-slate-200/70 bg-white/70 px-5 py-4 sm:px-6">
           <button type="button" disabled={loading} onClick={onClose} className="clay-button-secondary">Cancel</button>
-          <button type="submit" form="workspace-resource-form" disabled={loading || !schema} className="clay-button-primary">
+          <button type="submit" form="workspace-resource-form" disabled={loading || !schema || linInvalid} className="clay-button-primary">
             {loading ? <LoaderCircle size={16} className="animate-spin" /> : <Save size={16} />}
             {loading ? 'Saving…' : schema?.submit_label ?? 'Save'}
           </button>
