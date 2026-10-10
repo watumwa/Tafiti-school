@@ -22,6 +22,7 @@ from .finance_reports import FinanceReportsAPIView
 from .library_workspace import LibraryConsoleAPIView
 from .maintenance import MaintenanceAPIView
 from .marks_workspace import MarksEntryAPIView, MarksHubAPIView
+from .outbound_workspace import OutboundCommunicationAPIView
 from .parent_setup import ParentSetupConfirmAPIView
 from .parent_workspace import ParentWorkspaceAPIView
 from .report_exports import ReportCardBulkExportAPIView
@@ -70,6 +71,7 @@ urlpatterns = [
     path("workspace/student-finance/<str:screen>/", StudentFinanceAPIView.as_view(), name="api_workspace_student_finance"),
     path("workspace/student-finance/<str:screen>/<int:pk>/", StudentFinanceAPIView.as_view(), name="api_workspace_student_finance_record"),
     path("workspace/students/bulk-import/", StudentBulkImportAPIView.as_view(), name="api_workspace_student_bulk_import"),
+    path("workspace/communication-outbound/", OutboundCommunicationAPIView.as_view(), name="api_workspace_communication_outbound"),
     path("workspace/communication-console/<str:screen>/", CommunicationConsoleAPIView.as_view(), name="api_workspace_communication_console"),
     path("workspace/communication-console/<str:screen>/<int:pk>/", CommunicationConsoleAPIView.as_view(), name="api_workspace_communication_console_record"),
     path("workspace/library-console/<str:screen>/", LibraryConsoleAPIView.as_view(), name="api_workspace_library_console"),
