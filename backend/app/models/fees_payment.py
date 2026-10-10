@@ -23,7 +23,10 @@ def normalize_payment_method(value):
         "bank transfer": "Bank",
         "cheque": "Other",
         "check": "Other",
-        "mobile money": "Other",
+        "mobile money": "Mobile Money",
+        "mtn mobile money": "Mobile Money",
+        "airtel money": "Mobile Money",
+        "momo": "Mobile Money",
         "other": "Other",
     }
     return mapping.get(normalized, "Other" if normalized else "")
