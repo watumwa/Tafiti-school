@@ -19,11 +19,25 @@ def _get_or_create_student_bill(student, academic_class):
     )
 
 
+def _selected_class_bills_for_student(student, academic_class):
+    """Return one applicable policy per fee item, preferring exact residency over All."""
+    residency = getattr(student, "residency_status", ClassBill.APPLIES_DAY)
+    selected = {}
+    policies = ClassBill.objects.filter(academic_class=academic_class).select_related("bill_item").order_by("bill_item_id", "id")
+    for policy in policies:
+        current = selected.get(policy.bill_item_id)
+        if policy.applies_to == residency:
+            selected[policy.bill_item_id] = policy
+        elif policy.applies_to == ClassBill.APPLIES_ALL and current is None:
+            selected[policy.bill_item_id] = policy
+    return list(selected.values())
+
+
 def _ensure_student_bill_items(student, academic_class):
     student_bill, bill_created = _get_or_create_student_bill(student, academic_class)
     created_or_updated = bill_created
 
-    for class_bill in ClassBill.objects.filter(academic_class=academic_class).select_related("bill_item"):
+    for class_bill in _selected_class_bills_for_student(student, academic_class):
         qs = StudentBillItem.objects.filter(
             bill=student_bill,
             bill_item=class_bill.bill_item,
@@ -59,9 +73,10 @@ def _copy_class_bills(source_academic_class, target_academic_class):
     for source_bill in ClassBill.objects.filter(
         academic_class=source_academic_class
     ).select_related("bill_item"):
-        ClassBill.objects.get_or_create(
+        ClassBill.objects.update_or_create(
             academic_class=target_academic_class,
             bill_item=source_bill.bill_item,
+            applies_to=source_bill.applies_to,
             defaults={"amount": source_bill.amount},
         )
 
@@ -215,10 +230,12 @@ def create_class_bill(sender, instance, created, **kwargs):
                 }
             )
 
-            # Update or create ClassBill
+            # The fallback School Fees class bill is always the All-students
+            # policy. Day/Boarding tuition amounts live on AcademicClass itself.
             class_bill, created = ClassBill.objects.get_or_create(
                 academic_class=instance,
                 bill_item=bill_item,
+                applies_to=ClassBill.APPLIES_ALL,
                 defaults={"amount": instance.fees_amount}
             )
 
