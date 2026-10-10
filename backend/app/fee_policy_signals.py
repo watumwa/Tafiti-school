@@ -7,12 +7,13 @@ from app.models import AcademicClass, ClassBill, StudentBill, StudentBillItem, T
 
 
 def _selected_class_bill(academic_class, bill_item, student):
-    policies = ClassBill.objects.filter(
+    policy = ClassBill.objects.filter(
         academic_class=academic_class,
         bill_item=bill_item,
-    )
-    specific = policies.filter(applies_to=student.residency_status).order_by("id").first()
-    return specific or policies.filter(applies_to=ClassBill.APPLIES_ALL).order_by("id").first()
+    ).first()
+    if not policy:
+        return None
+    return policy if policy.applies_to_student(student) else None
 
 
 def _sync_bill_item(instance):
@@ -63,12 +64,7 @@ def resync_existing_bills_when_fee_policy_changes(sender, instance, **kwargs):
 
 @receiver(post_save, sender=Term)
 def copy_residency_fee_policy_to_new_term(sender, instance, **kwargs):
-    """Complete the normal term rollover with Day/Boarding fee-plan details.
-
-    The core term signal creates the new academic classes, class registers,
-    teaching allocations and bills. This follow-up copies the residency-specific
-    fee configuration and then re-prices each new bill deterministically.
-    """
+    """Complete the normal term rollover with Day/Boarding fee-plan details."""
     if not instance.is_current:
         return
 
@@ -105,8 +101,10 @@ def copy_residency_fee_policy_to_new_term(sender, instance, **kwargs):
             ClassBill.objects.update_or_create(
                 academic_class=target,
                 bill_item=source_policy.bill_item,
-                applies_to=source_policy.applies_to,
-                defaults={"amount": source_policy.amount},
+                defaults={
+                    "amount": source_policy.amount,
+                    "applies_to": source_policy.applies_to,
+                },
             )
 
         for bill in StudentBill.objects.filter(academic_class=target).select_related("student"):
