@@ -13,3 +13,6 @@ tmp/
 frontend/.env.local
 backend/.env
 node_modules
+.vercel/
+.vercel
+.env*
