@@ -89,6 +89,10 @@ class AdmissionApplication(models.Model):
         ordering = ("-created_at",)
         indexes = [models.Index(fields=("cycle", "status"), name="admission_cycle_status_idx")]
 
+    @property
+    def reference(self):
+        return self.application_number
+
     def clean(self):
         super().clean()
         errors = {}
