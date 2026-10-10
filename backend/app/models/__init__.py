@@ -14,3 +14,4 @@ from .audit import *
 from .parent_portal import *
 from .admissions import *
 from .library import *
+from .completion import *
