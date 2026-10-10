@@ -1,11 +1,11 @@
 import type { Metadata } from 'next';
 
-import { ReferenceDashboardShellV3 } from '@/components/reference/ReferenceDashboardShellV3';
+import { ReferenceDashboardShellV4 } from '@/components/reference/ReferenceDashboardShellV4';
 
 export const metadata: Metadata = {
   title: 'Contextual workspace',
 };
 
 export default function ContextualWorkspacePage() {
-  return <ReferenceDashboardShellV3 />;
+  return <ReferenceDashboardShellV4 />;
 }
