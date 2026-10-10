@@ -17,7 +17,7 @@ from app.models import (
     Class,
     ClassRegister,
     GradingSystem,
-    OutboundMessage,
+    OutboundNotification,
     Result,
     Role,
     Section,
@@ -341,10 +341,10 @@ class OutboundCommunicationAcceptanceTests(APITestCase):
 
         delivered = send_report_ready_notice(
             student,
-            channel=OutboundMessage.CHANNEL_EMAIL,
+            channel=OutboundNotification.CHANNEL_EMAIL,
             portal_url="https://school.example.test/parent",
         )
-        self.assertEqual(delivered.status, OutboundMessage.STATUS_SENT)
+        self.assertEqual(delivered.status, OutboundNotification.STATUS_SENT)
         self.assertEqual(delivered.recipient, "parent@example.test")
         self.assertEqual(len(mail.outbox), 1)
         self.assertIn("Parent Portal", mail.outbox[0].body)
