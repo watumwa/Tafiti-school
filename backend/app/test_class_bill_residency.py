@@ -13,7 +13,6 @@ from app.models import (
     Section,
     Student,
     StudentBill,
-    StudentBillItem,
     Stream,
     Term,
 )
@@ -141,7 +140,7 @@ class ClassBillResidencyPolicyTests(TestCase):
         self.assertEqual(_selected_class_bill(self.academic_class, self.item, day_student), day_policy)
         self.assertEqual(_selected_class_bill(self.academic_class, self.item, boarding_student), boarding_policy)
 
-    def test_existing_student_bill_item_is_resynced_for_residency(self):
+    def test_automatic_student_billing_uses_correct_residency_amount(self):
         ClassBill.objects.create(
             academic_class=self.academic_class,
             bill_item=self.item,
@@ -156,23 +155,11 @@ class ClassBillResidencyPolicyTests(TestCase):
         )
         day_student = self.student(reg_no="DAY-0003", residency="Day")
         boarding_student = self.student(reg_no="BRD-0004", residency="Boarding")
-        day_bill = StudentBill.objects.create(student=day_student, academic_class=self.academic_class)
-        boarding_bill = StudentBill.objects.create(student=boarding_student, academic_class=self.academic_class)
 
-        day_line = StudentBillItem.objects.create(
-            bill=day_bill,
-            bill_item=self.item,
-            description="Lunch fee",
-            amount=Decimal("1"),
-        )
-        boarding_line = StudentBillItem.objects.create(
-            bill=boarding_bill,
-            bill_item=self.item,
-            description="Lunch fee",
-            amount=Decimal("1"),
-        )
-        day_line.refresh_from_db()
-        boarding_line.refresh_from_db()
+        day_bill = StudentBill.objects.get(student=day_student, academic_class=self.academic_class)
+        boarding_bill = StudentBill.objects.get(student=boarding_student, academic_class=self.academic_class)
+        day_line = day_bill.items.get(bill_item=self.item)
+        boarding_line = boarding_bill.items.get(bill_item=self.item)
 
         self.assertEqual(day_line.amount, Decimal("120000"))
         self.assertEqual(boarding_line.amount, Decimal("200000"))
