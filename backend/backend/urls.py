@@ -16,6 +16,7 @@ from .admissions_workspace import AdmissionsWorkspaceAPIView
 from .attendance_workspace import AttendanceWorkspaceAPIView
 from .auth_workspace import RoleSwitchAPIView
 from .communication_workspace import CommunicationConsoleAPIView
+from .completion_workspace import CompletionWorkspaceAPIView
 from .library_workspace import LibraryConsoleAPIView
 from .marks_workspace import MarksEntryAPIView, MarksHubAPIView
 from .parent_workspace import ParentWorkspaceAPIView
@@ -63,6 +64,8 @@ urlpatterns = [
     path("workspace/results/marks/", MarksHubAPIView.as_view(), name="api_workspace_marks_hub"),
     path("workspace/results/marks/<int:assessment_id>/", MarksEntryAPIView.as_view(), name="api_workspace_marks_entry"),
     path("workspace/timetable-console/<str:screen>/", TimetableOperationsAPIView.as_view(), name="api_workspace_timetable_console"),
+    path("workspace/completion/<str:area>/", CompletionWorkspaceAPIView.as_view(), name="api_workspace_completion"),
+    path("workspace/completion/<str:area>/<int:pk>/", CompletionWorkspaceAPIView.as_view(), name="api_workspace_completion_record"),
     path("workspace/resources/<str:resource>/", WorkspaceResourceAPIView.as_view(), name="api_workspace_resource"),
     path("workspace/resources/<str:resource>/form/", WorkspaceResourceFormAPIView.as_view(), name="api_workspace_resource_create_form"),
     path("workspace/resources/<str:resource>/<int:pk>/form/", WorkspaceResourceFormAPIView.as_view(), name="api_workspace_resource_edit_form"),
