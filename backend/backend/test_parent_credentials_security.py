@@ -1,4 +1,5 @@
-from datetime import date
+from datetime import date, timedelta
+from urllib.parse import parse_qs, urlparse
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase, override_settings
@@ -12,7 +13,7 @@ from app.services.parent_portal import activate_parent_access, reset_parent_pass
 User = get_user_model()
 
 
-@override_settings(PARENT_TEMP_PASSWORD_HOURS=24)
+@override_settings(PARENT_TEMP_PASSWORD_HOURS=24, FRONTEND_URL="http://localhost:3000")
 class ParentCredentialSecurityTests(TestCase):
     @classmethod
     def setUpTestData(cls):
@@ -46,18 +47,59 @@ class ParentCredentialSecurityTests(TestCase):
             term=self.term,
         )
 
-    def test_activation_generates_request_scoped_one_time_password(self):
-        access = activate_parent_access(student=self.make_student(), verified_by=self.admin)
-        temporary_password = getattr(access, "temporary_password", None)
+    @staticmethod
+    def setup_parts(setup_url):
+        params = parse_qs(urlparse(setup_url).query)
+        return params["uid"][0], params["token"][0]
 
-        self.assertIsNotNone(temporary_password)
-        self.assertGreaterEqual(len(temporary_password), 12)
-        self.assertTrue(access.user.check_password(temporary_password))
+    def test_activation_issues_setup_link_without_exposing_password(self):
+        access = activate_parent_access(student=self.make_student(), verified_by=self.admin)
+
+        self.assertIsNone(getattr(access, "temporary_password", None))
+        self.assertIn("/parent/setup?", access.setup_url)
         self.assertTrue(access.must_change_password)
         self.assertGreater(access.temporary_password_expires_at, timezone.now())
 
         reloaded = ParentAccess.objects.get(pk=access.pk)
+        self.assertFalse(hasattr(reloaded, "setup_url"))
         self.assertFalse(hasattr(reloaded, "temporary_password"))
+
+    def test_setup_link_creates_private_password_and_is_one_time(self):
+        access = activate_parent_access(student=self.make_student(), verified_by=self.admin)
+        uid, token = self.setup_parts(access.setup_url)
+        new_password = "Parent-Private-2026!Secure"
+
+        response = self.client.post(
+            "/api/auth/parent/setup/confirm/",
+            data={"uid": uid, "token": token, "password": new_password, "confirm_password": new_password},
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 200, response.content)
+        access.user.refresh_from_db()
+        access.refresh_from_db()
+        self.assertTrue(access.user.check_password(new_password))
+        self.assertFalse(access.must_change_password)
+        self.assertIsNone(access.temporary_password_expires_at)
+
+        reused = self.client.post(
+            "/api/auth/parent/setup/confirm/",
+            data={"uid": uid, "token": token, "password": "Another-Private-2026!", "confirm_password": "Another-Private-2026!"},
+            content_type="application/json",
+        )
+        self.assertEqual(reused.status_code, 400)
+
+    def test_expired_setup_link_is_rejected(self):
+        access = activate_parent_access(student=self.make_student(), verified_by=self.admin)
+        uid, token = self.setup_parts(access.setup_url)
+        ParentAccess.objects.filter(user=access.user).update(
+            temporary_password_expires_at=timezone.now() - timedelta(minutes=1)
+        )
+        response = self.client.post(
+            "/api/auth/parent/setup/confirm/",
+            data={"uid": uid, "token": token, "password": "Parent-Private-2026!Secure", "confirm_password": "Parent-Private-2026!Secure"},
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 400)
 
     def test_linking_sibling_preserves_existing_private_password(self):
         first = activate_parent_access(student=self.make_student(), verified_by=self.admin)
@@ -79,19 +121,17 @@ class ParentCredentialSecurityTests(TestCase):
         self.assertTrue(second.user.check_password(private_password))
         self.assertFalse(second.must_change_password)
         self.assertIsNone(getattr(second, "temporary_password", None))
+        self.assertIsNone(getattr(second, "setup_url", None))
 
-    def test_reset_rotates_to_new_random_temporary_password(self):
+    def test_reset_rotates_to_new_one_time_setup_link(self):
         access = activate_parent_access(student=self.make_student(), verified_by=self.admin)
-        first_temporary_password = access.temporary_password
+        original_setup_url = access.setup_url
 
         user = reset_parent_password(user_id=access.user_id, actor=self.admin)
-        reset_password = getattr(user, "temporary_password", None)
 
-        self.assertIsNotNone(reset_password)
-        self.assertNotEqual(reset_password, first_temporary_password)
-        self.assertTrue(user.check_password(reset_password))
-        self.assertFalse(user.check_password(first_temporary_password))
-
+        self.assertIsNone(getattr(user, "temporary_password", None))
+        self.assertIn("/parent/setup?", user.setup_url)
+        self.assertNotEqual(user.setup_url, original_setup_url)
         access.refresh_from_db()
         self.assertTrue(access.must_change_password)
         self.assertGreater(access.temporary_password_expires_at, timezone.now())
