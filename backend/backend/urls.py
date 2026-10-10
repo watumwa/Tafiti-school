@@ -18,6 +18,7 @@ from .auth_workspace import RoleSwitchAPIView
 from .communication_workspace import CommunicationConsoleAPIView
 from .completion_workspace import CompletionWorkspaceAPIView
 from .library_workspace import LibraryConsoleAPIView
+from .maintenance import MaintenanceAPIView
 from .marks_workspace import MarksEntryAPIView, MarksHubAPIView
 from .parent_setup import ParentSetupConfirmAPIView
 from .parent_workspace import ParentWorkspaceAPIView
@@ -42,6 +43,7 @@ from .views import (
 )
 
 urlpatterns = [
+    path("maintenance/<str:job>/", MaintenanceAPIView.as_view(), name="api_maintenance"),
     path("workspace/parent/<str:action>/", ParentWorkspaceAPIView.as_view(), name="api_workspace_parent"),
     path("workspace/bootstrap/", WorkspaceBootstrapAPIView.as_view(), name="api_workspace_bootstrap"),
     path("workspace/dashboard/", WorkspaceDashboardAPIView.as_view(), name="api_workspace_dashboard"),
