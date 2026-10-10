@@ -1,4 +1,5 @@
 import json
+import os
 from decimal import Decimal
 from urllib import error, request
 
@@ -24,9 +25,9 @@ def _send_email(delivery, message):
 
 
 def _send_sms(delivery, message):
-    endpoint = str(getattr(settings, "SMS_PROVIDER_URL", "") or "").strip()
-    token = str(getattr(settings, "SMS_PROVIDER_TOKEN", "") or "").strip()
-    sender = str(getattr(settings, "SMS_SENDER_ID", "Tafiti") or "Tafiti").strip()
+    endpoint = str(os.environ.get("SMS_PROVIDER_URL", getattr(settings, "SMS_PROVIDER_URL", "")) or "").strip()
+    token = str(os.environ.get("SMS_PROVIDER_TOKEN", getattr(settings, "SMS_PROVIDER_TOKEN", "")) or "").strip()
+    sender = str(os.environ.get("SMS_SENDER_ID", getattr(settings, "SMS_SENDER_ID", "Tafiti")) or "Tafiti").strip()
     if not endpoint or not token:
         raise RuntimeError("SMS provider is not configured. Set SMS_PROVIDER_URL and SMS_PROVIDER_TOKEN.")
 
