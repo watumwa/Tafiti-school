@@ -26,6 +26,7 @@ from .parent_workspace import ParentWorkspaceAPIView
 from .report_exports import ReportCardBulkExportAPIView
 from .reports_workspace import ReportsWorkspaceAPIView
 from .results_operations import ResultsOperationsAPIView
+from .staff_workspace import StaffWorkspaceAPIView
 from .student_finance import StudentFinanceAPIView
 from .student_import_workspace import StudentBulkImportAPIView
 from .timetable_operations import TimetableOperationsAPIView
@@ -79,6 +80,7 @@ urlpatterns = [
     path("workspace/resources/<str:resource>/form/", WorkspaceResourceFormAPIView.as_view(), name="api_workspace_resource_create_form"),
     path("workspace/resources/<str:resource>/<int:pk>/form/", WorkspaceResourceFormAPIView.as_view(), name="api_workspace_resource_edit_form"),
     path("workspace/resources/<str:resource>/<int:pk>/action/", WorkspaceEntityActionAPIView.as_view(), name="api_workspace_entity_action"),
+    path("workspace/resources/staff/<int:pk>/", StaffWorkspaceAPIView.as_view(), name="api_workspace_staff_entity"),
     path("workspace/resources/<str:resource>/<int:pk>/", WorkspaceEntityAPIView.as_view(), name="api_workspace_entity"),
     path("auth/login/", LoginAPIView.as_view(), name="api_auth_login"),
     path("auth/me/", CurrentUserAPIView.as_view(), name="api_auth_me"),
