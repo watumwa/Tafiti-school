@@ -2,12 +2,13 @@ from datetime import timedelta
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
-
-User = get_user_model()
+from django.contrib.auth.tokens import default_token_generator
 from django.db import transaction
 from django.db.models import Q
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.encoding import force_bytes
+from django.utils.http import urlsafe_base64_encode
 
 from app.models import (
     AcademicClassStream, Announcement, ClassRegister, ClassSubjectAllocation, LibraryLoan,
@@ -16,6 +17,8 @@ from app.models import (
 )
 from app.models.students import normalize_guardian_contact
 from app.utils.credentials import generate_temporary_password
+
+User = get_user_model()
 
 
 def _normalized_name(value):
@@ -33,13 +36,31 @@ def parent_username(contact):
     return normalized
 
 
+def parent_setup_url(user):
+    """Return a password-setup URL containing a Django one-time token.
+
+    The token is not persisted. It becomes invalid as soon as the parent sets a
+    password because Django's token generator is tied to the user's password hash.
+    ParentAccess.temporary_password_expires_at adds the shorter school-defined
+    expiry window used by the setup endpoint.
+    """
+    uid = urlsafe_base64_encode(force_bytes(user.pk))
+    token = default_token_generator.make_token(user)
+    return f"{settings.FRONTEND_URL}/parent/setup?uid={uid}&token={token}"
+
+
+def parent_setup_expiry():
+    hours = getattr(settings, "PARENT_SETUP_LINK_HOURS", settings.PARENT_TEMP_PASSWORD_HOURS)
+    return timezone.now() + timedelta(hours=hours)
+
+
 @transaction.atomic
 def activate_parent_access(*, student, verified_by, allow_guardian_mismatch=False):
-    """Create/reuse a portal login from the guardian data already on Student.
+    """Create/reuse a parent identity and issue an expiring setup link.
 
-    A new or reactivated parent identity receives a unique one-time password.
-    The plaintext value exists only on the returned object for the current
-    request; it is never persisted in the database or audit trail.
+    A high-entropy random password is assigned internally before the setup link is
+    generated, but it is never exposed to an administrator or parent. The parent
+    must use the one-time setup URL to choose their own password.
     """
     username = parent_username(student.contact)
     if not student.is_active:
@@ -57,40 +78,46 @@ def activate_parent_access(*, student, verified_by, allow_guardian_mismatch=Fals
     }
     if guardian_names and _normalized_name(student.guardian) not in guardian_names and not allow_guardian_mismatch:
         raise ParentAccessError("This telephone number is already linked to a different guardian name. Confirm the identity in parent account management.")
+
     is_new_user = user is None
-    has_live_access = bool(user and ParentAccess.objects.filter(user=user, is_active=True, is_verified=True).exists())
+    has_live_access = bool(user and ParentAccess.objects.filter(user=user, is_active=True, is_verified=True, must_change_password=False).exists())
     if is_new_user:
         user = User(username=username, first_name=student.guardian[:150], is_active=True)
     user.is_active = True
-    temporary_password = None
-    if not has_live_access:
-        temporary_password = generate_temporary_password()
-        user.set_password(temporary_password)
+
+    requires_setup = not has_live_access
+    if requires_setup:
+        # This credential is deliberately never returned/displayed. It only gives
+        # the token generator a fresh password state before setup.
+        user.set_password(generate_temporary_password())
     user.save()
 
-    requires_change = not has_live_access
-    expiry = timezone.now() + timedelta(hours=settings.PARENT_TEMP_PASSWORD_HOURS) if requires_change else None
+    expiry = parent_setup_expiry() if requires_setup else None
     access, _ = ParentAccess.objects.update_or_create(
         user=user,
         student=student,
         defaults={
             "is_verified": True,
             "is_active": True,
-            "must_change_password": requires_change,
+            "must_change_password": requires_setup,
             "temporary_password_expires_at": expiry,
             "verified_by": verified_by,
             "verified_at": timezone.now(),
         },
     )
-    # Request-scoped only; never stored in a model field or audit payload.
-    access.temporary_password = temporary_password
+    access.temporary_password = None
+    access.setup_url = parent_setup_url(user) if requires_setup else None
+
     ParentPortalAudit.objects.create(
-        user=user, student=student, action=ParentPortalAudit.ACTION_ACTIVATED,
+        user=user,
+        student=student,
+        action=ParentPortalAudit.ACTION_ACTIVATED,
         details={
             "verified_by": verified_by.pk,
-            "temporary_password_expires_at": expiry.isoformat() if expiry else None,
+            "setup_link_expires_at": expiry.isoformat() if expiry else None,
             "existing_parent_account": has_live_access,
             "shared_contact_identity_confirmed": bool(allow_guardian_mismatch),
+            "credential_delivery": "one_time_setup_link" if requires_setup else "existing_private_password",
         },
     )
     return access
@@ -113,21 +140,28 @@ def deactivate_parent_access(*, access_id, actor, reason=""):
 
 @transaction.atomic
 def reset_parent_password(*, user_id, actor):
+    """Invalidate the old password and issue a fresh one-time setup link."""
     user = User.objects.select_for_update().get(pk=user_id)
     accesses = ParentAccess.objects.select_for_update().filter(user=user, is_active=True, is_verified=True)
     if not accesses.exists():
         raise ParentAccessError("This parent account has no active verified student access.")
-    temporary_password = generate_temporary_password()
-    user.set_password(temporary_password)
+
+    user.set_password(generate_temporary_password())
     user.is_active = True
     user.save(update_fields=("password", "is_active"))
-    expiry = timezone.now() + timedelta(hours=settings.PARENT_TEMP_PASSWORD_HOURS)
+    expiry = parent_setup_expiry()
     accesses.update(must_change_password=True, temporary_password_expires_at=expiry)
-    # Request-scoped only; never store the plaintext credential.
-    user.temporary_password = temporary_password
+    user.temporary_password = None
+    user.setup_url = parent_setup_url(user)
+
     ParentPortalAudit.objects.create(
-        user=user, action=ParentPortalAudit.ACTION_PASSWORD_RESET,
-        details={"actor": actor.pk, "temporary_password_expires_at": expiry.isoformat()},
+        user=user,
+        action=ParentPortalAudit.ACTION_PASSWORD_RESET,
+        details={
+            "actor": actor.pk,
+            "setup_link_expires_at": expiry.isoformat(),
+            "credential_delivery": "one_time_setup_link",
+        },
     )
     return user
 
