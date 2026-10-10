@@ -96,11 +96,14 @@ def _hub(request):
     breaks = list(BreakPeriod.objects.select_related("time_slot").order_by("weekday", "time_slot__start_time"))
 
     year, term = _current_period()
-    teacher_qs = Staff.objects.filter(staff_status="Active", timetable_entries__isnull=False)
+    # ``Timetable.teacher`` exposes its reverse relation as ``teaching_slots``.
+    # Using the old relation name here makes the whole timetable workspace fail
+    # before it can return any data.
+    teacher_qs = Staff.objects.filter(staff_status="Active", teaching_slots__isnull=False)
     if year:
-        teacher_qs = teacher_qs.filter(timetable_entries__class_stream__academic_class__academic_year=year)
+        teacher_qs = teacher_qs.filter(teaching_slots__class_stream__academic_class__academic_year=year)
     if term:
-        teacher_qs = teacher_qs.filter(timetable_entries__class_stream__academic_class__term=term)
+        teacher_qs = teacher_qs.filter(teaching_slots__class_stream__academic_class__term=term)
     if _role(request) in {"Teacher", "Class Teacher"} and not request.user.is_superuser:
         own_staff = _staff_for_user(request.user)
         teacher_qs = teacher_qs.filter(pk=own_staff.pk) if own_staff else teacher_qs.none()

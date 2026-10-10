@@ -24,6 +24,7 @@ from app.services.results_sampling import (
     record_correction,
     reset_batch_to_draft,
     submit_batch_for_verification,
+    verification_is_enabled,
 )
 from app.views.results import (
     _assessment_hub_queryset,
@@ -176,7 +177,7 @@ class MarksHubAPIView(WorkspaceBaseAPIView):
         rows = [_assessment_payload(assessment) for assessment in assessments]
         return Response({
             "role": role,
-            "verification_enabled": bool(ResultVerificationSetting.get_settings().enabled),
+            "verification_enabled": verification_is_enabled(),
             "can_manage_verification": bool(request.user.is_superuser or role in MARK_ENTRY_MANAGERS),
             "can_enter": not bool(denial),
             "blocked_reason": denial or "",

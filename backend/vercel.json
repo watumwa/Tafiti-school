@@ -1,5 +1,5 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "django",
-  "buildCommand": "if [ \"$VERCEL_ENV\" = \"production\" ]; then python manage.py migrate --noinput; else echo 'Skipping database migrations outside production'; fi"
+  "buildCommand": "if [ \"$VERCEL_ENV\" = \"production\" ]; then DJANGO_SETTINGS_MODULE=core.settings.production python manage.py migrate --noinput; else echo 'Skipping database migrations outside production'; fi"
 }

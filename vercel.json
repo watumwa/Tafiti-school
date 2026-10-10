@@ -16,7 +16,7 @@
     "backend": {
       "root": "backend",
       "framework": "django",
-      "buildCommand": "if [ \"$VERCEL_ENV\" = \"production\" ]; then python manage.py migrate --noinput; fi",
+      "buildCommand": "if [ \"$VERCEL_ENV\" = \"production\" ]; then DJANGO_SETTINGS_MODULE=core.settings.production python manage.py migrate --noinput; fi",
       "functions": {
         "**": {
           "excludeFiles": "{static/**,staticfiles/**,public/static/**,media/**,tests/**,**/test_*.py,**/*.test.py}"

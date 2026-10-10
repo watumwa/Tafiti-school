@@ -30,6 +30,20 @@ def attach_batch_to_results(assessment, batch):
     Result.objects.filter(assessment=assessment, batch__isnull=True).update(batch=batch)
 
 
+def verification_is_enabled() -> bool:
+    """Return the effective result-verification policy for new submissions.
+
+    The deployment setting is the safety gate used when a school needs to
+    bypass the workflow temporarily.  The database setting is the operational
+    on/off control exposed to authorised academic managers.  Both must allow
+    verification before a batch is held for independent review.
+    """
+    return bool(
+        getattr(django_settings, "RESULT_VERIFICATION_ENABLED", False)
+        and ResultVerificationSetting.get_settings().enabled
+    )
+
+
 def submit_batch_for_verification(assessment, user):
     batch = ensure_batch_for_assessment(assessment)
     logger.info(
@@ -57,7 +71,7 @@ def submit_batch_for_verification(assessment, user):
     attach_batch_to_results(assessment, batch)
 
     with transaction.atomic():
-        if not ResultVerificationSetting.get_settings().enabled:
+        if not verification_is_enabled():
             now = timezone.now()
             batch.status = "VERIFIED"
             batch.submitted_by = user
