@@ -21,6 +21,15 @@ class SchoolSetting(SingletonModel):
         SECONDARY_LOWER = "SECONDARY_LOWER", "Secondary (O-Level)"
         SECONDARY_UPPER = "SECONDARY_UPPER", "Secondary (A-Level)"
 
+    class RankingMethod(models.TextChoices):
+        AVERAGE = "AVERAGE", "Average score"
+        TOTAL = "TOTAL", "Total score"
+        NONE = "NONE", "Do not rank students"
+
+    class TiePolicy(models.TextChoices):
+        COMPETITION = "COMPETITION", "Competition ranking (1, 2, 2, 4)"
+        DENSE = "DENSE", "Dense ranking (1, 2, 2, 3)"
+
     COUNTRIES = (
         ("UG", "Uganda"),
         ("KE", "Kenya"),
@@ -66,6 +75,22 @@ class SchoolSetting(SingletonModel):
         default="PRIMARY",
         help_text="Default active school level used when no session level is selected.",
     )
+    report_ranking_method = models.CharField(
+        max_length=20,
+        choices=RankingMethod.choices,
+        default=RankingMethod.AVERAGE,
+        help_text="Controls how positions are calculated on performance reports and report cards.",
+    )
+    report_tie_policy = models.CharField(
+        max_length=20,
+        choices=TiePolicy.choices,
+        default=TiePolicy.COMPETITION,
+        help_text="Controls position numbering when students have equal ranking scores.",
+    )
+    show_report_positions = models.BooleanField(
+        default=True,
+        help_text="Show class position on student reports when ranking is enabled.",
+    )
     division_critical_subjects = models.ManyToManyField(
         "Subject",
         blank=True,
@@ -97,6 +122,8 @@ class SchoolSetting(SingletonModel):
 
         if self.education_level not in enabled_levels:
             self.education_level = enabled_levels[0]
+        if self.report_ranking_method == self.RankingMethod.NONE:
+            self.show_report_positions = False
 
 
 class AcademicYear(models.Model):
