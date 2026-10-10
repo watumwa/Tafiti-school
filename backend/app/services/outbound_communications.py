@@ -93,13 +93,24 @@ def deliver_message(message: OutboundMessage):
             response_text = "Email accepted by configured Django email backend."
 
         elif message.channel == OutboundMessage.CHANNEL_SMS:
-            endpoint = os.environ.get("TAFITI_SMS_WEBHOOK_URL", "").strip()
+            endpoint = (
+                os.environ.get("SMS_PROVIDER_URL", "").strip()
+                or os.environ.get("TAFITI_SMS_WEBHOOK_URL", "").strip()
+            )
             if not endpoint:
-                raise RuntimeError("TAFITI_SMS_WEBHOOK_URL is not configured.")
-            token = os.environ.get("TAFITI_SMS_BEARER_TOKEN", "").strip()
+                raise RuntimeError("SMS_PROVIDER_URL is not configured.")
+            token = (
+                os.environ.get("SMS_PROVIDER_TOKEN", "").strip()
+                or os.environ.get("TAFITI_SMS_BEARER_TOKEN", "").strip()
+            )
+            sender_id = os.environ.get("SMS_SENDER_ID", "Tafiti").strip() or "Tafiti"
             status_code, response_text = _post_json(
                 endpoint,
-                {"to": _normalize_phone(message.recipient), "message": message.body},
+                {
+                    "to": _normalize_phone(message.recipient),
+                    "message": message.body,
+                    "sender_id": sender_id,
+                },
                 headers={"Authorization": f"Bearer {token}" if token else ""},
             )
             if status_code >= 300:
@@ -108,9 +119,10 @@ def deliver_message(message: OutboundMessage):
         elif message.channel == OutboundMessage.CHANNEL_WHATSAPP:
             phone_number_id = os.environ.get("WHATSAPP_PHONE_NUMBER_ID", "").strip()
             access_token = os.environ.get("WHATSAPP_ACCESS_TOKEN", "").strip()
+            graph_version = os.environ.get("WHATSAPP_GRAPH_VERSION", "v20.0").strip() or "v20.0"
             if not phone_number_id or not access_token:
                 raise RuntimeError("WHATSAPP_PHONE_NUMBER_ID and WHATSAPP_ACCESS_TOKEN must be configured.")
-            endpoint = f"https://graph.facebook.com/v20.0/{phone_number_id}/messages"
+            endpoint = f"https://graph.facebook.com/{graph_version}/{phone_number_id}/messages"
             status_code, response_text = _post_json(
                 endpoint,
                 {
