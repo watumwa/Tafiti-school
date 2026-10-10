@@ -9,6 +9,7 @@ import { ReferenceClassesWorkspace } from './ReferenceClassesWorkspace';
 import { ReferenceAdmissionsWorkspace } from './ReferenceAdmissionsWorkspace';
 import { ReferenceAttendanceHub } from './ReferenceAttendanceHub';
 import { ReferenceCommunicationConsoleView } from './ReferenceCommunicationConsoleView';
+import { ReferenceFinanceReportView } from './ReferenceFinanceReportView';
 import { ReferenceLibraryConsoleView } from './ReferenceLibraryConsoleView';
 import { ReferenceReportCardsWorkspace } from './ReferenceReportCardsWorkspace';
 import { ReferenceResourceView } from './ReferenceResourceView';
@@ -79,6 +80,11 @@ export function ReferenceLinkedResourceView({ resource, dashboardPath }: { resou
         {configMode ? <ReferenceAcademicSetupView /> : reportCardsMode ? <ReferenceReportCardsWorkspace dashboardPath={dashboardPath} /> : <ReferenceResultsOperations dashboardPath={dashboardPath} />}
       </section>
     );
+  }
+
+  const financeReport = resource === 'finance' ? searchParams.get('report') : null;
+  if (financeReport && ['financial-statement', 'statement', 'income-expense', 'reconciliation', 'bank-reconciliation'].includes(financeReport)) {
+    return <ReferenceFinanceReportView report={financeReport} />;
   }
 
   const tabs = groups[resource];
