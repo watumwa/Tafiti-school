@@ -45,7 +45,15 @@ class Student(models.Model):
     current_class = models.ForeignKey("app.Class", verbose_name="Current Class", on_delete=models.CASCADE)
     stream = models.ForeignKey("app.Stream", on_delete=models.CASCADE)
     term = models.ForeignKey("app.Term", on_delete=models.CASCADE)
-    photo = models.ImageField(upload_to="student_photos", null=True, blank=True, default="student_photos/default.jpg")
+    # Blob-backed media stores full public URLs in the field value. Keep enough
+    # room for the provider hostname, generated pathname and future signed URLs.
+    photo = models.ImageField(
+        upload_to="student_photos",
+        null=True,
+        blank=True,
+        default="student_photos/default.jpg",
+        max_length=500,
+    )
     is_active = models.BooleanField(default=True)
 
     class Meta:
@@ -96,7 +104,7 @@ class Student(models.Model):
         return candidate
 
 class StudentRegistrationCSV(models.Model):
-    file_name = models.FileField(upload_to='media/csvs/')
+    file_name = models.FileField(upload_to='media/csvs/', max_length=500)
     uploaded = models.DateTimeField(auto_now_add=True)
     activated = models.BooleanField(default=False)
 
@@ -107,7 +115,7 @@ class StudentDocument(models.Model):
     student = models.ForeignKey("app.Student", on_delete=models.CASCADE, related_name='documents')
     bill = models.ForeignKey("app.StudentBill", on_delete=models.CASCADE, null=True, blank=True, related_name='documents')
     document_type = models.CharField(max_length=50, choices=DOCUMENT_TYPES)
-    file = models.FileField(upload_to='student_documents/')
+    file = models.FileField(upload_to='student_documents/', max_length=500)
     uploaded_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
