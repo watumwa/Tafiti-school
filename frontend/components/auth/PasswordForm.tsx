@@ -9,6 +9,7 @@ import type { AuthSuccess } from '@/lib/auth';
 
 type PasswordFormProps =
   | { mode: 'reset'; uid?: string; token?: string }
+  | { mode: 'parent-setup'; uid?: string; token?: string }
   | { mode: 'change'; uid?: never; token?: never };
 
 type ErrorPayload = {
@@ -48,20 +49,24 @@ export function PasswordForm(props: PasswordFormProps) {
       setError('Passwords do not match.');
       return;
     }
-    if (props.mode === 'reset' && (!props.uid || !props.token)) {
-      setError('This password reset link is incomplete. Request a new one.');
+    if (props.mode !== 'change' && (!props.uid || !props.token)) {
+      setError(props.mode === 'parent-setup' ? 'This parent setup link is incomplete. Ask the school for a new one.' : 'This password reset link is incomplete. Request a new one.');
       return;
     }
 
     setSubmitting(true);
     setError('');
     try {
-      const endpoint = props.mode === 'reset' ? '/api/auth/password-reset/confirm' : '/api/auth/password-change';
+      const endpoint = props.mode === 'change'
+        ? '/api/auth/password-change'
+        : props.mode === 'parent-setup'
+          ? '/api/auth/parent-setup/confirm'
+          : '/api/auth/password-reset/confirm';
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          ...(props.mode === 'reset' ? { uid: props.uid, token: props.token } : {}),
+          ...(props.mode !== 'change' ? { uid: props.uid, token: props.token } : {}),
           password,
           confirm_password: confirmPassword,
         }),
@@ -96,7 +101,7 @@ export function PasswordForm(props: PasswordFormProps) {
       <div className="mt-6">
         <div className="flex gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm leading-6 text-emerald-900" role="status">
           <CheckCircle2 className="mt-0.5 shrink-0 text-[#087F5B]" size={19} aria-hidden="true" />
-          Your password has been reset successfully.
+          {props.mode === 'parent-setup' ? 'Your parent account is ready. Your setup link can no longer be reused.' : 'Your password has been reset successfully.'}
         </div>
         <Link href="/login" className="mt-5 flex h-12 items-center justify-center rounded-xl bg-[#087F5B] text-sm font-semibold text-white hover:bg-[#07543F]">Continue to sign in</Link>
       </div>
@@ -128,7 +133,7 @@ export function PasswordForm(props: PasswordFormProps) {
       </div>
       <button type="submit" disabled={submitting} className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-[#087F5B] text-sm font-semibold text-white transition-all hover:bg-[#07543F] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-emerald-200 active:scale-[0.99] disabled:opacity-65">
         {submitting && <LoaderCircle className="animate-spin" size={18} aria-hidden="true" />}
-        {submitting ? 'Updating password…' : 'Update password'}
+        {submitting ? 'Updating password…' : props.mode === 'parent-setup' ? 'Create my password' : 'Update password'}
       </button>
     </form>
   );
