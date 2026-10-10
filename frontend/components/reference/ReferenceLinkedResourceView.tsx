@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
-import { BookOpen, Landmark, MessagesSquare, Send, Settings2, WalletCards } from 'lucide-react';
+import { Landmark, MessagesSquare, Send, Settings2 } from 'lucide-react';
 
 import { ReferenceAcademicSetupView } from './ReferenceAcademicSetupView';
 import { ReferenceClassesWorkspace } from './ReferenceClassesWorkspace';
@@ -18,30 +18,19 @@ import { ReferenceResultsOperations } from './ReferenceResultsOperations';
 import { ReferenceStudentAccountsView } from './ReferenceStudentAccountsView';
 import { ReferenceTimetableWorkspace } from './ReferenceTimetableWorkspace';
 
-type Tab = { slug: string; label: string; icon?: 'wallet' | 'finance' | 'book' };
-
-const feesTabs: Tab[] = [
-  { slug: 'fees', label: 'Student Accounts', icon: 'wallet' },
-  { slug: 'fees-payments', label: 'Payments', icon: 'wallet' },
-  { slug: 'fees-class-bills', label: 'Class Bills', icon: 'book' },
-  { slug: 'fees-bill-items', label: 'Fee Categories', icon: 'book' },
-];
+type Tab = { slug: string; label: string };
 
 const financeTabs: Tab[] = [
-  { slug: 'finance', label: 'Overview', icon: 'finance' },
-  { slug: 'finance-budgets', label: 'Budgets', icon: 'finance' },
-  { slug: 'finance-budget-items', label: 'Allocations', icon: 'finance' },
-  { slug: 'finance-expenditure-items', label: 'Expenditure Items', icon: 'finance' },
-  { slug: 'finance-expenses', label: 'Expense Categories', icon: 'finance' },
-  { slug: 'finance-vendors', label: 'Vendors', icon: 'finance' },
-  { slug: 'finance-income', label: 'Income Sources', icon: 'finance' },
+  { slug: 'finance', label: 'Overview' },
+  { slug: 'finance-budgets', label: 'Budgets' },
+  { slug: 'finance-budget-items', label: 'Allocations' },
+  { slug: 'finance-expenditure-items', label: 'Expenditure Items' },
+  { slug: 'finance-expenses', label: 'Expense Categories' },
+  { slug: 'finance-vendors', label: 'Vendors' },
+  { slug: 'finance-income', label: 'Income Sources' },
 ];
 
 const groups: Record<string, Tab[]> = {
-  fees: feesTabs,
-  'fees-payments': feesTabs,
-  'fees-class-bills': feesTabs,
-  'fees-bill-items': feesTabs,
   finance: financeTabs,
   'finance-budgets': financeTabs,
   'finance-budget-items': financeTabs,
@@ -50,12 +39,6 @@ const groups: Record<string, Tab[]> = {
   'finance-vendors': financeTabs,
   'finance-income': financeTabs,
 };
-
-function TabIcon({ icon }: { icon?: Tab['icon'] }) {
-  if (icon === 'finance') return <Landmark size={13} />;
-  if (icon === 'book') return <BookOpen size={13} />;
-  return <WalletCards size={13} />;
-}
 
 export function ReferenceLinkedResourceView({ resource, dashboardPath }: { resource: string; dashboardPath: string }) {
   const pathname = usePathname();
@@ -92,6 +75,11 @@ export function ReferenceLinkedResourceView({ resource, dashboardPath }: { resou
     );
   }
 
+  if (resource === 'fees') return <ReferenceStudentAccountsView dashboardPath={dashboardPath} />;
+  if (['fees-payments', 'fees-class-bills', 'fees-bill-items'].includes(resource)) {
+    return <ReferenceResourceView resource={resource} />;
+  }
+
   const financeReport = resource === 'finance' ? searchParams.get('report') : null;
   if (financeReport && ['financial-statement', 'statement', 'income-expense', 'reconciliation', 'bank-reconciliation'].includes(financeReport)) {
     return <ReferenceFinanceReportView report={financeReport} />;
@@ -109,13 +97,13 @@ export function ReferenceLinkedResourceView({ resource, dashboardPath }: { resou
             const active = pathname === href || pathname.startsWith(`${href}/`);
             return (
               <Link key={tab.slug} href={href} className={`inline-flex h-9 items-center gap-1.5 rounded-lg px-3 text-[10px] font-extrabold transition ${active ? 'bg-blue-600 text-white shadow-[0_5px_12px_rgba(37,99,235,.18)]' : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'}`}>
-                <TabIcon icon={tab.icon} />{tab.label}
+                <Landmark size={13} />{tab.label}
               </Link>
             );
           })}
         </div>
       </div>
-      {resource === 'fees' ? <ReferenceStudentAccountsView dashboardPath={dashboardPath} /> : <ReferenceResourceView resource={resource} />}
+      <ReferenceResourceView resource={resource} />
     </section>
   );
 }
