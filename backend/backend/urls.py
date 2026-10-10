@@ -22,6 +22,7 @@ from .maintenance import MaintenanceAPIView
 from .marks_workspace import MarksEntryAPIView, MarksHubAPIView
 from .parent_setup import ParentSetupConfirmAPIView
 from .parent_workspace import ParentWorkspaceAPIView
+from .reports_workspace import ReportsWorkspaceAPIView
 from .results_operations import ResultsOperationsAPIView
 from .student_finance import StudentFinanceAPIView
 from .student_import_workspace import StudentBulkImportAPIView
@@ -48,6 +49,7 @@ urlpatterns = [
     path("workspace/bootstrap/", WorkspaceBootstrapAPIView.as_view(), name="api_workspace_bootstrap"),
     path("workspace/dashboard/", WorkspaceDashboardAPIView.as_view(), name="api_workspace_dashboard"),
     path("workspace/search/", WorkspaceSearchAPIView.as_view(), name="api_workspace_search"),
+    path("workspace/reports/<str:category>/", ReportsWorkspaceAPIView.as_view(), name="api_workspace_reports"),
     path("workspace/users-roles/", UserRolesWorkspaceAPIView.as_view(), name="api_workspace_users_roles"),
     path("workspace/users-roles/<int:user_id>/", UserRolesWorkspaceAPIView.as_view(), name="api_workspace_users_roles_record"),
     path("workspace/academics/<str:tool>/", AcademicToolAPIView.as_view(), name="api_workspace_academic_tool"),
