@@ -43,7 +43,7 @@ ALLOWED_HOSTS = [
     host.strip()
     for host in os.environ.get(
         'ALLOWED_HOSTS',
-        'bayan-learningcenter.com,www.bayan-learningcenter.com,.vercel.app',
+        'bayan-learningcenter.com,www.bayan-learningcenter.com,.vercel.app,.services.vercel-infra.com',
     ).split(',')
     if host.strip()
 ]
