@@ -19,6 +19,20 @@ def _selected_class_bill(academic_class, bill_item, student):
     )
 
 
+def _selected_class_bills_for_student(academic_class, student):
+    """Return one applicable class-bill policy per fee item for this student."""
+    residency = getattr(student, "residency_status", ClassBill.APPLIES_DAY)
+    selected = {}
+    policies = ClassBill.objects.filter(academic_class=academic_class).select_related("bill_item").order_by("bill_item_id", "id")
+    for policy in policies:
+        current = selected.get(policy.bill_item_id)
+        if policy.applies_to == residency:
+            selected[policy.bill_item_id] = policy
+        elif policy.applies_to == ClassBill.APPLIES_ALL and current is None:
+            selected[policy.bill_item_id] = policy
+    return list(selected.values())
+
+
 def _sync_bill_item(instance):
     bill = instance.bill
     student = bill.student
@@ -36,7 +50,30 @@ def _sync_bill_item(instance):
 
 
 def _sync_student_bill(bill):
-    for item in bill.items.select_related("bill_item").all():
+    selected_policies = _selected_class_bills_for_student(bill.academic_class, bill.student)
+    selected_item_ids = {policy.bill_item_id for policy in selected_policies}
+
+    for policy in selected_policies:
+        lines = bill.items.filter(bill_item=policy.bill_item).order_by("id")
+        line = lines.first()
+        if line:
+            if lines.count() > 1:
+                lines.exclude(pk=line.pk).delete()
+            if line.description != policy.bill_item.description:
+                StudentBillItem.objects.filter(pk=line.pk).update(description=policy.bill_item.description)
+                line.description = policy.bill_item.description
+            _sync_bill_item(line)
+        else:
+            StudentBillItem.objects.create(
+                bill=bill,
+                bill_item=policy.bill_item,
+                description=policy.bill_item.description,
+                amount=policy.amount,
+            )
+
+    # Existing lines whose policy no longer applies are retained for audit
+    # continuity but reduced to zero instead of charging the wrong student type.
+    for item in bill.items.select_related("bill_item").exclude(bill_item_id__in=selected_item_ids):
         _sync_bill_item(item)
 
 
