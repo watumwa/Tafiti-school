@@ -7,18 +7,19 @@ from app.constants import GENDERS, EMPLOYEE_STATUS, TYPE_CHOICES, MARITAL_STATUS
 
 def validate_nin(value):
     """Validate NIN format only if a value is provided"""
-    if value:  
+    if value:
         import re
         if not re.match(r'^[A-Z0-9]{14}$', value):
             raise ValidationError("NIN must be 14 characters long, uppercase letters and numbers only.")
 
+
 class Role(models.Model):
     name = models.CharField(max_length=50, choices=ROLE_CHOICES, unique=True)
-    
+
     class Meta:
-        verbose_name = ("Role")
-        verbose_name_plural = ("Roles")
-        
+        verbose_name = "Role"
+        verbose_name_plural = "Roles"
+
     def __str__(self):
         return self.name
 
@@ -35,38 +36,33 @@ class Staff(models.Model):
     qualification = models.CharField(max_length=100)
     nin_no = models.CharField(max_length=14, blank=True, null=True, validators=[validate_nin], verbose_name="NIN")
     hire_date = models.DateField()
-    department = models.CharField(max_length=30,choices=TYPE_CHOICES)
+    department = models.CharField(max_length=30, choices=TYPE_CHOICES)
     salary = models.DecimalField(max_digits=10, decimal_places=2)
     is_academic_staff = models.BooleanField(default=False)
     is_administrator_staff = models.BooleanField(default=False)
     is_support_staff = models.BooleanField(default=False)
     staff_status = models.CharField(max_length=20, choices=EMPLOYEE_STATUS, default="Active")
-    # Production media is backed by Vercel Blob and the stored field value may
-    # be a complete provider URL rather than a short local pathname.
-    staff_photo = models.ImageField(
-        upload_to="Staff/Profile_pics",
-        height_field=None,
-        width_field=None,
-        max_length=500,
-    )
-    roles = models.ManyToManyField(Role, related_name='staff_members')
+    staff_photo = models.ImageField(upload_to="Staff/Profile_pics", height_field=None, width_field=None, max_length=500)
+    roles = models.ManyToManyField(Role, related_name="staff_members")
 
     def __str__(self):
         return f"{self.first_name} {self.last_name}"
 
+    @property
+    def staff_account(self):
+        """Return the primary login account used by the staff profile workspace."""
+        return self.staffaccount_set.select_related("user", "role").order_by("id").first()
+
     class Meta:
-        verbose_name = ("Staff")
-        verbose_name_plural = ("Staffs")
+        verbose_name = "Staff"
+        verbose_name_plural = "Staffs"
         ordering = ("-id",)
 
     def get_absolute_url(self):
         return reverse("Staff_detail", kwargs={"pk": self.pk})
 
 
-
-
 class BankDetail(models.Model):
-    
     staff = models.OneToOneField("app.Staff", on_delete=models.CASCADE)
     bank_name = models.CharField(max_length=50)
     branch_name = models.CharField(max_length=50)
@@ -74,8 +70,8 @@ class BankDetail(models.Model):
     account_name = models.CharField(max_length=50)
 
     class Meta:
-        verbose_name = ("bankdetail")
-        verbose_name_plural = ("bankdetails")
+        verbose_name = "bankdetail"
+        verbose_name_plural = "bankdetails"
 
     def __str__(self):
         return f"{self.staff} - {self.bank_name}"
@@ -83,15 +79,17 @@ class BankDetail(models.Model):
     def get_absolute_url(self):
         return reverse("bankdetail_detail", kwargs={"pk": self.pk})
 
-class StaffDocument(models.Model):
 
-    staff = models.ForeignKey("app.Staff", on_delete=models.CASCADE)
-    document_type = models.CharField(max_length=50,choices=DOCUMENT_TYPES)
+class StaffDocument(models.Model):
+    staff = models.ForeignKey("app.Staff", on_delete=models.CASCADE, related_name="documents")
+    document_type = models.CharField(max_length=50, choices=DOCUMENT_TYPES)
     file = models.FileField(upload_to="Staff/Documents", max_length=500)
+    uploaded_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        verbose_name = ("StaffDocument")
-        verbose_name_plural = ("StaffDocuments")
+        verbose_name = "StaffDocument"
+        verbose_name_plural = "StaffDocuments"
+        ordering = ("-uploaded_at", "-id")
 
     def __str__(self):
         return f"{self.staff} - {self.document_type}"
