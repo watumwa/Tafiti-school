@@ -201,12 +201,30 @@ class StudentBillItem(models.Model):
 
 
 class ClassBill(models.Model):
+    APPLIES_ALL = "All"
+    APPLIES_DAY = "Day"
+    APPLIES_BOARDING = "Boarding"
+    APPLIES_TO_CHOICES = [
+        (APPLIES_ALL, "All students"),
+        (APPLIES_DAY, "Day students only"),
+        (APPLIES_BOARDING, "Boarding students only"),
+    ]
+
     academic_class = models.ForeignKey("app.AcademicClass", on_delete=models.CASCADE, related_name="class_bills")
     bill_item = models.ForeignKey("app.BillItem", on_delete=models.CASCADE)
     amount = models.DecimalField(max_digits=10, decimal_places=2)
+    applies_to = models.CharField(
+        max_length=10,
+        choices=APPLIES_TO_CHOICES,
+        default=APPLIES_ALL,
+        help_text="Choose whether this fee applies to all, Day only or Boarding only students.",
+    )
 
     class Meta:
-        unique_together = ("academic_class", "bill_item")
+        unique_together = ("academic_class", "bill_item", "applies_to")
+
+    def applies_to_student(self, student):
+        return self.applies_to == self.APPLIES_ALL or self.applies_to == getattr(student, "residency_status", self.APPLIES_DAY)
 
 
 class Payment(models.Model):
