@@ -9,8 +9,11 @@ type ImportTemplate = {
   max_rows: number;
   max_size_mb: number;
   accepted_gender: string[];
+  accepted_student_types: string[];
   accepted_nationalities: string[];
   accepted_religions: string[];
+  lin_optional: boolean;
+  schoolpay_optional: boolean;
   atomic: boolean;
 };
 
@@ -104,7 +107,7 @@ export function StudentBulkImportDialog({
             <button type="button" disabled={!template} onClick={downloadTemplate} className="clay-button-secondary min-h-20 justify-center"><Download size={16} /> Download CSV template</button>
           </div>
 
-          {template && <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-4"><p className="text-xs font-bold text-slate-800">Example row</p><div className="mt-3 overflow-x-auto"><table className="min-w-[900px] text-left text-[10px]"><thead><tr>{template.columns.map((column) => <th key={column} className="border-b border-slate-100 px-2 py-2 font-bold text-slate-400">{column}</th>)}</tr></thead><tbody><tr>{template.sample.map((value, index) => <td key={`${template.columns[index]}-${index}`} className="px-2 py-2 text-slate-600">{value || 'auto'}</td>)}</tr></tbody></table></div><p className="mt-3 text-[10px] text-slate-400">Up to {template.max_rows.toLocaleString()} rows / {template.max_size_mb} MB. Gender accepts {template.accepted_gender.join(', ')}.</p></div>}
+          {template && <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-4"><p className="text-xs font-bold text-slate-800">Example row</p><div className="mt-3 overflow-x-auto"><table className="min-w-[1180px] text-left text-[10px]"><thead><tr>{template.columns.map((column) => <th key={column} className="border-b border-slate-100 px-2 py-2 font-bold text-slate-400">{column}</th>)}</tr></thead><tbody><tr>{template.sample.map((value, index) => <td key={`${template.columns[index]}-${index}`} className="px-2 py-2 text-slate-600">{value || 'auto'}</td>)}</tr></tbody></table></div><p className="mt-3 text-[10px] leading-5 text-slate-400">Up to {template.max_rows.toLocaleString()} rows / {template.max_size_mb} MB. Student Type must be {template.accepted_student_types.join(' or ')}. Gender accepts {template.accepted_gender.join(', ')}. LIN and SchoolPay Number may be left blank when not yet available.</p></div>}
 
           <label className="mt-4 block rounded-2xl border-2 border-dashed border-slate-200 bg-[#F8FAFD] p-5 text-center transition hover:border-blue-300">
             <Upload className="mx-auto text-blue-600" size={22} />
