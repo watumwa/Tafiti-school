@@ -203,16 +203,22 @@ class Result(models.Model):
 
     @property
     def grade(self):
+        if not self.assessment.subject.calculate_grade:
+            return "—"
         grading = GradingSystem.objects.filter(min_score__lte=self.score, max_score__gte=self.score).first()
         return grading.grade if grading else "N/A"
 
     @property
     def points(self):
+        if not self.assessment.subject.calculate_grade or not self.assessment.subject.include_in_totals:
+            return Decimal('0.00')
         grading = GradingSystem.objects.filter(min_score__lte=self.score, max_score__gte=self.score).first()
         return grading.points if grading else Decimal('0.00')
 
     @property
     def actual_score(self):
+        if not self.assessment.subject.include_in_totals:
+            return Decimal('0.00')
         weight = self.assessment.assessment_type.weight
         mode = ResultModeSetting.get_mode()
 
@@ -237,6 +243,11 @@ class ReportResults(models.Model):
     def calculate_term_result(self):
         mode = ResultModeSetting.get_mode()
         details = self.details.all()
+
+        if not self.subject.include_in_totals:
+            if mode == "CUMULATIVE":
+                return Decimal('0.00'), Decimal('0.00')
+            return [(d.assessment_type.name, d.score) for d in details]
 
         if mode == "CUMULATIVE":
             total_score = sum(d.score for d in details)
@@ -351,13 +362,14 @@ class TermResult(models.Model):
         return f'{self.academic_class} - {self.student}'
 
     def calculate_term_result(self):
-        """Calculate this student's aggregate for this exact academic class/term."""
+        """Calculate this student's aggregate using only computed subjects."""
         exam_results = self.student.results.filter(
             assessment__academic_class=self.academic_class,
+            assessment__subject__include_in_totals=True,
         )
         total_score = sum(result.actual_score for result in exam_results)
         total_points = sum(result.points for result in exam_results)
-        subjects_count = exam_results.count()
+        subjects_count = exam_results.values("assessment__subject_id").distinct().count()
         self.total_score = total_score
         self.average_score = total_score / subjects_count if subjects_count > 0 else 0
         self.total_points = total_points
