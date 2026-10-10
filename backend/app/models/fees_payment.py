@@ -115,32 +115,25 @@ class StudentBill(models.Model):
         return "Outstanding"
 
     def apply_credit(self, credit_amount):
-        """Apply available student credit oldest-first without duplicating partial credit."""
         requested = Decimal(str(credit_amount or 0))
         if requested <= 0:
             return Decimal("0")
-
         available = Decimal(self.available_credits)
         if available <= 0:
             return Decimal("0")
-
         credit_to_apply = min(requested, available, max(Decimal(self.balance), Decimal("0")))
         if credit_to_apply <= 0:
             return Decimal("0")
-
         credits = self.student.credits.filter(is_applied=False, amount__gt=0).order_by("created_date", "id")
         applied_amount = Decimal("0")
-
         for credit in credits:
             if applied_amount >= credit_to_apply:
                 break
-
             remaining_needed = credit_to_apply - applied_amount
             credit_amount_available = Decimal(credit.amount)
             amount_from_this_credit = min(remaining_needed, credit_amount_available)
             if amount_from_this_credit <= 0:
                 continue
-
             StudentCredit.objects.create(
                 student=self.student,
                 amount=-amount_from_this_credit,
@@ -151,7 +144,6 @@ class StudentBill(models.Model):
                 applied_to_bill=self,
             )
             applied_amount += amount_from_this_credit
-
             remaining_credit = credit_amount_available - amount_from_this_credit
             if remaining_credit <= 0:
                 credit.is_applied = True
@@ -161,7 +153,6 @@ class StudentBill(models.Model):
             else:
                 credit.amount = remaining_credit
                 credit.save(update_fields=["amount"])
-
         return applied_amount
 
     def __str__(self):
@@ -183,7 +174,6 @@ class StudentBillItem(models.Model):
     def save(self, *args, **kwargs):
         if not self.charge_date and self.bill_id:
             self.charge_date = self.bill.bill_date
-
         inferred_category = infer_ledger_category(
             getattr(self.bill_item, "category", ""),
             getattr(self.bill_item, "item_name", ""),
@@ -193,10 +183,8 @@ class StudentBillItem(models.Model):
             self.fee_category == "Other" and inferred_category != "Other"
         ):
             self.fee_category = inferred_category
-
         if not self.notes and self.description:
             self.notes = self.description
-
         super().save(*args, **kwargs)
 
 
@@ -221,7 +209,7 @@ class ClassBill(models.Model):
     )
 
     class Meta:
-        unique_together = ("academic_class", "bill_item", "applies_to")
+        unique_together = ("academic_class", "bill_item")
 
     def applies_to_student(self, student):
         return self.applies_to == self.APPLIES_ALL or self.applies_to == getattr(student, "residency_status", self.APPLIES_DAY)
@@ -242,28 +230,13 @@ class Payment(models.Model):
 
     def save(self, *args, **kwargs):
         self.payment_method = normalize_payment_method(self.payment_method)
-
-        derived_category = ""
         if not self.fee_category and self.bill_id:
-            categories = [
-                category
-                for category in self.bill.items.values_list("fee_category", flat=True).distinct()
-                if category
-            ]
-            if len(categories) == 1:
-                derived_category = categories[0]
-            else:
-                derived_category = infer_ledger_category(*self.bill.items.values_list("description", flat=True))
-            self.fee_category = derived_category
+            categories = [category for category in self.bill.items.values_list("fee_category", flat=True).distinct() if category]
+            self.fee_category = categories[0] if len(categories) == 1 else infer_ledger_category(*self.bill.items.values_list("description", flat=True))
         elif self.fee_category == "Other" and self.bill_id:
-            categories = [
-                category
-                for category in self.bill.items.values_list("fee_category", flat=True).distinct()
-                if category and category != "Other"
-            ]
+            categories = [category for category in self.bill.items.values_list("fee_category", flat=True).distinct() if category and category != "Other"]
             if len(categories) == 1:
                 self.fee_category = categories[0]
-
         super().save(*args, **kwargs)
 
 
@@ -301,11 +274,9 @@ class StudentFeeAdjustment(models.Model):
         (TYPE_SPONSOR, TYPE_SPONSOR),
         (TYPE_OTHER, TYPE_OTHER),
     ]
-
     CALC_FIXED = "Fixed"
     CALC_PERCENT = "Percentage"
     CALCULATION_TYPES = [(CALC_FIXED, "Fixed amount"), (CALC_PERCENT, "Percentage")]
-
     STATUS_APPROVED = "Approved"
     STATUS_CANCELLED = "Cancelled"
     STATUS_CHOICES = [(STATUS_APPROVED, "Approved"), (STATUS_CANCELLED, "Cancelled")]
