@@ -209,7 +209,7 @@ class ClassBill(models.Model):
     )
 
     class Meta:
-        unique_together = ("academic_class", "bill_item")
+        unique_together = ("academic_class", "bill_item", "applies_to")
 
     def applies_to_student(self, student):
         return self.applies_to == self.APPLIES_ALL or self.applies_to == getattr(student, "residency_status", self.APPLIES_DAY)
