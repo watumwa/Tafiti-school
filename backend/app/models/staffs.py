@@ -50,7 +50,6 @@ class Staff(models.Model):
 
     @property
     def staff_account(self):
-        """Return the primary login account used by the staff profile workspace."""
         return self.staffaccount_set.select_related("user", "role").order_by("id").first()
 
     class Meta:
@@ -84,7 +83,7 @@ class StaffDocument(models.Model):
     staff = models.ForeignKey("app.Staff", on_delete=models.CASCADE, related_name="documents")
     document_type = models.CharField(max_length=50, choices=DOCUMENT_TYPES)
     file = models.FileField(upload_to="Staff/Documents", max_length=500)
-    uploaded_at = models.DateTimeField(auto_now_add=True)
+    uploaded_at = models.DateTimeField(auto_now_add=True, null=True)
 
     class Meta:
         verbose_name = "StaffDocument"
