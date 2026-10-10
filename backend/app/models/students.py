@@ -30,8 +30,38 @@ def find_duplicate_student(*, student_name, birthdate, contact, exclude_pk=None)
             return candidate
     return None
 
+
 class Student(models.Model):
+    RESIDENCY_DAY = "Day"
+    RESIDENCY_BOARDING = "Boarding"
+    RESIDENCY_CHOICES = [
+        (RESIDENCY_DAY, "Day"),
+        (RESIDENCY_BOARDING, "Boarding"),
+    ]
+
     reg_no = models.CharField(max_length=30, unique=True)
+    lin_number = models.CharField(
+        max_length=40,
+        unique=True,
+        null=True,
+        blank=True,
+        verbose_name="Learner Identification Number (LIN)",
+        help_text="Uganda learner identification number issued by the education authorities.",
+    )
+    schoolpay_number = models.CharField(
+        max_length=50,
+        unique=True,
+        null=True,
+        blank=True,
+        verbose_name="SchoolPay Number",
+        help_text="Optional student payment identifier used by SchoolPay or another school payment channel.",
+    )
+    residency_status = models.CharField(
+        max_length=10,
+        choices=RESIDENCY_CHOICES,
+        default=RESIDENCY_DAY,
+        verbose_name="Student Type",
+    )
     student_name = models.CharField(max_length=50)
     gender = models.CharField(max_length=2, choices=GENDERS)
     birthdate = models.DateField(auto_now=False)
@@ -83,6 +113,8 @@ class Student(models.Model):
         if needs_generation and not self.reg_no:
             self.reg_no = self._build_unique_reg_no()
 
+        self.lin_number = (self.lin_number or "").strip().upper() or None
+        self.schoolpay_number = (self.schoolpay_number or "").strip() or None
         super().save(*args, **kwargs)
 
     def _build_unique_reg_no(self) -> str:
@@ -103,6 +135,7 @@ class Student(models.Model):
             candidate = f"{prefix}{next_seq:04d}"
         return candidate
 
+
 class StudentRegistrationCSV(models.Model):
     file_name = models.FileField(upload_to='media/csvs/', max_length=500)
     uploaded = models.DateTimeField(auto_now_add=True)
@@ -111,6 +144,7 @@ class StudentRegistrationCSV(models.Model):
     def __str__(self):
         return f"File ID: {self.id}"
     
+
 class StudentDocument(models.Model):
     student = models.ForeignKey("app.Student", on_delete=models.CASCADE, related_name='documents')
     bill = models.ForeignKey("app.StudentBill", on_delete=models.CASCADE, null=True, blank=True, related_name='documents')
