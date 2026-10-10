@@ -3,7 +3,7 @@ from __future__ import annotations
 from rest_framework import status
 from rest_framework.response import Response
 
-from app.models import CommunicationPreference, OutboundMessage, Student
+from app.models import CommunicationPreference, OutboundNotification, Student
 from app.services.outbound_communications import send_fee_balance_reminder, send_report_ready_notice
 
 from .auth import canonical_role_label, resolve_active_role
@@ -67,14 +67,14 @@ class OutboundCommunicationAPIView(WorkspaceBaseAPIView):
         students = Student.objects.filter(is_active=True).select_related("current_class").prefetch_related(
             "bills__items", "bills__payments", "bills__fee_adjustments", "bills__applied_credits"
         ).order_by("student_name")[:3000]
-        messages = OutboundMessage.objects.select_related("student").order_by("-created_at", "-id")[:250]
+        messages = OutboundNotification.objects.select_related("student").order_by("-created_at", "-id")[:250]
         return Response({
             "role": _role(request),
             "can_send_fee": _can(request, FEE_SEND_ROLES),
             "can_send_report": _can(request, REPORT_SEND_ROLES),
             "students": [_student_row(student) for student in students],
             "rows": [_message_row(message) for message in messages],
-            "channels": [OutboundMessage.CHANNEL_SMS, OutboundMessage.CHANNEL_EMAIL, OutboundMessage.CHANNEL_WHATSAPP],
+            "channels": [OutboundNotification.CHANNEL_SMS, OutboundNotification.CHANNEL_EMAIL, OutboundNotification.CHANNEL_WHATSAPP],
         })
 
     def post(self, request):
@@ -97,8 +97,8 @@ class OutboundCommunicationAPIView(WorkspaceBaseAPIView):
             preference.save()
             return Response({"detail": "Communication preferences saved.", "student": _student_row(student)})
 
-        channel = str(request.data.get("channel") or OutboundMessage.CHANNEL_SMS).strip()
-        valid_channels = {value for value, _label in OutboundMessage.CHANNEL_CHOICES}
+        channel = str(request.data.get("channel") or OutboundNotification.CHANNEL_SMS).strip()
+        valid_channels = {value for value, _label in OutboundNotification.CHANNEL_CHOICES}
         if channel not in valid_channels:
             return Response({"detail": "Choose SMS, Email or WhatsApp."}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -116,7 +116,7 @@ class OutboundCommunicationAPIView(WorkspaceBaseAPIView):
         else:
             return Response({"detail": "Choose a supported notification action."}, status=status.HTTP_400_BAD_REQUEST)
 
-        code = status.HTTP_200_OK if message.status == OutboundMessage.STATUS_SENT else status.HTTP_202_ACCEPTED
+        code = status.HTTP_200_OK if message.status == OutboundNotification.STATUS_SENT else status.HTTP_202_ACCEPTED
         return Response({
             "detail": f"{message.channel} notification is {message.status.lower()}.",
             "message": _message_row(message),
