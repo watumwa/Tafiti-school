@@ -17,7 +17,7 @@ class StudentForm(ModelForm):
     class Meta:
         model = Student
         # A student's admission period is assigned from the configured current
-        # academic year/term by the registration workflow.  Asking users to
+        # academic year/term by the registration workflow. Asking users to
         # select it again allowed contradictory records to be submitted.
         exclude = ("reg_no", "academic_year", "term")
         
@@ -56,6 +56,9 @@ class ClassScopedStudentForm(ModelForm):
         model = Student
         fields = (
             "student_name",
+            "lin_number",
+            "schoolpay_number",
+            "residency_status",
             "gender",
             "birthdate",
             "nationality",
