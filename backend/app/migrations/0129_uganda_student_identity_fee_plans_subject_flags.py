@@ -40,10 +40,6 @@ class Migration(migrations.Migration):
             name="applies_to",
             field=models.CharField(choices=[("All", "All students"), ("Day", "Day students only"), ("Boarding", "Boarding students only")], default="All", help_text="Choose whether this fee applies to all, Day only or Boarding only students.", max_length=10),
         ),
-        migrations.AlterUniqueTogether(
-            name="classbill",
-            unique_together={("academic_class", "bill_item", "applies_to")},
-        ),
         migrations.AddField(
             model_name="subject",
             name="show_on_report",
