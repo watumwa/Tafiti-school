@@ -22,6 +22,7 @@ from app.models import (
     Stream,
     Term,
 )
+from app.services.admissions import ensure_admission_requirements
 
 
 class WorkspaceAdmissionsTests(APITestCase):
@@ -168,7 +169,7 @@ class WorkspaceAdmissionsTests(APITestCase):
         self.assertEqual(history.to_status, AdmissionApplication.STATUS_REVIEW)
         self.assertIn("Documents checked", history.notes)
 
-    def test_accepted_application_enrolls_into_existing_student_master_and_billing(self):
+    def test_accepted_application_requires_checklist_then_enrolls_and_bills(self):
         url = reverse(
             "api_workspace_admissions_record",
             kwargs={"screen": "application", "pk": self.application.pk},
@@ -189,6 +190,13 @@ class WorkspaceAdmissionsTests(APITestCase):
         detail = self.client.get(url)
         self.assertTrue(detail.data["can_enroll"])
 
+        blocked = self.client.post(url, {"action": "enroll"}, format="json")
+        self.assertEqual(blocked.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("Complete the admission requirements", blocked.data["detail"])
+
+        requirements = ensure_admission_requirements(self.application)
+        requirements.update(is_completed=True, completed_at=timezone.now(), completed_by=self.admin)
+
         enrolled = self.client.post(url, {"action": "enroll"}, format="json")
         self.assertEqual(enrolled.status_code, status.HTTP_201_CREATED, enrolled.data)
         self.application.refresh_from_db()
@@ -201,3 +209,5 @@ class WorkspaceAdmissionsTests(APITestCase):
         self.assertEqual(student.stream, self.stream)
         self.assertTrue(ClassRegister.objects.filter(student=student, academic_class_stream=self.class_stream).exists())
         self.assertTrue(StudentBill.objects.filter(student=student, academic_class=self.academic_class).exists())
+        self.assertTrue(student.lifecycle_events.filter(status="active").exists())
+        self.assertTrue(student.parent_accesses.filter(is_active=True, is_verified=True).exists())
