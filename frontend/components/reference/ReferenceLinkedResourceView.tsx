@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
-import { BookOpen, Landmark, Settings2, WalletCards } from 'lucide-react';
+import { BookOpen, Landmark, MessagesSquare, Send, Settings2, WalletCards } from 'lucide-react';
 
 import { ReferenceAcademicSetupView } from './ReferenceAcademicSetupView';
 import { ReferenceClassesWorkspace } from './ReferenceClassesWorkspace';
@@ -11,6 +11,7 @@ import { ReferenceAttendanceHub } from './ReferenceAttendanceHub';
 import { ReferenceCommunicationConsoleView } from './ReferenceCommunicationConsoleView';
 import { ReferenceFinanceReportView } from './ReferenceFinanceReportView';
 import { ReferenceLibraryConsoleView } from './ReferenceLibraryConsoleView';
+import { ReferenceOutboundCommunicationView } from './ReferenceOutboundCommunicationView';
 import { ReferenceReportCardsWorkspace } from './ReferenceReportCardsWorkspace';
 import { ReferenceResourceView } from './ReferenceResourceView';
 import { ReferenceResultsOperations } from './ReferenceResultsOperations';
@@ -64,7 +65,16 @@ export function ReferenceLinkedResourceView({ resource, dashboardPath }: { resou
   if (resource === 'classes') return <ReferenceClassesWorkspace dashboardPath={dashboardPath} />;
   if (resource === 'attendance') return <ReferenceAttendanceHub dashboardPath={dashboardPath} />;
   if (resource === 'timetable') return <ReferenceTimetableWorkspace />;
-  if (resource === 'communication') return <ReferenceCommunicationConsoleView />;
+  if (resource === 'communication') {
+    const outbound = searchParams.get('view') === 'outbound';
+    return <section>
+      <div className="mb-4 flex w-fit gap-1 rounded-xl border border-slate-200 bg-white p-1 shadow-sm">
+        <Link href={`${dashboardPath}/communication`} className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-[10px] font-extrabold ${!outbound ? 'bg-blue-600 text-white' : 'text-slate-500 hover:bg-slate-50'}`}><MessagesSquare size={13} /> Internal communication</Link>
+        <Link href={`${dashboardPath}/communication?view=outbound`} className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-[10px] font-extrabold ${outbound ? 'bg-blue-600 text-white' : 'text-slate-500 hover:bg-slate-50'}`}><Send size={13} /> Outbound notifications</Link>
+      </div>
+      {outbound ? <ReferenceOutboundCommunicationView /> : <ReferenceCommunicationConsoleView />}
+    </section>;
+  }
   if (resource === 'library') return <ReferenceLibraryConsoleView />;
   if (resource === 'results') {
     const view = searchParams.get('view');
