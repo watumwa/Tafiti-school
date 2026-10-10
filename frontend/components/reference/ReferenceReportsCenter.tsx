@@ -15,69 +15,100 @@ import {
 
 const groups = [
   {
-    title: 'Students',
-    icon: Users,
-    description: 'Student registers, enrolment and demographic views.',
-    items: [
-      ['Student directory', 'students'],
-      ['Admissions', 'admissions'],
-      ['Class lists', 'classes'],
-    ],
-    roles: ['Admin', 'Head Teacher', 'Director of Studies', 'Teacher', 'Class Teacher'],
-  },
-  {
     title: 'Academics',
     icon: GraduationCap,
-    description: 'Results, verification, performance and report preparation.',
+    description: 'Performance, verified results and report-card analysis.',
     items: [
-      ['Results overview', 'results'],
+      ['Class performance', 'results?view=performance&group=class'],
+      ['Student performance', 'results?view=report-cards'],
+      ['Subject performance', 'results?view=performance&group=subject'],
+      ['Results summary', 'results'],
       ['Verification queue', 'results?view=verification'],
-      ['Subjects', 'subjects'],
-      ['Classes & streams', 'classes'],
+      ['Report cards', 'results?view=report-cards'],
     ],
     roles: ['Admin', 'Head Teacher', 'Director of Studies', 'Teacher', 'Class Teacher'],
   },
   {
     title: 'Attendance',
     icon: CalendarCheck,
-    description: 'Attendance sessions and class attendance history.',
+    description: 'Daily, weekly and monthly attendance plus absenteeism follow-up.',
     items: [
-      ['Attendance workspace', 'attendance'],
-      ['Class attendance', 'classes'],
+      ['Daily attendance', 'attendance?report=daily'],
+      ['Weekly attendance', 'attendance?report=weekly'],
+      ['Monthly attendance', 'attendance?report=monthly'],
+      ['Student absenteeism', 'attendance?report=absenteeism'],
+      ['Class attendance', 'attendance?report=class'],
     ],
     roles: ['Admin', 'Head Teacher', 'Director of Studies', 'Teacher', 'Class Teacher'],
   },
   {
     title: 'Finance',
     icon: ReceiptText,
-    description: 'Fees, payments, budgets and expenditure reporting.',
+    description: 'Collections, debtors, statements, expenditure and budget control.',
     items: [
-      ['Student fee accounts', 'fees'],
-      ['Payments', 'fees-payments'],
-      ['Finance', 'finance'],
-      ['Budgets', 'finance-budgets'],
+      ['Collections', 'fees-payments?report=collections'],
+      ['Outstanding fees', 'fees?status=outstanding'],
+      ['Payment methods', 'fees-payments?report=methods'],
+      ['Debtor list', 'fees?status=outstanding&report=debtors'],
+      ['Student statements', 'fees?report=statements'],
+      ['Income & collections', 'finance?report=income'],
+      ['Expenses', 'finance?report=expenses'],
+      ['Budget vs actual', 'finance-budgets?report=variance'],
+      ['Daily cashier closing', 'fees-payments?report=cashier-closing'],
+      ['Outstanding-fee aging', 'fees?report=aging'],
     ],
-    roles: ['Admin', 'Head Teacher'],
+    roles: ['Admin', 'Head Teacher', 'Bursar'],
   },
   {
-    title: 'Staff',
-    icon: FileBarChart,
-    description: 'Staff profiles, roles and teaching allocations.',
+    title: 'Admissions',
+    icon: Users,
+    description: 'Application funnel, decisions and enrolment conversion.',
     items: [
-      ['Staff directory', 'staff'],
-      ['Users & roles', 'users-roles'],
-      ['Timetable', 'timetable'],
+      ['All applicants', 'admissions?report=applicants'],
+      ['Enrolled applicants', 'admissions?status=enrolled'],
+      ['Rejected applicants', 'admissions?status=rejected'],
+      ['Waitlisted applicants', 'admissions?status=waitlisted'],
+      ['Conversion rate', 'admissions?report=conversion'],
     ],
-    roles: ['Admin', 'Head Teacher', 'Director of Studies'],
+    roles: ['Admin', 'Head Teacher', 'Admissions Officer'],
   },
   {
     title: 'Library',
     icon: Library,
-    description: 'Loans, returns, overdue records and borrower activity.',
+    description: 'Borrowing activity, overdue items and financial penalties.',
     items: [
-      ['Library workspace', 'library'],
+      ['Borrowed books', 'library?view=loans&status=active'],
+      ['Overdue books', 'library?view=loans&status=overdue'],
+      ['Library fines', 'library?view=fines'],
+      ['Most borrowed books', 'library?view=reports&report=popular'],
     ],
-    roles: ['Admin', 'Head Teacher'],
+    roles: ['Admin', 'Head Teacher', 'Librarian'],
+  },
+  {
+    title: 'HR & Staff',
+    icon: FileBarChart,
+    description: 'Staffing, attendance, leave, teaching load and payroll readiness.',
+    items: [
+      ['Staff list', 'staff?report=directory'],
+      ['Staff attendance', 'staff?report=attendance'],
+      ['Leave report', 'staff?report=leave'],
+      ['Teaching allocations', 'staff?report=allocations'],
+      ['Salary history', 'staff?report=salary-history'],
+      ['Payroll', 'staff?report=payroll'],
+    ],
+    roles: ['Admin', 'Head Teacher', 'Director of Studies'],
+  },
+  {
+    title: 'Student Administration',
+    icon: FileBarChart,
+    description: 'Registers, lifecycle movements and document completeness.',
+    items: [
+      ['Student directory', 'students'],
+      ['Class lists', 'classes'],
+      ['Transfers & leavers', 'students?report=lifecycle'],
+      ['Student documents', 'students?report=documents'],
+    ],
+    roles: ['Admin', 'Head Teacher', 'Director of Studies', 'Admissions Officer'],
   },
 ] as const;
 
@@ -88,7 +119,7 @@ export function ReferenceReportsCenter({ dashboardPath, role }: { dashboardPath:
         <span className="grid h-11 w-11 place-items-center rounded-xl bg-blue-50 text-blue-600"><BarChart3 size={21} /></span>
         <div>
           <h1 className="text-[1.65rem] font-extrabold tracking-[-0.035em] text-[#10224A]">Report Center</h1>
-          <p className="mt-1 max-w-3xl text-xs leading-5 text-slate-500">One place to reach operational and management reports without filling the sidebar with dozens of report links.</p>
+          <p className="mt-1 max-w-3xl text-xs leading-5 text-slate-500">A dedicated reporting hub for academics, attendance, finance, admissions, library and HR. Operational pages open with the relevant report filters already selected.</p>
         </div>
       </div>
 
