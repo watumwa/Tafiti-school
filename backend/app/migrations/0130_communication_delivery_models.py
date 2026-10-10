@@ -22,7 +22,7 @@ class Migration(migrations.Migration):
             ],
         ),
         migrations.CreateModel(
-            name="OutboundMessage",
+            name="OutboundNotification",
             fields=[
                 ("id", models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name="ID")),
                 ("channel", models.CharField(choices=[("SMS", "SMS"), ("Email", "Email"), ("WhatsApp", "WhatsApp")], max_length=12)),
