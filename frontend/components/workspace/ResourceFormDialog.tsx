@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { AlertCircle, LoaderCircle, Save, Search, X } from 'lucide-react';
+import { AlertCircle, ChevronDown, LoaderCircle, Plus, Save, Search, X } from 'lucide-react';
 
 import { ImageUploadControl } from './ImageUploadControl';
 
@@ -43,9 +43,82 @@ function SearchableSelect({
 
 function initialValue(field: WorkspaceFormField) {
   if (field.type === 'checkbox') return Boolean(field.initial);
-  if (field.type === 'multiselect') return Array.isArray(field.initial) ? field.initial.map(String) : [];
+  if (field.type === 'multiselect') {
+    if (Array.isArray(field.initial)) return field.initial.map(String);
+    return field.initial === null || field.initial === undefined || field.initial === '' ? [] : [String(field.initial)];
+  }
   if (field.type === 'image' || field.type === 'file') return null;
   return field.initial === null || field.initial === undefined ? '' : String(field.initial);
+}
+
+function stringArray(value: unknown) {
+  return Array.isArray(value) ? value.map(String) : [];
+}
+
+function MultiSelectChips({
+  field,
+  value,
+  loading,
+  onChange,
+}: {
+  field: WorkspaceFormField;
+  value: string[];
+  loading: boolean;
+  onChange: (value: string[]) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const selected = field.options.filter((option) => value.includes(option.value));
+  const available = field.options.filter((option) => !value.includes(option.value));
+  const roleField = field.name === 'roles';
+  const addLabel = roleField ? 'Add another role' : `Add ${field.label.toLowerCase()}`;
+
+  function add(optionValue: string) {
+    if (!optionValue || value.includes(optionValue)) return;
+    onChange([...value, optionValue]);
+    setOpen(false);
+  }
+
+  function remove(optionValue: string) {
+    onChange(value.filter((item) => item !== optionValue));
+  }
+
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white/90 p-2.5">
+      <div className="flex min-h-10 flex-wrap items-center gap-2">
+        {selected.map((option) => (
+          <span key={option.value} className="inline-flex items-center gap-1.5 rounded-lg border border-blue-100 bg-blue-50 px-2.5 py-1.5 text-xs font-bold text-blue-800">
+            {option.label}
+            <button
+              type="button"
+              aria-label={`Remove ${option.label}`}
+              disabled={field.disabled || loading}
+              onClick={() => remove(option.value)}
+              className="rounded p-0.5 text-blue-600 hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-50"
+            ><X size={12} /></button>
+          </span>
+        ))}
+        {!selected.length && <span className="px-1 text-xs text-slate-400">No {field.label.toLowerCase()} selected.</span>}
+        {available.length > 0 && (
+          <div className="relative">
+            <button
+              type="button"
+              disabled={field.disabled || loading}
+              onClick={() => setOpen((current) => !current)}
+              className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-dashed border-blue-300 bg-white px-2.5 text-[11px] font-bold text-blue-700 transition hover:border-blue-500 hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-50"
+            ><Plus size={13} />{addLabel}<ChevronDown size={12} /></button>
+            {open && (
+              <div className="absolute left-0 z-20 mt-2 max-h-52 w-56 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl">
+                {available.map((option) => (
+                  <button key={option.value} type="button" onClick={() => add(option.value)} className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs font-semibold text-slate-700 hover:bg-blue-50 hover:text-blue-800"><Plus size={13} className="text-blue-600" />{option.label}</button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+      {roleField && <p className="mt-2 px-1 text-[10px] leading-4 text-slate-400">Use <strong className="font-bold text-slate-500">+ Add another role</strong> to give this staff member more than one workspace.</p>}
+    </div>
+  );
 }
 
 export function ResourceFormDialog({
@@ -143,15 +216,12 @@ export function ResourceFormDialog({
                     ) : field.type === 'select' ? (
                       <SearchableSelect field={field} value={String(values[field.name] ?? '')} loading={loading} className={common} onChange={(value) => setValues((current) => ({ ...current, [field.name]: value }))} />
                     ) : field.type === 'multiselect' ? (
-                      <select
-                        multiple
-                        value={(values[field.name] as string[]) ?? []}
-                        disabled={field.disabled || loading}
-                        onChange={(event) => setValues((current) => ({ ...current, [field.name]: Array.from(event.target.selectedOptions).map((item) => item.value) }))}
-                        className={`${common} h-28 py-2`}
-                      >
-                        {field.options.map((option) => <option key={`${field.name}-${option.value}`} value={option.value}>{option.label}</option>)}
-                      </select>
+                      <MultiSelectChips
+                        field={field}
+                        value={stringArray(values[field.name])}
+                        loading={loading}
+                        onChange={(value) => setValues((current) => ({ ...current, [field.name]: value }))}
+                      />
                     ) : field.type === 'checkbox' ? (
                       <span className="flex min-h-11 items-center gap-3 rounded-xl border border-slate-200 bg-white/90 px-3">
                         <input
