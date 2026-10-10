@@ -1,6 +1,6 @@
 from decimal import Decimal
 
-from django.db.models.signals import post_save
+from django.db.models.signals import post_delete, post_save
 from django.dispatch import receiver
 
 from app.models import AcademicClass, ClassBill, StudentBill, StudentBillItem, Term
@@ -95,7 +95,7 @@ def enforce_student_fee_plan(sender, instance, created, **kwargs):
     _sync_bill_item(instance)
 
 
-@receiver(post_save, sender=ClassBill)
+@receiver([post_save, post_delete], sender=ClassBill)
 def resync_existing_bills_when_fee_policy_changes(sender, instance, **kwargs):
     """Apply a changed class fee policy to existing bills in that class/term."""
     for bill in StudentBill.objects.filter(academic_class=instance.academic_class).select_related("student"):
