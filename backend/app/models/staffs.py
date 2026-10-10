@@ -41,7 +41,14 @@ class Staff(models.Model):
     is_administrator_staff = models.BooleanField(default=False)
     is_support_staff = models.BooleanField(default=False)
     staff_status = models.CharField(max_length=20, choices=EMPLOYEE_STATUS, default="Active")
-    staff_photo = models.ImageField(upload_to="Staff/Profile_pics", height_field=None, width_field=None, max_length=None)
+    # Production media is backed by Vercel Blob and the stored field value may
+    # be a complete provider URL rather than a short local pathname.
+    staff_photo = models.ImageField(
+        upload_to="Staff/Profile_pics",
+        height_field=None,
+        width_field=None,
+        max_length=500,
+    )
     roles = models.ManyToManyField(Role, related_name='staff_members')
 
     def __str__(self):
@@ -80,7 +87,7 @@ class StaffDocument(models.Model):
 
     staff = models.ForeignKey("app.Staff", on_delete=models.CASCADE)
     document_type = models.CharField(max_length=50,choices=DOCUMENT_TYPES)
-    file = models.FileField(upload_to="Staff/Documents", max_length=100)
+    file = models.FileField(upload_to="Staff/Documents", max_length=500)
 
     class Meta:
         verbose_name = ("StaffDocument")
