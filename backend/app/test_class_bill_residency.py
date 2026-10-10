@@ -163,3 +163,22 @@ class ClassBillResidencyPolicyTests(TestCase):
 
         self.assertEqual(day_line.amount, Decimal("120000"))
         self.assertEqual(boarding_line.amount, Decimal("200000"))
+
+    def test_new_policy_is_added_to_existing_matching_student_accounts(self):
+        day_student = self.student(reg_no="DAY-0005", residency="Day")
+        boarding_student = self.student(reg_no="BRD-0006", residency="Boarding")
+        day_bill = StudentBill.objects.get(student=day_student, academic_class=self.academic_class)
+        boarding_bill = StudentBill.objects.get(student=boarding_student, academic_class=self.academic_class)
+        self.assertFalse(day_bill.items.filter(bill_item=self.item).exists())
+        self.assertFalse(boarding_bill.items.filter(bill_item=self.item).exists())
+
+        ClassBill.objects.create(
+            academic_class=self.academic_class,
+            bill_item=self.item,
+            applies_to=ClassBill.APPLIES_BOARDING,
+            amount=Decimal("200000"),
+        )
+
+        self.assertFalse(day_bill.items.filter(bill_item=self.item, amount__gt=0).exists())
+        boarding_line = boarding_bill.items.get(bill_item=self.item)
+        self.assertEqual(boarding_line.amount, Decimal("200000"))
