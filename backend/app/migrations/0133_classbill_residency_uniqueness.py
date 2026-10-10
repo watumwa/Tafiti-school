@@ -22,11 +22,16 @@ def forwards(apps, schema_editor):
 
     old_columns = ("academic_class_id", "bill_item_id")
     new_columns = ("academic_class_id", "bill_item_id", "applies_to")
+    has_old = _has_unique_constraint(connection, table_name, old_columns)
+    has_new = _has_unique_constraint(connection, table_name, new_columns)
 
-    if _has_unique_constraint(connection, table_name, new_columns):
+    if has_new and not has_old:
+        return
+    if has_new and has_old:
+        schema_editor.alter_unique_together(ClassBill, {OLD_FIELDS}, set())
         return
 
-    old_unique = {OLD_FIELDS} if _has_unique_constraint(connection, table_name, old_columns) else set()
+    old_unique = {OLD_FIELDS} if has_old else set()
     schema_editor.alter_unique_together(ClassBill, old_unique, {NEW_FIELDS})
 
 
@@ -37,11 +42,16 @@ def backwards(apps, schema_editor):
 
     old_columns = ("academic_class_id", "bill_item_id")
     new_columns = ("academic_class_id", "bill_item_id", "applies_to")
+    has_old = _has_unique_constraint(connection, table_name, old_columns)
+    has_new = _has_unique_constraint(connection, table_name, new_columns)
 
-    if _has_unique_constraint(connection, table_name, old_columns):
+    if has_old and not has_new:
+        return
+    if has_old and has_new:
+        schema_editor.alter_unique_together(ClassBill, {NEW_FIELDS}, set())
         return
 
-    new_unique = {NEW_FIELDS} if _has_unique_constraint(connection, table_name, new_columns) else set()
+    new_unique = {NEW_FIELDS} if has_new else set()
     schema_editor.alter_unique_together(ClassBill, new_unique, {OLD_FIELDS})
 
 
