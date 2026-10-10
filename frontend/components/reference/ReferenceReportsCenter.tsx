@@ -46,6 +46,8 @@ const groups = [
     icon: ReceiptText,
     description: 'Collections, debtors, statements, expenditure and budget control.',
     items: [
+      ['Financial statement', 'finance?report=financial-statement'],
+      ['Bank reconciliation', 'finance?report=reconciliation'],
       ['Collections', 'fees-payments?report=collections'],
       ['Outstanding fees', 'fees?status=outstanding'],
       ['Payment methods', 'fees-payments?report=methods'],
