@@ -11,7 +11,6 @@ NOTIFICATION_TYPES = [
     ]
 
 
-
 AUDIENCE_CHOICES = [
     ("all", "All Staff"),
     ("parents", "Parents"),
@@ -22,9 +21,6 @@ AUDIENCE_CHOICES = [
     ("class_teacher", "Class Teacher"),
     ("class_stream", "Class Stream Teachers"),
 ]
-
-
-
 
 
 TRANSACTION_TYPE_CHOICES = [
@@ -40,8 +36,6 @@ APPROVAL_STATUS = [
     ]
 
 # Roles
-
-
 STUDENT = "Student"
 TEACHER = "Teacher"
 CLASS_TEACHER = "Class Teacher"
@@ -53,12 +47,9 @@ HEADTEACHER = "Headteacher"
 POSITION_SIGNATURE_CHOICES=[
     ("HEAD TEACHER", "HEAD TEACHER"),
     ("DIRECTOR OF STUDIES", "DIRECTOR OF STUDIES"),
-   
-
 ]
 
 ##### Authentication Roles ###########
-# Session-based role helpers
 ROLE_PRIORITY = [
     "Admin",
     "Head Teacher",
@@ -67,7 +58,6 @@ ROLE_PRIORITY = [
     "Class Teacher",
     "Teacher",
     "Support Staff",
-    # handle inconsistent historical labels gracefully
     "Head master",
     "Headteacher",
     "DOS",
@@ -86,7 +76,6 @@ ROLE_CHOICES = [
         ('Library Assistant', 'Library Assistant'),
  ]
 
-# Types
 ACADEMIC = 'Academic'
 FINANCE = 'Finance'
 ADMINISTRATION = 'Administration'
@@ -174,6 +163,7 @@ PAYMENT_METHODS = [
     ('Cash', 'Cash'),
     ('SchoolPay', 'SchoolPay'),
     ('Bank', 'Bank'),
+    ('Mobile Money', 'Mobile Money'),
     ('Other', 'Other'),
 ]
 
@@ -183,18 +173,14 @@ PAYMENT_STATUS = [
 ]
 
 SUCCESS_ADD_MESSAGE = "Record Saved!"
-
 SUCCESS_EDIT_MESSAGE = "Changes Saved"
 SUCCESS_BULK_ADD_MESSAGE = "All Record Saved!"
-
 CONFIRMATION_MESSAGE ="Are you sure you want to delete this field?"
 DELETE_MESSAGE = "Record Deleted"
 FAILURE_LOGIN_MESSAGE="Invalid username or password"
 FAILURE_MESSAGE = "Something Went Wrong!, Check your inputs and Try again"
-
 INTEGRITY_ERROR_MESSAGE = "The record you tried to add is a duplicate or contains duplicate values" \
                           " for unique fields."
-
 INVALID_VALUE_MESSAGE = "One or more values provided is/are invalid or duplicate for unique fields."
 
 MEASUREMENTS = [
@@ -214,7 +200,6 @@ WAGE_BILL_PAYMENT_GENERATION_CONFIRM_MESSAGE \
 
 PALETTE = ['#465b65', '#184c9c', '#d33035', '#ffc107', '#28a745', '#6f7f8c', '#6610f2', '#6e9fa5', '#fd7e14',
            '#e83e8c', '#17a2b8', '#6f42c1']
-
 
 DOCUMENT_TYPES = [
     ("IDENTITY", "Identity / National ID"),
