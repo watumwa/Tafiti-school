@@ -123,7 +123,7 @@ class WorkspaceClassBillForm(forms.ModelForm):
 
     class Meta:
         model = ClassBill
-        fields = ("academic_class", "bill_item", "amount")
+        fields = ("academic_class", "bill_item", "applies_to", "amount")
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
