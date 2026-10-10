@@ -137,7 +137,9 @@ class CommunicationPreference(models.Model):
         return f"Communication preferences for {self.student}"
 
 
-class OutboundMessage(models.Model):
+class OutboundNotification(models.Model):
+    """One delivery attempt to a student's guardian through an external channel."""
+
     CHANNEL_SMS = "SMS"
     CHANNEL_EMAIL = "Email"
     CHANNEL_WHATSAPP = "WhatsApp"
