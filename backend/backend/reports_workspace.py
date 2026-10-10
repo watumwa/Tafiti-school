@@ -11,7 +11,10 @@ from rest_framework.response import Response
 from app.models import (
     AdmissionApplication,
     AttendanceRecord,
+    BankStatement,
+    BankTransaction,
     Budget,
+    Expenditure,
     FeeRefund,
     LibraryFine,
     LibraryLoan,
@@ -24,6 +27,7 @@ from app.models import (
     Student,
     StudentBill,
     StudentLifecycleEvent,
+    Transaction,
 )
 
 from .auth import canonical_role_label, resolve_active_role
@@ -72,11 +76,12 @@ def _rank_rows(rows, score_key="score"):
 
 
 def _academics(report):
-    verified = Result.objects.filter(status="VERIFIED").select_related(
+    verified = Result.objects.filter(status="VERIFIED", assessment__subject__show_on_report=True).select_related(
         "student", "assessment__subject", "assessment__academic_class__Class", "assessment__academic_class__term"
     )
+    computed = verified.filter(assessment__subject__include_in_totals=True)
     if report == "student-performance":
-        grouped = verified.values("student_id", "student__student_name", "student__reg_no").annotate(
+        grouped = computed.values("student_id", "student__student_name", "student__reg_no").annotate(
             average=Avg("score"), total=Sum("score"), results=Count("id")
         )
         school = SchoolSetting.load()
@@ -91,13 +96,18 @@ def _academics(report):
         rows = _rank_rows(rows)
     elif report == "subject-performance":
         rows = [
-            {"subject": row["assessment__subject__name"], "average": f"{Decimal(row['average'] or 0):.2f}", "results": row["results"]}
-            for row in verified.values("assessment__subject__name").annotate(average=Avg("score"), results=Count("id")).order_by("-average")
+            {
+                "subject": row["assessment__subject__name"],
+                "average": f"{Decimal(row['average'] or 0):.2f}",
+                "results": row["results"],
+                "computed": bool(row["assessment__subject__include_in_totals"]),
+            }
+            for row in verified.values("assessment__subject__name", "assessment__subject__include_in_totals").annotate(average=Avg("score"), results=Count("id")).order_by("-average")
         ]
     else:
         rows = [
             {"class": row["assessment__academic_class__Class__name"], "average": f"{Decimal(row['average'] or 0):.2f}", "results": row["results"]}
-            for row in verified.values("assessment__academic_class__Class__name").annotate(average=Avg("score"), results=Count("id")).order_by("-average")
+            for row in computed.values("assessment__academic_class__Class__name").annotate(average=Avg("score"), results=Count("id")).order_by("-average")
         ]
     return {"category": "Academics", "report": report, "rows": rows, "count": len(rows)}
 
@@ -130,9 +140,72 @@ def _attendance(report):
     return {"category": "Attendance", "report": report, "rows": rows, "count": len(rows)}
 
 
+def _financial_statement():
+    fee_collections = Payment.objects.aggregate(total=Sum("amount"))["total"] or Decimal("0")
+    other_income = Transaction.objects.filter(transaction_type="Income").aggregate(total=Sum("amount"))["total"] or Decimal("0")
+    direct_expenses = Transaction.objects.filter(transaction_type="Expense").aggregate(total=Sum("amount"))["total"] or Decimal("0")
+    expenditures = Decimal("0")
+    for expenditure in Expenditure.objects.prefetch_related("items"):
+        expenditures += Decimal(expenditure.amount or 0)
+
+    billed = Decimal("0")
+    receivables = Decimal("0")
+    credits = Decimal("0")
+    for bill in StudentBill.objects.prefetch_related("items", "payments", "fee_adjustments", "applied_credits"):
+        billed += Decimal(bill.net_amount_due or 0)
+        balance = Decimal(bill.balance or 0)
+        if balance > 0:
+            receivables += balance
+        elif balance < 0:
+            credits += abs(balance)
+
+    total_income = Decimal(fee_collections) + Decimal(other_income)
+    total_expenses = Decimal(direct_expenses) + expenditures
+    net_movement = total_income - total_expenses
+    rows = [
+        {"section": "Income", "item": "School fee collections", "amount": _money(fee_collections)},
+        {"section": "Income", "item": "Other recorded income", "amount": _money(other_income)},
+        {"section": "Income", "item": "Total cash income", "amount": _money(total_income)},
+        {"section": "Expenses", "item": "Budget-linked expenditure", "amount": _money(expenditures)},
+        {"section": "Expenses", "item": "Other expense transactions", "amount": _money(direct_expenses)},
+        {"section": "Expenses", "item": "Total expenses", "amount": _money(total_expenses)},
+        {"section": "Position", "item": "Net cash movement", "amount": _money(net_movement)},
+        {"section": "Position", "item": "Net fees billed after adjustments", "amount": _money(billed)},
+        {"section": "Position", "item": "Outstanding fee receivables", "amount": _money(receivables)},
+        {"section": "Position", "item": "Student credit balances", "amount": _money(credits)},
+    ]
+    return rows
+
+
+def _reconciliation_rows():
+    rows = []
+    for statement in BankStatement.objects.select_related("bank_account").prefetch_related("transactions").order_by("-statement_date", "-id"):
+        transactions = list(statement.transactions.all())
+        credits = sum((Decimal(row.amount or 0) for row in transactions if row.transaction_type == "Credit"), Decimal("0"))
+        debits = sum((Decimal(row.amount or 0) for row in transactions if row.transaction_type == "Debit"), Decimal("0"))
+        reconciled = [row for row in transactions if row.reconciled]
+        rows.append({
+            "statement": str(statement),
+            "account": str(statement.bank_account),
+            "date": statement.statement_date.isoformat(),
+            "opening": _money(statement.opening_balance),
+            "credits": _money(credits),
+            "debits": _money(debits),
+            "closing": _money(statement.closing_balance),
+            "transactions": len(transactions),
+            "reconciled": len(reconciled),
+            "unreconciled": len(transactions) - len(reconciled),
+        })
+    return rows
+
+
 def _finance(report):
     bills = list(StudentBill.objects.select_related("student", "academic_class__Class", "academic_class__term"))
-    if report in {"debtors", "aging", "outstanding"}:
+    if report in {"financial-statement", "statement", "income-expense"}:
+        rows = _financial_statement()
+    elif report in {"reconciliation", "bank-reconciliation"}:
+        rows = _reconciliation_rows()
+    elif report in {"debtors", "aging", "outstanding"}:
         rows = []
         today = timezone.localdate()
         for bill in bills:
@@ -204,7 +277,7 @@ def _students(report):
     if report == "lifecycle":
         rows = [{"student": row.student.student_name, "reg_no": row.student.reg_no, "status": row.get_status_display(), "effective_date": row.effective_date.isoformat(), "reason": row.reason} for row in StudentLifecycleEvent.objects.select_related("student")]
     else:
-        rows = [{"id": row.pk, "student": row.student_name, "reg_no": row.reg_no, "class": str(row.current_class), "stream": str(row.stream), "active": row.is_active} for row in Student.objects.select_related("current_class", "stream")]
+        rows = [{"id": row.pk, "student": row.student_name, "reg_no": row.reg_no, "lin": row.lin_number or "", "schoolpay": row.schoolpay_number or "", "student_type": row.residency_status, "class": str(row.current_class), "stream": str(row.stream), "active": row.is_active} for row in Student.objects.select_related("current_class", "stream")]
     return {"category": "Students", "report": report, "rows": rows, "count": len(rows)}
 
 
