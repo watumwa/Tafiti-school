@@ -1,6 +1,7 @@
 from django.db import models
 from django.urls import reverse
 from app.constants import GENDERS, NATIONALITIES, RELIGIONS, DOCUMENT_TYPES
+from app.validators import normalize_uganda_lin, validate_uganda_lin
 
 
 def normalize_student_name(value):
@@ -45,8 +46,12 @@ class Student(models.Model):
         unique=True,
         null=True,
         blank=True,
+        validators=[validate_uganda_lin],
         verbose_name="Learner Identification Number (LIN)",
-        help_text="Uganda learner identification number issued by the education authorities.",
+        help_text=(
+            "Enter the official 14-character LIN issued by Uganda EMIS, "
+            "e.g. U13F0921A44760. Leave blank if not yet issued."
+        ),
     )
     schoolpay_number = models.CharField(
         max_length=50,
@@ -113,7 +118,7 @@ class Student(models.Model):
         if needs_generation and not self.reg_no:
             self.reg_no = self._build_unique_reg_no()
 
-        self.lin_number = (self.lin_number or "").strip().upper() or None
+        self.lin_number = normalize_uganda_lin(self.lin_number) or None
         self.schoolpay_number = (self.schoolpay_number or "").strip() or None
         super().save(*args, **kwargs)
 
