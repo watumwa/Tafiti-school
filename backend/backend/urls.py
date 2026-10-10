@@ -19,6 +19,7 @@ from .communication_workspace import CommunicationConsoleAPIView
 from .completion_workspace import CompletionWorkspaceAPIView
 from .library_workspace import LibraryConsoleAPIView
 from .marks_workspace import MarksEntryAPIView, MarksHubAPIView
+from .parent_setup import ParentSetupConfirmAPIView
 from .parent_workspace import ParentWorkspaceAPIView
 from .results_operations import ResultsOperationsAPIView
 from .student_finance import StudentFinanceAPIView
@@ -78,6 +79,7 @@ urlpatterns = [
     path("auth/password/change/", PasswordChangeAPIView.as_view(), name="api_auth_password_change"),
     path("auth/password/reset/", PasswordResetRequestAPIView.as_view(), name="api_auth_password_reset"),
     path("auth/password/reset/confirm/", PasswordResetConfirmAPIView.as_view(), name="api_auth_password_reset_confirm"),
+    path("auth/parent/setup/confirm/", ParentSetupConfirmAPIView.as_view(), name="api_auth_parent_setup_confirm"),
     path("users/", UserListAPIView.as_view(), name="api_users"),
     path("students/", StudentListAPIView.as_view(), name="api_students"),
     path("students/<int:pk>/", StudentDetailAPIView.as_view(), name="api_student_detail"),
