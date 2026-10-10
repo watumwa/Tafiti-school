@@ -43,7 +43,34 @@ jobs:
         with:
           python-version: '3.12'
       - name: Compile workspace backend modules
-        run: python -m py_compile backend/backend/academic_workspace.py backend/backend/admissions_workspace.py backend/backend/attendance_workspace.py backend/backend/communication_workspace.py backend/backend/library_workspace.py backend/backend/marks_workspace.py backend/backend/results_operations.py backend/backend/student_finance.py backend/backend/timetable_operations.py backend/backend/urls.py backend/backend/workspace.py backend/backend/workspace_context.py backend/backend/auth.py backend/backend/views.py backend/app/services/parent_portal.py backend/app/utils/credentials.py
+        run: >-
+          python -m py_compile
+          backend/backend/academic_workspace.py
+          backend/backend/admissions_workspace.py
+          backend/backend/attendance_workspace.py
+          backend/backend/communication_workspace.py
+          backend/backend/completion_workspace.py
+          backend/backend/library_workspace.py
+          backend/backend/maintenance.py
+          backend/backend/marks_workspace.py
+          backend/backend/parent_setup.py
+          backend/backend/report_exports.py
+          backend/backend/reports_workspace.py
+          backend/backend/results_operations.py
+          backend/backend/student_finance.py
+          backend/backend/timetable_operations.py
+          backend/backend/urls.py
+          backend/backend/workspace.py
+          backend/backend/workspace_context.py
+          backend/backend/auth.py
+          backend/backend/views.py
+          backend/app/models/completion.py
+          backend/app/services/admissions.py
+          backend/app/services/library_automation.py
+          backend/app/services/outbound_messages.py
+          backend/app/services/parent_portal.py
+          backend/app/security_patches.py
+          backend/app/utils/credentials.py
 
   backend-runtime:
     runs-on: ubuntu-latest
