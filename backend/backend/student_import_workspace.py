@@ -4,8 +4,9 @@ from rest_framework import status
 from rest_framework.response import Response
 
 from app.constants import NATIONALITIES, RELIGIONS
-from app.models import AcademicClass, AuditLog
-from app.services.students import BulkStudentRegistrationError, bulk_student_registration
+from app.models import AcademicClass, AuditLog, Student
+from app.services.student_bulk_import import bulk_student_registration
+from app.services.students import BulkStudentRegistrationError
 
 from .auth import canonical_role_label
 from .workspace import WorkspaceBaseAPIView, _active_role
@@ -13,6 +14,9 @@ from .workspace import WorkspaceBaseAPIView, _active_role
 
 TEMPLATE_COLUMNS = [
     "Reg No (leave blank for auto)",
+    "LIN (optional)",
+    "SchoolPay Number (optional)",
+    "Student Type (Day/Boarding)",
     "Student Name",
     "Gender",
     "Birth Date (YYYY-MM-DD)",
@@ -53,13 +57,31 @@ class StudentBulkImportAPIView(WorkspaceBaseAPIView):
             .order_by("Class__name")
             .first()
         )
-        sample = ["", "Jane Example", "F", "2015-02-20", "Ugandan", "Protestant", "Kampala", "Mary Example", "Mother", "0700000000", "", "P4", "Blue", "1"]
+        sample = [
+            "",
+            "U13F0921A44760",
+            "SP-000123",
+            "Day",
+            "Jane Example",
+            "F",
+            "2015-02-20",
+            "Ugandan",
+            "Protestant",
+            "Kampala",
+            "Mary Example",
+            "Mother",
+            "0700000000",
+            "",
+            "P4",
+            "Blue",
+            "1",
+        ]
         if academic_class:
             stream = academic_class.class_streams.first()
-            sample[10] = academic_class.academic_year.academic_year
-            sample[11] = academic_class.Class.code
-            sample[12] = stream.stream.stream if stream else ""
-            sample[13] = academic_class.term.term
+            sample[13] = academic_class.academic_year.academic_year
+            sample[14] = academic_class.Class.code
+            sample[15] = stream.stream.stream if stream else ""
+            sample[16] = academic_class.term.term
 
         return Response({
             "columns": TEMPLATE_COLUMNS,
@@ -67,8 +89,11 @@ class StudentBulkImportAPIView(WorkspaceBaseAPIView):
             "max_rows": 2000,
             "max_size_mb": 10,
             "accepted_gender": ["M", "F", "Male", "Female"],
+            "accepted_student_types": [value for value, _ in Student.RESIDENCY_CHOICES],
             "accepted_nationalities": [value for value, _ in NATIONALITIES],
             "accepted_religions": [value for value, _ in RELIGIONS],
+            "lin_optional": True,
+            "schoolpay_optional": True,
             "atomic": True,
         })
 
