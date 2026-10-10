@@ -13,6 +13,7 @@ type Props = {
 };
 
 const RELATED_WORK: Record<string, string[]> = {
+  'my-class': ['attendance', 'results', 'timetable', 'students', 'communication'],
   students: ['admissions', 'classes', 'attendance', 'results', 'fees', 'communication'],
   staff: ['classes', 'subjects', 'timetable', 'attendance', 'communication'],
   admissions: ['students', 'classes', 'communication'],

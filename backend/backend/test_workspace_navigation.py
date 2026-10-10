@@ -78,6 +78,26 @@ class WorkspaceNavigationTests(APITestCase):
             ["Academic Setup", "Timetable", "Attendance", "Assessments & Results", "Library"],
         )
 
+    def test_class_teacher_gets_a_focused_classroom_navigation(self):
+        self.client.force_authenticate(user=self._user_for_role("Class Teacher"))
+
+        response = self.client.get(reverse("api_workspace_bootstrap"))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        groups = response.data["navigation"]
+        self.assertEqual(
+            [group["key"] for group in groups],
+            ["classroom", "teaching", "learners", "communication"],
+        )
+        self.assertEqual(
+            [item["slug"] for item in groups[0]["items"]],
+            ["overview", "my-class"],
+        )
+        self.assertEqual(
+            [item["slug"] for item in groups[1]["items"]],
+            ["attendance", "results", "timetable"],
+        )
+
     def test_teacher_and_dos_are_denied_finance_in_navigation_and_api(self):
         for role_name in ("Teacher", "Director of Studies"):
             with self.subTest(role=role_name):

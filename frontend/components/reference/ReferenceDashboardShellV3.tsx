@@ -36,6 +36,7 @@ import { ReferenceLinkedResourceView } from './ReferenceLinkedResourceView';
 import { ReferenceParentPortalFrame } from './ReferenceParentPortalFrame';
 import { ReferenceReportsCenter } from './ReferenceReportsCenter';
 import { ReferenceAcademicOperationsView } from './ReferenceAcademicOperationsView';
+import { ReferenceClassTeacherWorkspace } from './ReferenceClassTeacherWorkspace';
 import { ReferenceSystemAdministrationView } from './ReferenceSystemAdministrationView';
 import { ReferenceUsersRolesView } from './ReferenceUsersRolesView';
 
@@ -277,6 +278,7 @@ export function ReferenceDashboardShellV3() {
             : moduleSlug === 'academic-setup' && selectedItem?.slug === 'academic-setup' ? <ReferenceAcademicOperationsView dashboardPath={bootstrap.user.dashboard_path} />
             : moduleSlug === 'system-administration' && selectedItem?.slug === 'system-administration' ? <ReferenceSystemAdministrationView dashboardPath={bootstrap.user.dashboard_path} />
             : moduleSlug === 'users-roles' ? <ReferenceUsersRolesView dashboardPath={bootstrap.user.dashboard_path} />
+            : effectiveResource === 'my-class' ? <ReferenceClassTeacherWorkspace dashboardPath={bootstrap.user.dashboard_path} />
             : bootstrap.user.role.label === 'Parent' && effectiveResource?.startsWith('parent-') ? <ReferenceParentPortalFrame screen={effectiveResource} dashboardPath={bootstrap.user.dashboard_path} />
             : entityId && effectiveResource === 'fees' ? <ReferenceFeeAccountWorkspace id={entityId} dashboardPath={bootstrap.user.dashboard_path} onTitleChange={handleEntityTitle} />
             : entityId && effectiveResource && (effectiveResource === 'attendance' || verificationEntity) ? <EntityWorkspace resource={effectiveResource} id={entityId} dashboardPath={bootstrap.user.dashboard_path} onTitleChange={handleEntityTitle} />

@@ -26,6 +26,7 @@ import {
 import type { WorkspaceBootstrap, WorkspaceDashboard, WorkspaceResource, WorkspaceStat } from '@/lib/workspace';
 import { ProfileAvatar } from '@/components/workspace/ProfileAvatar';
 import { WorkspaceIcon } from '@/components/workspace/WorkspaceIcon';
+import { ClassTeacherDashboardPanel } from './ReferenceClassTeacherWorkspace';
 
 const toneStyles: Record<WorkspaceStat['tone'], { bg: string; icon: string; accent: string }> = {
   green: { bg: 'bg-emerald-50', icon: 'text-emerald-600', accent: 'text-emerald-600' },
@@ -175,7 +176,7 @@ export function ReferenceDashboardOverview({ bootstrap }: { bootstrap: Workspace
   const firstName = bootstrap.user.name.split(/\s+/)[0] || bootstrap.user.username;
 
   const supplementResource = useMemo(() => {
-    if (role === 'Teacher' || role === 'Class Teacher') return 'timetable';
+    if (role === 'Teacher') return 'timetable';
     if (role === 'Admissions Officer') return 'admissions';
     if (role === 'Librarian' || role === 'Library Assistant') return 'library';
     if (role === 'Bursar') return 'fees-payments';
@@ -209,7 +210,7 @@ export function ReferenceDashboardOverview({ bootstrap }: { bootstrap: Workspace
       'Admin': ['students', 'attendance', 'results', 'fees-payments', 'admissions'],
       'Head Teacher': ['students', 'attendance', 'results', 'admissions'],
       'Teacher': ['attendance', 'results', 'timetable', 'students'],
-      'Class Teacher': ['attendance', 'results', 'timetable', 'students'],
+      'Class Teacher': ['my-class', 'attendance', 'results', 'timetable', 'students'],
       'Bursar': ['fees-payments', 'fees', 'finance', 'finance-budgets'],
       'Admissions Officer': ['admissions', 'students', 'communication'],
       'Librarian': ['library', 'students', 'communication'],
@@ -250,7 +251,8 @@ export function ReferenceDashboardOverview({ bootstrap }: { bootstrap: Workspace
         <section className="tafiti-card p-4 sm:p-5"><div className="flex items-center justify-between"><div><h2 className="text-sm font-bold text-[#10224A]">Quick actions</h2><p className="mt-1 text-[10px] text-slate-500">Jump directly to your common tasks.</p></div><Plus size={17} className="text-blue-600" /></div><div className="mt-4 space-y-2.5">{quickActions.map((item) => <QuickAction key={item.slug} href={`${bootstrap.user.dashboard_path}/${item.slug}`} label={item.label} icon={item.icon} />)}</div></section>
       </div>
 
-      {(role === 'Teacher' || role === 'Class Teacher') && <TeacherPanel resource={supplement} />}
+      {role === 'Teacher' && <TeacherPanel resource={supplement} />}
+      {role === 'Class Teacher' && <ClassTeacherDashboardPanel dashboardPath={bootstrap.user.dashboard_path} />}
       {role === 'Parent' && data && <ParentPanel data={data} dashboardPath={bootstrap.user.dashboard_path} />}
 
       {(role === 'Admissions Officer' || role === 'Librarian' || role === 'Library Assistant' || role === 'Bursar') && (

@@ -104,7 +104,7 @@ ROLE_RESOURCES = {
         "finance-income", "finance-budget-items", "finance-expenditure-items",
         "communication", "audit",
     },
-    "Class Teacher": {"students", "classes", "subjects", "results", "attendance", "timetable", "communication"},
+    "Class Teacher": {"students", "classes", "subjects", "results", "attendance", "timetable", "communication", "my-class"},
     "Teacher": {"students", "classes", "subjects", "results", "attendance", "timetable", "communication"},
     "Admissions Officer": {"students", "admissions", "communication"},
     "Librarian": {"students", "library", "communication"},
@@ -329,6 +329,27 @@ def _navigation_for(request) -> list[dict[str, Any]]:
             ]},
             {"key": "family", "label": "Family & school", "items": family_items},
             *([{"key": "academics", "label": "Academics", "items": academic_items}] if academic_items else []),
+        ]
+    if role == "Class Teacher":
+        # Keep everyday class work close together. The resource permissions
+        # below remain the enforcement layer; this only gives the role a
+        # focused, task-oriented navigation rather than the generic staff menu.
+        return [
+            {"key": "classroom", "label": "My classroom", "items": [
+                {"slug": "overview", "label": "Home", "icon": "layout-dashboard", "resource": None},
+                {"slug": "my-class", "label": "My Class", "icon": "users", "resource": "my-class"},
+            ]},
+            {"key": "teaching", "label": "Teaching & reporting", "items": [
+                {"slug": "attendance", "label": "Attendance", "icon": "calendar-check", "resource": "attendance"},
+                {"slug": "results", "label": "Marks & report cards", "icon": "clipboard-pen-line", "resource": "results"},
+                {"slug": "timetable", "label": "Timetable", "icon": "calendar-days", "resource": "timetable"},
+            ]},
+            {"key": "learners", "label": "Learners", "items": [
+                {"slug": "students", "label": "Student profiles", "icon": "users", "resource": "students"},
+            ]},
+            {"key": "communication", "label": "Communication", "items": [
+                {"slug": "communication", "label": "Messages & notices", "icon": "messages-square", "resource": "communication"},
+            ]},
         ]
     groups = []
     for group_key, items in NAVIGATION.items():

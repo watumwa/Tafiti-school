@@ -12,6 +12,7 @@ from .workspace import (
 )
 from .academic_workspace import AcademicToolAPIView
 from .classes_workspace import ClassesWorkspaceAPIView
+from .class_teacher_workspace import ClassTeacherWorkspaceAPIView
 from .admissions_workspace import AdmissionsWorkspaceAPIView
 from .attendance_workspace import AttendanceWorkspaceAPIView
 from .auth_workspace import RoleSwitchAPIView
@@ -49,6 +50,7 @@ urlpatterns = [
     path("workspace/parent/<str:action>/", ParentWorkspaceAPIView.as_view(), name="api_workspace_parent"),
     path("workspace/bootstrap/", WorkspaceBootstrapAPIView.as_view(), name="api_workspace_bootstrap"),
     path("workspace/dashboard/", WorkspaceDashboardAPIView.as_view(), name="api_workspace_dashboard"),
+    path("workspace/my-class/", ClassTeacherWorkspaceAPIView.as_view(), name="api_workspace_my_class"),
     path("workspace/search/", WorkspaceSearchAPIView.as_view(), name="api_workspace_search"),
     path("workspace/reports/<str:category>/", ReportsWorkspaceAPIView.as_view(), name="api_workspace_reports"),
     path("workspace/reports/report-cards/<int:class_id>/bulk-pdf/", ReportCardBulkExportAPIView.as_view(), name="api_workspace_report_cards_bulk_pdf"),
