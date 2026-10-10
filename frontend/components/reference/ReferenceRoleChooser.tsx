@@ -63,7 +63,7 @@ export function ReferenceRoleChooser() {
           router.replace('/account/change-password');
           return;
         }
-        if (nextUser.roles.length <= 1 && !isSwitching) {
+        if (nextUser.roles.length <= 1) {
           router.replace(nextUser.dashboard_path);
           return;
         }
@@ -72,7 +72,7 @@ export function ReferenceRoleChooser() {
       .catch(() => router.replace('/login?notice=session-expired'))
       .finally(() => setLoading(false));
     return () => controller.abort();
-  }, [isSwitching, router]);
+  }, [router]);
 
   const roles = useMemo(() => {
     const text = query.trim().toLowerCase();
@@ -129,7 +129,7 @@ export function ReferenceRoleChooser() {
         <div className="relative">
           <span className="inline-flex items-center gap-2 rounded-full border border-blue-300/20 bg-blue-400/10 px-3 py-1.5 text-[9px] font-extrabold uppercase tracking-[.12em] text-blue-100"><ShieldCheck size={12} /> Secure access</span>
           <h1 className="mt-5 text-4xl font-extrabold tracking-[-.045em]">Your account. The right workspace.</h1>
-          <p className="mt-4 text-xs leading-6 text-blue-100/65">Tafiti only shows roles actually assigned to your account. Your Django permissions remain the source of truth.</p>
+          <p className="mt-4 text-xs leading-6 text-blue-100/65">Tafiti only shows roles actually assigned to your account. Switching workspace changes your active role context only — you stay signed in and your password is not requested again.</p>
         </div>
         <p className="relative text-[9px] font-semibold text-blue-100/40">Tafiti School Management System</p>
       </aside>
@@ -140,8 +140,9 @@ export function ReferenceRoleChooser() {
             <div>
               <div className="mb-4 lg:hidden"><Logo accent="blue" /></div>
               <p className="text-[9px] font-extrabold uppercase tracking-[.12em] text-blue-600">{isSwitching ? 'Switch workspace' : 'Choose workspace'}</p>
-              <h2 className="mt-1 text-3xl font-extrabold tracking-[-.04em] text-[#10224A]">Choose how you want to continue</h2>
-              <p className="mt-2 text-xs text-slate-500">Signed in as <span className="font-bold text-slate-700">{user.name}</span>. Only your assigned roles are shown.</p>
+              <h2 className="mt-1 text-3xl font-extrabold tracking-[-.04em] text-[#10224A]">{isSwitching ? 'Switch to another assigned role' : 'Choose how you want to continue'}</h2>
+              <p className="mt-2 text-xs text-slate-500">Signed in as <span className="font-bold text-slate-700">{user.name}</span>. Only roles assigned to this account are shown.</p>
+              {isSwitching && <p className="mt-2 inline-flex items-center gap-1.5 rounded-lg border border-blue-100 bg-blue-50 px-2.5 py-1.5 text-[10px] font-bold text-blue-700"><ShieldCheck size={12} /> No sign-out or password required.</p>}
             </div>
             {isSwitching && <button type="button" onClick={() => router.back()} className="clay-button-secondary"><ArrowLeft size={14} /> Back</button>}
           </div>
@@ -163,7 +164,7 @@ export function ReferenceRoleChooser() {
                   <div className="flex items-start justify-between gap-3"><span className="grid h-11 w-11 place-items-center rounded-xl bg-blue-50 text-blue-600"><Icon size={20} /></span>{active && <span className="inline-flex items-center gap-1 rounded-full border border-emerald-100 bg-emerald-50 px-2 py-1 text-[8px] font-extrabold text-emerald-700"><Check size={10} /> Current</span>}</div>
                   <h3 className="mt-4 text-sm font-extrabold text-[#10224A]">{role.label}</h3>
                   <p className="mt-1.5 text-[10px] leading-4 text-slate-500">{meta.description}</p>
-                  <span className="mt-4 inline-flex items-center gap-1 text-[10px] font-extrabold text-blue-600">{busy ? <><LoaderCircle size={12} className="animate-spin" />Opening…</> : <>Continue <ArrowRight size={12} className="transition group-hover:translate-x-0.5" /></>}</span>
+                  <span className="mt-4 inline-flex items-center gap-1 text-[10px] font-extrabold text-blue-600">{busy ? <><LoaderCircle size={12} className="animate-spin" />Opening…</> : active ? <>Open current workspace <ArrowRight size={12} className="transition group-hover:translate-x-0.5" /></> : <>Switch workspace <ArrowRight size={12} className="transition group-hover:translate-x-0.5" /></>}</span>
                 </button>
               );
             })}
