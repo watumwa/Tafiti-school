@@ -18,6 +18,7 @@ from .attendance_workspace import AttendanceWorkspaceAPIView
 from .auth_workspace import RoleSwitchAPIView
 from .communication_workspace import CommunicationConsoleAPIView
 from .completion_workspace import CompletionWorkspaceAPIView
+from .finance_reports import FinanceReportsAPIView
 from .library_workspace import LibraryConsoleAPIView
 from .maintenance import MaintenanceAPIView
 from .marks_workspace import MarksEntryAPIView, MarksHubAPIView
@@ -53,6 +54,7 @@ urlpatterns = [
     path("workspace/dashboard/", WorkspaceDashboardAPIView.as_view(), name="api_workspace_dashboard"),
     path("workspace/my-class/", ClassTeacherWorkspaceAPIView.as_view(), name="api_workspace_my_class"),
     path("workspace/search/", WorkspaceSearchAPIView.as_view(), name="api_workspace_search"),
+    path("workspace/reports/finance/", FinanceReportsAPIView.as_view(), name="api_workspace_finance_reports"),
     path("workspace/reports/<str:category>/", ReportsWorkspaceAPIView.as_view(), name="api_workspace_reports"),
     path("workspace/reports/report-cards/<int:class_id>/bulk-pdf/", ReportCardBulkExportAPIView.as_view(), name="api_workspace_report_cards_bulk_pdf"),
     path("workspace/users-roles/", UserRolesWorkspaceAPIView.as_view(), name="api_workspace_users_roles"),
