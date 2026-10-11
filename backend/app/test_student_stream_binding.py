@@ -55,7 +55,7 @@ class StudentCurrentStreamBindingTests(TestCase):
         section = Section.objects.create(section_name="Primary")
         self.class_record = Class.objects.create(name="Primary Four", code="P4", section=section)
         self.stream = Stream.objects.create(stream="-")
-        teacher = self._staff()
+        self.teacher = self._staff()
         previous_class = AcademicClass.objects.create(
             section=section,
             Class=self.class_record,
@@ -73,7 +73,7 @@ class StudentCurrentStreamBindingTests(TestCase):
         AcademicClassStream.objects.create(
             academic_class=previous_class,
             stream=self.stream,
-            class_teacher=teacher,
+            class_teacher=self.teacher,
         )
 
     def _form_data(self, stream_id=None):
@@ -121,14 +121,14 @@ class StudentCurrentStreamBindingTests(TestCase):
             academic_class=self.current_class,
             stream=self.stream,
         )
-        self.assertEqual(repaired.class_teacher.contacts, "0700000999")
+        self.assertEqual(repaired.class_teacher, self.teacher)
 
     def test_existing_current_stream_configuration_does_not_restore_removed_old_stream(self):
         current_stream = Stream.objects.create(stream="Blue")
         AcademicClassStream.objects.create(
             academic_class=self.current_class,
             stream=current_stream,
-            class_teacher=self._staff(),
+            class_teacher=self.teacher,
         )
 
         form = StudentForm(data=self._form_data(stream_id=self.stream.pk))
