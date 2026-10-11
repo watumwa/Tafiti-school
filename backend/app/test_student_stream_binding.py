@@ -38,13 +38,6 @@ class StudentCurrentStreamBindingTests(TestCase):
 
     def setUp(self):
         self.year = AcademicYear.objects.create(academic_year="2026", is_current=True)
-        self.term_two = Term.objects.create(
-            academic_year=self.year,
-            term="2",
-            start_date=date(2026, 5, 18),
-            end_date=date(2026, 8, 21),
-            is_current=False,
-        )
         self.term_three = Term.objects.create(
             academic_year=self.year,
             term="3",
@@ -52,28 +45,19 @@ class StudentCurrentStreamBindingTests(TestCase):
             end_date=date(2026, 12, 4),
             is_current=True,
         )
-        section = Section.objects.create(section_name="Primary")
-        self.class_record = Class.objects.create(name="Primary Four", code="P4", section=section)
-        self.stream = Stream.objects.create(stream="-")
-        self.teacher = self._staff()
-        previous_class = AcademicClass.objects.create(
-            section=section,
-            Class=self.class_record,
-            academic_year=self.year,
-            term=self.term_two,
-            fees_amount=500000,
+        self.section = Section.objects.create(section_name="Primary")
+        self.class_record = Class.objects.create(
+            name="Primary Four",
+            code="P4",
+            section=self.section,
         )
+        self.no_stream = Stream.objects.create(stream="-")
         self.current_class = AcademicClass.objects.create(
-            section=section,
+            section=self.section,
             Class=self.class_record,
             academic_year=self.year,
             term=self.term_three,
             fees_amount=500000,
-        )
-        AcademicClassStream.objects.create(
-            academic_class=previous_class,
-            stream=self.stream,
-            class_teacher=self.teacher,
         )
 
     def _form_data(self, stream_id=None):
@@ -91,7 +75,7 @@ class StudentCurrentStreamBindingTests(TestCase):
             "relationship": "Mother",
             "contact": "0762630570",
             "current_class": str(self.class_record.pk),
-            "stream": str(stream_id or self.stream.pk),
+            "stream": str(stream_id or self.no_stream.pk),
             "is_active": "true",
         }
 
@@ -106,24 +90,26 @@ class StudentCurrentStreamBindingTests(TestCase):
         )
         self.assertEqual(get_current_term(), self.term_three)
 
-    def test_form_repairs_missing_current_stream_from_previous_term(self):
+    def test_dash_is_presented_as_no_stream(self):
+        self.assertEqual(str(self.no_stream), "No stream")
+        form = StudentForm()
+        self.assertIn(self.no_stream, form.fields["stream"].queryset)
+
+    def test_unstreamed_class_accepts_no_stream_and_creates_internal_group(self):
         self.assertFalse(
-            AcademicClassStream.objects.filter(
-                academic_class=self.current_class,
-                stream=self.stream,
-            ).exists()
+            AcademicClassStream.objects.filter(academic_class=self.current_class).exists()
         )
 
         form = StudentForm(data=self._form_data())
         self.assertTrue(form.is_valid(), form.errors)
 
-        repaired = AcademicClassStream.objects.get(
+        placeholder = AcademicClassStream.objects.get(
             academic_class=self.current_class,
-            stream=self.stream,
+            stream=self.no_stream,
         )
-        self.assertEqual(repaired.class_teacher, self.teacher)
+        self.assertIsNone(placeholder.class_teacher)
 
-    def test_invalid_form_does_not_repair_or_mutate_stream_configuration(self):
+    def test_invalid_form_does_not_create_internal_group(self):
         payload = self._form_data()
         payload["birthdate"] = "not-a-date"
         form = StudentForm(data=payload)
@@ -131,26 +117,23 @@ class StudentCurrentStreamBindingTests(TestCase):
         self.assertFalse(form.is_valid())
         self.assertIn("birthdate", form.errors)
         self.assertFalse(
-            AcademicClassStream.objects.filter(
-                academic_class=self.current_class,
-                stream=self.stream,
-            ).exists()
+            AcademicClassStream.objects.filter(academic_class=self.current_class).exists()
         )
 
-    def test_existing_current_stream_configuration_does_not_restore_removed_old_stream(self):
-        current_stream = Stream.objects.create(stream="Blue")
+    def test_no_stream_is_rejected_when_class_has_real_streams(self):
+        blue = Stream.objects.create(stream="Blue")
         AcademicClassStream.objects.create(
             academic_class=self.current_class,
-            stream=current_stream,
-            class_teacher=self.teacher,
+            stream=blue,
+            class_teacher=self._staff(),
         )
 
-        form = StudentForm(data=self._form_data(stream_id=self.stream.pk))
+        form = StudentForm(data=self._form_data(stream_id=self.no_stream.pk))
         self.assertFalse(form.is_valid())
         self.assertIn("stream", form.errors)
         self.assertFalse(
             AcademicClassStream.objects.filter(
                 academic_class=self.current_class,
-                stream=self.stream,
+                stream=self.no_stream,
             ).exists()
         )
