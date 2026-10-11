@@ -123,6 +123,20 @@ class StudentCurrentStreamBindingTests(TestCase):
         )
         self.assertEqual(repaired.class_teacher, self.teacher)
 
+    def test_invalid_form_does_not_repair_or_mutate_stream_configuration(self):
+        payload = self._form_data()
+        payload["birthdate"] = "not-a-date"
+        form = StudentForm(data=payload)
+
+        self.assertFalse(form.is_valid())
+        self.assertIn("birthdate", form.errors)
+        self.assertFalse(
+            AcademicClassStream.objects.filter(
+                academic_class=self.current_class,
+                stream=self.stream,
+            ).exists()
+        )
+
     def test_existing_current_stream_configuration_does_not_restore_removed_old_stream(self):
         current_stream = Stream.objects.create(stream="Blue")
         AcademicClassStream.objects.create(
