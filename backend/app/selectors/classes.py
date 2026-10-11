@@ -33,23 +33,34 @@ def get_academic_class_streams(academic_class):
 
 def get_class_by_code(code):
     return Class.objects.filter(code=code).first()  
-
 def get_stream_by_name(stream):
     return Stream.objects.get(stream=stream)
-
 def get_academic_class_stream_register(academic_class_stream):
     return ClassRegister.objects.filter(academic_class_stream=academic_class_stream)
-
 def get_academic_class_register(academic_class):
     academic_class_streams = get_academic_class_streams(academic_class)
     
     return ClassRegister.objects.filter(academic_class_stream__in=academic_class_streams)
-
 def get_current_academic_year_terms():
     academic_year = get_current_academic_year()
     
     return Term.objects.filter(academic_year=academic_year)
-
 def get_current_term():
-    return Term.objects.get(is_current=True)
-       
+    """Return the current term inside the configured current academic year."""
+    academic_year = get_current_academic_year()
+    if academic_year is None:
+        raise Term.DoesNotExist("No current academic year is configured.")
+    return Term.objects.get(academic_year=academic_year, is_current=True)
+      
+
+def get_current_academic_class_stream(stream):
+    academic_year = get_current_academic_year()
+    term = get_current_term()
+    return AcademicClassStream.objects.get(
+        academic_class__academic_year=academic_year,
+        academic_class__term=term,
+        stream=stream,
+    )
+
+def get_academic_class_stream_by_class(academic_class, stream):
+    return AcademicClassStream.objects.get(academic_class=academic_class, stream=stream)
