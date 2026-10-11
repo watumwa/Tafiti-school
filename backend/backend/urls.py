@@ -6,10 +6,10 @@ from .workspace import (
     WorkspaceDashboardAPIView,
     WorkspaceEntityActionAPIView,
     WorkspaceEntityAPIView,
-    WorkspaceResourceAPIView,
     WorkspaceResourceFormAPIView,
     WorkspaceSearchAPIView,
 )
+from .workspace_resource_presentation import WorkspaceResourcePresentationAPIView
 from .academic_workspace import AcademicToolAPIView
 from .classes_workspace import ClassesWorkspaceAPIView
 from .class_teacher_workspace import ClassTeacherWorkspaceAPIView
@@ -82,7 +82,7 @@ urlpatterns = [
     path("workspace/timetable-console/<str:screen>/", TimetableOperationsAPIView.as_view(), name="api_workspace_timetable_console"),
     path("workspace/completion/<str:area>/", CompletionWorkspaceAPIView.as_view(), name="api_workspace_completion"),
     path("workspace/completion/<str:area>/<int:pk>/", CompletionWorkspaceAPIView.as_view(), name="api_workspace_completion_record"),
-    path("workspace/resources/<str:resource>/", WorkspaceResourceAPIView.as_view(), name="api_workspace_resource"),
+    path("workspace/resources/<str:resource>/", WorkspaceResourcePresentationAPIView.as_view(), name="api_workspace_resource"),
     path("workspace/resources/<str:resource>/form/", WorkspaceResourceFormAPIView.as_view(), name="api_workspace_resource_create_form"),
     path("workspace/resources/<str:resource>/<int:pk>/form/", WorkspaceResourceFormAPIView.as_view(), name="api_workspace_resource_edit_form"),
     path("workspace/resources/<str:resource>/<int:pk>/action/", WorkspaceEntityActionAPIView.as_view(), name="api_workspace_entity_action"),
