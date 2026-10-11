@@ -182,3 +182,44 @@ class ClassBillResidencyPolicyTests(TestCase):
         self.assertFalse(day_bill.items.filter(bill_item=self.item, amount__gt=0).exists())
         boarding_line = boarding_bill.items.get(bill_item=self.item)
         self.assertEqual(boarding_line.amount, Decimal("200000"))
+
+    def test_boarding_school_fees_policy_overrides_legacy_academic_class_amount(self):
+        school_fees = BillItem.objects.get(item_name="School Fees")
+        ClassBill.objects.update_or_create(
+            academic_class=self.academic_class,
+            bill_item=school_fees,
+            applies_to=ClassBill.APPLIES_BOARDING,
+            defaults={"amount": Decimal("900000")},
+        )
+
+        boarding_student = self.student(reg_no="BRD-0007", residency="Boarding")
+        bill = StudentBill.objects.get(student=boarding_student, academic_class=self.academic_class)
+        school_fee_line = bill.items.get(bill_item=school_fees)
+
+        self.assertEqual(school_fee_line.amount, Decimal("900000"))
+
+    def test_changing_student_type_reprices_current_school_fee_immediately(self):
+        school_fees = BillItem.objects.get(item_name="School Fees")
+        ClassBill.objects.update_or_create(
+            academic_class=self.academic_class,
+            bill_item=school_fees,
+            applies_to=ClassBill.APPLIES_DAY,
+            defaults={"amount": Decimal("280000")},
+        )
+        ClassBill.objects.update_or_create(
+            academic_class=self.academic_class,
+            bill_item=school_fees,
+            applies_to=ClassBill.APPLIES_BOARDING,
+            defaults={"amount": Decimal("900000")},
+        )
+
+        student = self.student(reg_no="DAY-0008", residency="Day")
+        bill = StudentBill.objects.get(student=student, academic_class=self.academic_class)
+        school_fee_line = bill.items.get(bill_item=school_fees)
+        self.assertEqual(school_fee_line.amount, Decimal("280000"))
+
+        student.residency_status = "Boarding"
+        student.save(update_fields=["residency_status"])
+
+        school_fee_line.refresh_from_db()
+        self.assertEqual(school_fee_line.amount, Decimal("900000"))
