@@ -16,6 +16,9 @@ from app.selectors.school_settings import get_current_academic_year
 from app.validators import normalize_uganda_lin
 
 
+NO_STREAM_VALUE = "-"
+
+
 class UgandaLinFormMixin:
     def clean_lin_number(self):
         value = normalize_uganda_lin(self.cleaned_data.get("lin_number"))
@@ -55,33 +58,8 @@ def _current_academic_class(class_id):
     ).first()
 
 
-def _previous_streams_for_class(class_id, current_term):
-    if not class_id or not current_term:
-        return Stream.objects.none()
-    return Stream.objects.filter(
-        academicclassstream__academic_class__Class_id=class_id,
-        academicclassstream__academic_class__term__start_date__lt=current_term.start_date,
-    ).distinct().order_by("stream")
-
-
-def _legacy_stream_source(academic_class, stream):
-    """Find the latest earlier setup for this exact class/stream pair."""
-    if not academic_class or not stream:
-        return None
-    return (
-        AcademicClassStream.objects.filter(
-            academic_class__Class=academic_class.Class,
-            academic_class__term__start_date__lt=academic_class.term.start_date,
-            stream=stream,
-        )
-        .select_related("class_teacher")
-        .order_by(
-            "-academic_class__term__start_date",
-            "-academic_class__academic_year__academic_year",
-            "-id",
-        )
-        .first()
-    )
+def _no_stream_queryset():
+    return Stream.objects.filter(stream=NO_STREAM_VALUE)
 
 
 class StudentForm(UgandaLinFormMixin, ModelForm):
@@ -99,10 +77,11 @@ class StudentForm(UgandaLinFormMixin, ModelForm):
         self.Helper = FormHelper()
         self.fields["birthdate"].widget = DateInput(attrs={"type": "date"})
 
-        # Stream is a master record, but a student may only be registered into
-        # a stream attached to the selected AcademicClass for the current
-        # academic year/term. Older forms exposed every global Stream, which
-        # allowed a visually valid choice to fail only after Save.
+        # "-" is an internal sentinel meaning the class has no streams. It is
+        # not a stream that administrators must configure under Academic Setup.
+        # The unbound workspace form includes it alongside current real streams
+        # because the frontend receives one static option list before a class is
+        # selected. Once submitted, the queryset is scoped to the chosen class.
         if "stream" in self.fields:
             selected_class_id = None
             if self.is_bound:
@@ -117,22 +96,17 @@ class StudentForm(UgandaLinFormMixin, ModelForm):
                     configured = Stream.objects.filter(
                         academicclassstream__academic_class=academic_class,
                     ).distinct().order_by("stream")
-                    if configured.exists():
-                        self.fields["stream"].queryset = configured
-                    else:
-                        # Legacy terms created before automatic rollover can
-                        # have no AcademicClassStream links even though the
-                        # same class/stream was configured in an earlier term.
-                        self.fields["stream"].queryset = _previous_streams_for_class(
-                            int(selected_class_id), term
-                        )
+                    self.fields["stream"].queryset = (
+                        configured if configured.exists() else _no_stream_queryset()
+                    )
             elif year and term:
                 configured_current = Stream.objects.filter(
                     academicclassstream__academic_class__academic_year=year,
                     academicclassstream__academic_class__term=term,
+                )
+                self.fields["stream"].queryset = (
+                    configured_current | _no_stream_queryset()
                 ).distinct().order_by("stream")
-                if configured_current.exists():
-                    self.fields["stream"].queryset = configured_current
 
     def clean(self):
         cleaned_data = super().clean()
@@ -148,29 +122,34 @@ class StudentForm(UgandaLinFormMixin, ModelForm):
                 "Open the existing record instead of creating another one."
             )
 
-        # Compatibility repair for older term data. Do this only after all
-        # submitted fields are otherwise valid, and only when the current
-        # AcademicClass has no stream links at all. This never revives a stream
-        # that was deliberately removed from a configured current term.
+        # Keep downstream attendance/results/billing compatibility by creating
+        # one hidden AcademicClassStream group for a genuinely unstreamed class.
+        # It is created only after every submitted field is otherwise valid.
         if not self._errors:
             selected_class = cleaned_data.get("current_class")
             stream = cleaned_data.get("stream")
             academic_class = _current_academic_class(selected_class.pk) if selected_class else None
-            if (
-                academic_class
-                and stream
-                and not AcademicClassStream.objects.filter(academic_class=academic_class).exists()
-            ):
-                source = _legacy_stream_source(academic_class, stream)
-                if source:
+            if academic_class and stream:
+                configured = AcademicClassStream.objects.filter(academic_class=academic_class)
+                if configured.exists():
+                    if not configured.filter(stream=stream).exists():
+                        self.add_error(
+                            "stream",
+                            "Choose a stream configured for this class.",
+                        )
+                elif stream.stream == NO_STREAM_VALUE:
                     AcademicClassStream.objects.get_or_create(
                         academic_class=academic_class,
                         stream=stream,
                         defaults={
-                            "class_teacher": source.class_teacher,
-                            "class_teacher_signature": source.class_teacher_signature,
+                            "class_teacher": None,
                             "is_timetable_locked": False,
                         },
+                    )
+                else:
+                    self.add_error(
+                        "stream",
+                        "This class has no streams. Choose No stream.",
                     )
         return cleaned_data
 
