@@ -116,59 +116,6 @@ class StudentForm(UgandaLinFormMixin, ModelForm):
 
     def clean(self):
         cleaned_data = super().clean()
-        selected_class = cleaned_data.get("current_class")
-        stream = cleaned_data.get("stream")
-
-        if selected_class and stream:
-            academic_class = _current_academic_class(selected_class.pk)
-            if academic_class:
-                current_link = AcademicClassStream.objects.filter(
-                    academic_class=academic_class,
-                    stream=stream,
-                ).first()
-                if not current_link:
-                    current_streams_exist = AcademicClassStream.objects.filter(
-                        academic_class=academic_class,
-                    ).exists()
-                    if current_streams_exist:
-                        self.add_error(
-                            "stream",
-                            "Choose a stream configured for this class in the current academic term.",
-                        )
-                    else:
-                        # Safe legacy repair: only backfill when the current
-                        # AcademicClass has no stream configuration at all and
-                        # this exact class/stream existed in an earlier term.
-                        source = (
-                            AcademicClassStream.objects.filter(
-                                academic_class__Class=selected_class,
-                                academic_class__term__start_date__lt=academic_class.term.start_date,
-                                stream=stream,
-                            )
-                            .select_related("class_teacher")
-                            .order_by(
-                                "-academic_class__term__start_date",
-                                "-academic_class__academic_year__academic_year",
-                                "-id",
-                            )
-                            .first()
-                        )
-                        if source:
-                            AcademicClassStream.objects.get_or_create(
-                                academic_class=academic_class,
-                                stream=stream,
-                                defaults={
-                                    "class_teacher": source.class_teacher,
-                                    "class_teacher_signature": source.class_teacher_signature,
-                                    "is_timetable_locked": False,
-                                },
-                            )
-                        else:
-                            self.add_error(
-                                "stream",
-                                "This class has no stream configured for the current academic term. Configure it under Academic Setup first.",
-                            )
-
         duplicate = find_duplicate_student(
             student_name=cleaned_data.get("student_name"),
             birthdate=cleaned_data.get("birthdate"),
