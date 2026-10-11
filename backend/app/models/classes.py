@@ -124,7 +124,7 @@ class AcademicClassStream(models.Model):
     stream = models.ForeignKey("app.Stream", on_delete=models.CASCADE)
     class_teacher = models.ForeignKey(
         "app.Staff",
-        on_delete=models.SET_NULL,
+        on_delete=models.CASCADE,
         null=True,
         blank=True,
     )
