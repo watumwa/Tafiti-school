@@ -1,9 +1,9 @@
 from decimal import Decimal
 
-from django.db.models.signals import post_delete, post_save
+from django.db.models.signals import post_delete, post_save, pre_save
 from django.dispatch import receiver
 
-from app.models import AcademicClass, ClassBill, StudentBill, StudentBillItem, Term
+from app.models import AcademicClass, ClassBill, Student, StudentBill, StudentBillItem, Term
 
 
 def _selected_class_bill(academic_class, bill_item, student):
@@ -39,11 +39,18 @@ def _sync_bill_item(instance):
     academic_class = bill.academic_class
     item_name = str(getattr(instance.bill_item, "item_name", "") or "").strip().lower()
 
-    if item_name == "school fees":
+    # Class Bill is the visible billing policy and therefore the source of
+    # truth whenever a matching rule exists. An exact Day/Boarding rule wins
+    # over All students. The older AcademicClass fee fields remain only as a
+    # compatibility fallback for legacy School Fees records that have no
+    # ClassBill policy at all.
+    selected = _selected_class_bill(academic_class, instance.bill_item, student)
+    if selected:
+        expected = Decimal(str(selected.amount or 0))
+    elif item_name == "school fees":
         expected = Decimal(str(academic_class.fee_amount_for_student(student) or 0))
     else:
-        selected = _selected_class_bill(academic_class, instance.bill_item, student)
-        expected = Decimal(str(selected.amount if selected else 0))
+        expected = Decimal("0")
 
     if Decimal(instance.amount) != expected:
         StudentBillItem.objects.filter(pk=instance.pk).update(amount=expected)
@@ -99,6 +106,35 @@ def enforce_student_fee_plan(sender, instance, created, **kwargs):
 def resync_existing_bills_when_fee_policy_changes(sender, instance, **kwargs):
     """Apply a changed class fee policy to existing bills in that class/term."""
     for bill in StudentBill.objects.filter(academic_class=instance.academic_class).select_related("student"):
+        _sync_student_bill(bill)
+
+
+@receiver(pre_save, sender=Student)
+def remember_previous_student_residency(sender, instance, **kwargs):
+    """Remember student type so a Day/Boarding change can re-price the current bill."""
+    if not instance.pk:
+        return
+    instance._previous_residency_status = (
+        Student.objects.filter(pk=instance.pk).values_list("residency_status", flat=True).first()
+    )
+
+
+@receiver(post_save, sender=Student)
+def resync_current_bill_when_student_type_changes(sender, instance, created, **kwargs):
+    """Immediately apply the correct fee policy when a learner changes Day/Boarding type."""
+    if created:
+        return
+    previous = getattr(instance, "_previous_residency_status", None)
+    if previous is None or previous == instance.residency_status:
+        return
+
+    bills = StudentBill.objects.filter(
+        student=instance,
+        academic_class__academic_year=instance.academic_year,
+        academic_class__term=instance.term,
+        academic_class__Class=instance.current_class,
+    ).select_related("student", "academic_class")
+    for bill in bills:
         _sync_student_bill(bill)
 
 
