@@ -30,7 +30,7 @@ class Stream(models.Model):
         verbose_name_plural = ("streams")
 
     def __str__(self):
-        return self.stream
+        return "No stream" if self.stream == "-" else self.stream
 
     def get_absolute_url(self):
         return reverse("stream_detail", kwargs={"pk": self.pk})
@@ -122,7 +122,12 @@ class AcademicClass(models.Model):
 class AcademicClassStream(models.Model):
     academic_class = models.ForeignKey("app.AcademicClass", on_delete=models.CASCADE, related_name="class_streams")
     stream = models.ForeignKey("app.Stream", on_delete=models.CASCADE)
-    class_teacher = models.ForeignKey("app.Staff", on_delete=models.CASCADE)
+    class_teacher = models.ForeignKey(
+        "app.Staff",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+    )
     class_teacher_signature = models.ImageField(upload_to="signatures", blank=True ,null=True)
     is_timetable_locked = models.BooleanField(default=False)
     
