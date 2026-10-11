@@ -64,6 +64,26 @@ def _previous_streams_for_class(class_id, current_term):
     ).distinct().order_by("stream")
 
 
+def _legacy_stream_source(academic_class, stream):
+    """Find the latest earlier setup for this exact class/stream pair."""
+    if not academic_class or not stream:
+        return None
+    return (
+        AcademicClassStream.objects.filter(
+            academic_class__Class=academic_class.Class,
+            academic_class__term__start_date__lt=academic_class.term.start_date,
+            stream=stream,
+        )
+        .select_related("class_teacher")
+        .order_by(
+            "-academic_class__term__start_date",
+            "-academic_class__academic_year__academic_year",
+            "-id",
+        )
+        .first()
+    )
+
+
 class StudentForm(UgandaLinFormMixin, ModelForm):
 
     class Meta:
@@ -127,6 +147,31 @@ class StudentForm(UgandaLinFormMixin, ModelForm):
                 f"This student appears to already be registered as {duplicate.reg_no}. "
                 "Open the existing record instead of creating another one."
             )
+
+        # Compatibility repair for older term data. Do this only after all
+        # submitted fields are otherwise valid, and only when the current
+        # AcademicClass has no stream links at all. This never revives a stream
+        # that was deliberately removed from a configured current term.
+        if not self._errors:
+            selected_class = cleaned_data.get("current_class")
+            stream = cleaned_data.get("stream")
+            academic_class = _current_academic_class(selected_class.pk) if selected_class else None
+            if (
+                academic_class
+                and stream
+                and not AcademicClassStream.objects.filter(academic_class=academic_class).exists()
+            ):
+                source = _legacy_stream_source(academic_class, stream)
+                if source:
+                    AcademicClassStream.objects.get_or_create(
+                        academic_class=academic_class,
+                        stream=stream,
+                        defaults={
+                            "class_teacher": source.class_teacher,
+                            "class_teacher_signature": source.class_teacher_signature,
+                            "is_timetable_locked": False,
+                        },
+                    )
         return cleaned_data
 
 
