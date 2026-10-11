@@ -28,7 +28,15 @@ class StudentBillItemForm(ModelForm):
 class ClassBillForm(ModelForm):
     class Meta:
         model = ClassBill
-        fields = ['bill_item','amount']
+        fields = ["bill_item", "applies_to", "amount"]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["applies_to"].label = "Who pays this fee?"
+        self.fields["applies_to"].help_text = (
+            "Use All students as the fallback. A Day or Boarding rule for the same fee item overrides it automatically."
+        )
+        self.fields["amount"].label = "Amount (UGX)"
 
 
 class PaymentForm(ModelForm):
