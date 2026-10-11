@@ -49,6 +49,14 @@ class AcademicClassStreamForm(ModelForm):
         if not (teacher.is_academic_staff or teacher.department == "Academic"):
             raise forms.ValidationError("Selected class teacher is not academic/teaching staff.")
         return teacher
+
+    def clean(self):
+        cleaned_data = super().clean()
+        stream = cleaned_data.get("stream")
+        teacher = cleaned_data.get("class_teacher")
+        if stream and stream.stream != "-" and not teacher:
+            self.add_error("class_teacher", "A class teacher is required for a real stream.")
+        return cleaned_data
         
 
 class ClassSubjectAllocationForm(ModelForm):
