@@ -3,7 +3,7 @@ from crispy_forms.helper import FormHelper
 
 from django import forms
 from django.core.exceptions import ValidationError
-from app.models import AcademicClassStream
+from app.models import AcademicClass, AcademicClassStream, Stream
 
 from app.models.students import (
     Student,
@@ -11,6 +11,8 @@ from app.models.students import (
     StudentRegistrationCSV,
     find_duplicate_student,
 )
+from app.selectors.classes import get_current_term
+from app.selectors.school_settings import get_current_academic_year
 from app.validators import normalize_uganda_lin
 
 
@@ -28,25 +30,145 @@ class UgandaLinFormMixin:
         return value
 
 
+def _current_academic_context():
+    """Return the configured current year/term without making forms crash during setup."""
+    year = get_current_academic_year()
+    if not year:
+        return None, None
+    try:
+        term = get_current_term()
+    except Exception:
+        term = None
+    return year, term
+
+
+def _current_academic_class(class_id):
+    if not class_id:
+        return None
+    year, term = _current_academic_context()
+    if not year or not term:
+        return None
+    return AcademicClass.objects.filter(
+        academic_year=year,
+        term=term,
+        Class_id=class_id,
+    ).first()
+
+
+def _previous_streams_for_class(class_id, current_term):
+    if not class_id or not current_term:
+        return Stream.objects.none()
+    return Stream.objects.filter(
+        academicclassstream__academic_class__Class_id=class_id,
+        academicclassstream__academic_class__term__start_date__lt=current_term.start_date,
+    ).distinct().order_by("stream")
+
+
 class StudentForm(UgandaLinFormMixin, ModelForm):
-    
+
     class Meta:
         model = Student
         # A student's admission period is assigned from the configured current
         # academic year/term by the registration workflow. Asking users to
         # select it again allowed contradictory records to be submitted.
         exclude = ("reg_no", "academic_year", "term")
-        
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        
+
         self.Helper = FormHelper()
-        self.fields["birthdate"].widget = DateInput(attrs={
-                    "type": "date",
-                })
+        self.fields["birthdate"].widget = DateInput(attrs={"type": "date"})
+
+        # Stream is a master record, but a student may only be registered into
+        # a stream attached to the selected AcademicClass for the current
+        # academic year/term. Older forms exposed every global Stream, which
+        # allowed a visually valid choice to fail only after Save.
+        if "stream" in self.fields:
+            selected_class_id = None
+            if self.is_bound:
+                selected_class_id = self.data.get("current_class")
+            elif self.instance and self.instance.pk:
+                selected_class_id = self.instance.current_class_id
+
+            year, term = _current_academic_context()
+            if selected_class_id and str(selected_class_id).isdigit() and year and term:
+                academic_class = _current_academic_class(int(selected_class_id))
+                if academic_class:
+                    configured = Stream.objects.filter(
+                        academicclassstream__academic_class=academic_class,
+                    ).distinct().order_by("stream")
+                    if configured.exists():
+                        self.fields["stream"].queryset = configured
+                    else:
+                        # Legacy terms created before automatic rollover can
+                        # have no AcademicClassStream links even though the
+                        # same class/stream was configured in an earlier term.
+                        self.fields["stream"].queryset = _previous_streams_for_class(
+                            int(selected_class_id), term
+                        )
+            elif year and term:
+                configured_current = Stream.objects.filter(
+                    academicclassstream__academic_class__academic_year=year,
+                    academicclassstream__academic_class__term=term,
+                ).distinct().order_by("stream")
+                if configured_current.exists():
+                    self.fields["stream"].queryset = configured_current
 
     def clean(self):
         cleaned_data = super().clean()
+        selected_class = cleaned_data.get("current_class")
+        stream = cleaned_data.get("stream")
+
+        if selected_class and stream:
+            academic_class = _current_academic_class(selected_class.pk)
+            if academic_class:
+                current_link = AcademicClassStream.objects.filter(
+                    academic_class=academic_class,
+                    stream=stream,
+                ).first()
+                if not current_link:
+                    current_streams_exist = AcademicClassStream.objects.filter(
+                        academic_class=academic_class,
+                    ).exists()
+                    if current_streams_exist:
+                        self.add_error(
+                            "stream",
+                            "Choose a stream configured for this class in the current academic term.",
+                        )
+                    else:
+                        # Safe legacy repair: only backfill when the current
+                        # AcademicClass has no stream configuration at all and
+                        # this exact class/stream existed in an earlier term.
+                        source = (
+                            AcademicClassStream.objects.filter(
+                                academic_class__Class=selected_class,
+                                academic_class__term__start_date__lt=academic_class.term.start_date,
+                                stream=stream,
+                            )
+                            .select_related("class_teacher")
+                            .order_by(
+                                "-academic_class__term__start_date",
+                                "-academic_class__academic_year__academic_year",
+                                "-id",
+                            )
+                            .first()
+                        )
+                        if source:
+                            AcademicClassStream.objects.get_or_create(
+                                academic_class=academic_class,
+                                stream=stream,
+                                defaults={
+                                    "class_teacher": source.class_teacher,
+                                    "class_teacher_signature": source.class_teacher_signature,
+                                    "is_timetable_locked": False,
+                                },
+                            )
+                        else:
+                            self.add_error(
+                                "stream",
+                                "This class has no stream configured for the current academic term. Configure it under Academic Setup first.",
+                            )
+
         duplicate = find_duplicate_student(
             student_name=cleaned_data.get("student_name"),
             birthdate=cleaned_data.get("birthdate"),
@@ -125,7 +247,7 @@ class StudentRegistrationCSVForm(ModelForm):
 
 
 class ClassRegisterForm(ModelForm):
-    
+
     class Meta:
         model = ClassRegister
         fields = ("__all__")
